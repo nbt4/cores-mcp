@@ -23,7 +23,7 @@ Je nach ChatGPT-Plan, Workspace-Richtlinie und Rollout kann die Bezeichnung in d
 
 ## Claude
 
-In Claude unter den Integrationen/Connectors einen benutzerdefinierten Connector anlegen, die MCP-URL eintragen und verbinden. Claude nutzt die OAuth-Metadaten und Dynamic Client Registration automatisch. Den Cores-Consent bestätigen.
+In Claude unter den Integrationen/Connectors einen benutzerdefinierten Connector anlegen, die MCP-URL eintragen und verbinden. Claude nutzt die OAuth-Metadaten und Dynamic Client Registration automatisch. Falls noch keine Cores-Sitzung besteht, erscheint zuerst das zentrale lokale/Microsoft-Login und danach automatisch wieder der Cores-Consent. Dort „Lesenden Zugriff erlauben“ wählen; die Bestätigung wird als normaler Formular-POST verarbeitet und leitet zurück zu Claude.
 
 Offizielle Referenz: <https://support.anthropic.com/en/articles/11175166-getting-started-with-custom-connectors-using-remote-mcp>
 

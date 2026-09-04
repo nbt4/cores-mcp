@@ -5,6 +5,8 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
+	"fmt"
+	"html/template"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -73,11 +75,16 @@ func TestOAuthAuthorizationCodeFlow(t *testing.T) {
 	if consent.Code != http.StatusOK || len(consent.Result().Cookies()) == 0 {
 		t.Fatalf("authorize status=%d body=%s", consent.Code, consent.Body.String())
 	}
-	assertAuthorizationLinkEncoding(t, consent.Body.String())
+	assertAuthorizationFields(t, consent.Body.String(), query)
 	csrf := consent.Result().Cookies()[0]
 
-	form := url.Values{"csrf": {csrf.Value}, "decision": {"allow"}}
-	approve := httptest.NewRequest(http.MethodPost, "/oauth/authorize?"+query.Encode(), strings.NewReader(form.Encode()))
+	form := url.Values{}
+	for key, values := range query {
+		form[key] = append([]string(nil), values...)
+	}
+	form.Set("csrf", csrf.Value)
+	form.Set("decision", "allow")
+	approve := httptest.NewRequest(http.MethodPost, "/oauth/authorize", strings.NewReader(form.Encode()))
 	approve.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	approve.AddCookie(&http.Cookie{Name: "cores_token", Value: suiteToken})
 	approve.AddCookie(csrf)
@@ -145,19 +152,30 @@ func TestOAuthLoginRetryKeepsAuthorizationQuery(t *testing.T) {
 	request := httptest.NewRequest(http.MethodGet, "/oauth/authorize?"+query.Encode(), nil)
 	response := httptest.NewRecorder()
 	mux.ServeHTTP(response, request)
-	if response.Code != http.StatusUnauthorized {
+	if response.Code != http.StatusFound {
 		t.Fatalf("authorize status=%d body=%s", response.Code, response.Body.String())
 	}
-	assertAuthorizationLinkEncoding(t, response.Body.String())
+	location, err := url.Parse(response.Header().Get("Location"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if location.Host != "cores.example.com" || !strings.HasPrefix(location.Query().Get("redirect"), "https://mcp.example.com/oauth/authorize?") {
+		t.Fatalf("unexpected central login redirect: %s", location)
+	}
 }
 
-func assertAuthorizationLinkEncoding(t *testing.T, body string) {
+func assertAuthorizationFields(t *testing.T, body string, values url.Values) {
 	t.Helper()
-	if strings.Contains(body, "client_id%3d") || strings.Contains(body, "response_type%3d") {
-		t.Fatalf("authorization query was URL-encoded as one value: %s", body)
+	if !strings.Contains(body, `action="/oauth/authorize"`) || !strings.Contains(body, `href="/cores-theme.css"`) {
+		t.Fatalf("consent page is missing the stable form action or suite theme: %s", body)
 	}
-	if !strings.Contains(body, "client_id=") || !strings.Contains(body, "response_type=code") || !strings.Contains(body, "&amp;") {
-		t.Fatalf("authorization query is not browser-safe: %s", body)
+	for name, candidates := range values {
+		for _, value := range candidates {
+			want := fmt.Sprintf(`name="%s" value="%s"`, name, template.HTMLEscapeString(value))
+			if !strings.Contains(body, want) {
+				t.Fatalf("consent page is missing %s: %s", name, body)
+			}
+		}
 	}
 }
 

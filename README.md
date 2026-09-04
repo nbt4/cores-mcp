@@ -34,7 +34,7 @@ Die öffentliche MCP-URL ist:
 https://<cores-domain>/mcp
 ```
 
-In ChatGPT wird sie als benutzerdefinierte MCP-App/Plugin, in Claude als Custom Connector eingetragen. Beim ersten Verbinden registriert sich der Client dynamisch, öffnet die Cores-Anmeldung und fragt die reine Leseberechtigung `cores:read` ab. Nutzer müssen bereits im Cores Dashboard angemeldet und aktiv sein.
+In ChatGPT wird sie als benutzerdefinierte MCP-App/Plugin, in Claude als Custom Connector eingetragen. Beim ersten Verbinden registriert sich der Client dynamisch. Fehlt die Cores-Sitzung, führt der Flow durch das zentrale Cores-Login und automatisch zurück in den OAuth-Dialog. Die dortige, im Suite-Design dargestellte Freigabe fragt ausschließlich die Leseberechtigung `cores:read` ab. Der Nutzer muss ein aktives Cores-Konto besitzen.
 
 Für CI-Agents kann alternativ `MCP_AUTH_MODE=bearer` oder zusätzlich `MCP_STATIC_TOKENS=agent-name:secret` genutzt werden. Secrets niemals in Git einchecken.
 

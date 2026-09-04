@@ -243,12 +243,11 @@ func (s *OAuthServer) authorize(w http.ResponseWriter, r *http.Request) {
 	}
 	user, ok := s.sessionUser(r)
 	if !ok {
-		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		w.WriteHeader(http.StatusUnauthorized)
-		_ = loginTemplate.Execute(w, map[string]any{
-			"Dashboard": s.dashboardURL,
-			"Retry":     authorizationURL(params),
-		})
+		loginURL, _ := url.Parse(s.dashboardURL + "/login")
+		loginQuery := loginURL.Query()
+		loginQuery.Set("redirect", s.issuer+string(authorizationURL(params)))
+		loginURL.RawQuery = loginQuery.Encode()
+		http.Redirect(w, r, loginURL.String(), http.StatusFound)
 		return
 	}
 	if s.validateUser != nil {
@@ -262,7 +261,12 @@ func (s *OAuthServer) authorize(w http.ResponseWriter, r *http.Request) {
 		csrf := randomToken(24)
 		http.SetCookie(w, &http.Cookie{Name: "cores_mcp_csrf", Value: csrf, Path: "/oauth/authorize", HttpOnly: true, Secure: strings.HasPrefix(s.issuer, "https://"), SameSite: http.SameSiteLaxMode, MaxAge: 600})
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		_ = consentTemplate.Execute(w, map[string]any{"Client": client.Name, "User": user.Username, "Action": authorizationURL(params), "CSRF": csrf})
+		_ = consentTemplate.Execute(w, map[string]any{
+			"Client": client.Name,
+			"User":   user.Username,
+			"Params": authorizationFields(params),
+			"CSRF":   csrf,
+		})
 		return
 	}
 	csrfCookie, csrfErr := r.Cookie("cores_mcp_csrf")
@@ -274,6 +278,7 @@ func (s *OAuthServer) authorize(w http.ResponseWriter, r *http.Request) {
 		oauthRedirectError(w, r, "access_denied", "user denied access")
 		return
 	}
+	http.SetCookie(w, &http.Cookie{Name: "cores_mcp_csrf", Value: "", Path: "/oauth/authorize", HttpOnly: true, Secure: strings.HasPrefix(s.issuer, "https://"), SameSite: http.SameSiteLaxMode, MaxAge: -1})
 	code := randomToken(32)
 	s.mu.Lock()
 	s.pruneCodesLocked()
@@ -536,6 +541,21 @@ func authorizationURL(values url.Values) template.URL {
 	return template.URL("/oauth/authorize?" + values.Encode())
 }
 
+type authorizationField struct {
+	Name  string
+	Value string
+}
+
+func authorizationFields(values url.Values) []authorizationField {
+	fields := make([]authorizationField, 0, len(values))
+	for _, name := range []string{"response_type", "client_id", "redirect_uri", "code_challenge", "code_challenge_method", "state", "scope", "resource"} {
+		for _, value := range values[name] {
+			fields = append(fields, authorizationField{Name: name, Value: value})
+		}
+	}
+	return fields
+}
+
 func oauthRedirectError(w http.ResponseWriter, r *http.Request, code, description string) {
 	redirectURI := firstNonEmpty(r.FormValue("redirect_uri"), r.URL.Query().Get("redirect_uri"))
 	if !validRedirectURI(redirectURI) {
@@ -563,6 +583,29 @@ func writeJSON(w http.ResponseWriter, status int, value any) {
 	_ = json.NewEncoder(w).Encode(value)
 }
 
-var loginTemplate = template.Must(template.New("login").Parse(`<!doctype html><html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Cores MCP</title></head><body style="font-family:system-ui;max-width:42rem;margin:4rem auto;padding:1rem"><h1>Cores-Anmeldung erforderlich</h1><p>Melde dich zuerst im Cores Dashboard an. Kehre anschließend hierher zurück und versuche die Verbindung erneut.</p><p><a href="{{.Dashboard}}/login" target="_blank" rel="noopener">Cores Dashboard öffnen</a></p><p><a href="{{.Retry}}">Nach der Anmeldung erneut versuchen</a></p></body></html>`))
-
-var consentTemplate = template.Must(template.New("consent").Parse(`<!doctype html><html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Cores MCP freigeben</title></head><body style="font-family:system-ui;max-width:42rem;margin:4rem auto;padding:1rem"><h1>Cores MCP verbinden</h1><p><strong>{{.Client}}</strong> möchte im Namen von <strong>{{.User}}</strong> lesend auf freigegebene Cores-Daten zugreifen.</p><p>Die Verbindung kann Bestände, Jobs, Planungen und Beschaffungsinformationen lesen. Sie kann keine Daten verändern.</p><form method="post" action="{{.Action}}"><input type="hidden" name="csrf" value="{{.CSRF}}"><button name="decision" value="allow" type="submit">Lesenden Zugriff erlauben</button> <button name="decision" value="deny" type="submit">Ablehnen</button></form></body></html>`))
+var consentTemplate = template.Must(template.New("consent").Parse(`<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Cores MCP freigeben</title>
+  <link rel="stylesheet" href="/cores-theme.css">
+</head>
+<body class="suite-auth-page">
+  <main class="suite-auth-card">
+    <div class="suite-auth-brand"><img class="suite-auth-logo" src="/logos/cores_white_full.svg" alt="Cores"></div>
+    <p class="suite-auth-eyebrow">Sichere Verbindung</p>
+    <h1 class="suite-auth-title">Cores MCP verbinden</h1>
+    <p class="suite-auth-copy"><strong>{{.Client}}</strong> möchte im Namen von <strong>{{.User}}</strong> auf freigegebene Cores-Daten zugreifen.</p>
+    <div class="suite-auth-notice">Die Verbindung darf Bestände, Jobs, Planungen und Beschaffungsinformationen ausschließlich lesen. Sie kann keine Daten verändern.</div>
+    <form method="post" action="/oauth/authorize">
+      {{range .Params}}<input type="hidden" name="{{.Name}}" value="{{.Value}}">{{end}}
+      <input type="hidden" name="csrf" value="{{.CSRF}}">
+      <div class="suite-auth-actions">
+        <button class="suite-button" name="decision" value="deny" type="submit">Ablehnen</button>
+        <button class="suite-button suite-button--primary" name="decision" value="allow" type="submit">Lesenden Zugriff erlauben</button>
+      </div>
+    </form>
+  </main>
+</body>
+</html>`))
