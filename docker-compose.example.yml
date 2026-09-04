@@ -1,0 +1,13 @@
+services:
+  cores-mcp:
+    image: nobentie/cores-mcp:latest
+    restart: unless-stopped
+    env_file: .env
+    volumes:
+      - cores-mcp-oauth:/var/lib/cores-mcp/oauth
+      - ./knowledge:/knowledge/cores:ro
+    ports:
+      - "127.0.0.1:8090:8090"
+
+volumes:
+  cores-mcp-oauth:

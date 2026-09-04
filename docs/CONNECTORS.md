@@ -1,0 +1,73 @@
+# Connector-Einrichtung
+
+## Voraussetzungen
+
+- Cores MCP ist über HTTPS öffentlich erreichbar.
+- `MCP_PUBLIC_URL` entspricht exakt der externen Basis-URL.
+- `/mcp`, `/oauth/*` und `/.well-known/*` werden ohne vorgeschaltete Dashboard-Authentifizierung zum MCP-Dienst weitergeleitet.
+- Der Benutzer ist im Cores Dashboard angemeldet und besitzt einen aktiven Account.
+
+Beispielendpunkt:
+
+```text
+https://cores.example.com/mcp
+```
+
+## ChatGPT
+
+In den ChatGPT-Einstellungen eine benutzerdefinierte App bzw. ein MCP-Plugin hinzufügen und die MCP-URL eintragen. Nach „Verbinden“ öffnet sich der Cores-OAuth-Dialog. Dort den reinen Lesezugriff bestätigen.
+
+Offizielle Referenz: <https://developers.openai.com/plugins/>
+
+Je nach ChatGPT-Plan, Workspace-Richtlinie und Rollout kann die Bezeichnung in der Oberfläche variieren. Der Server benötigt keine OpenAI-API-Keys; ChatGPT verbindet sich direkt per MCP.
+
+## Claude
+
+In Claude unter den Integrationen/Connectors einen benutzerdefinierten Connector anlegen, die MCP-URL eintragen und verbinden. Claude nutzt die OAuth-Metadaten und Dynamic Client Registration automatisch. Den Cores-Consent bestätigen.
+
+Offizielle Referenz: <https://support.anthropic.com/en/articles/11175166-getting-started-with-custom-connectors-using-remote-mcp>
+
+## Codex und andere MCP-Clients
+
+Jeder Client mit Streamable-HTTP- und OAuth-Unterstützung kann dieselbe URL verwenden. Für nicht-interaktive Agents ist ein statisches Bearer-Token möglich:
+
+```http
+Authorization: Bearer <secret>
+```
+
+Serverkonfiguration:
+
+```dotenv
+MCP_AUTH_MODE=oauth
+MCP_STATIC_TOKENS=deployment-agent:a-long-random-secret
+```
+
+Der OAuth-Modus akzeptiert dann sowohl interaktive OAuth-Tokens als auch die konfigurierten Agent-Tokens. Im reinen Bearer-Modus muss `MCP_AUTH_MODE=bearer` gesetzt sein.
+
+## Verbindung prüfen
+
+```bash
+curl -fsS https://cores.example.com/health
+curl -fsS https://cores.example.com/.well-known/oauth-protected-resource/mcp
+curl -fsS https://cores.example.com/.well-known/oauth-authorization-server
+```
+
+Mit einem Agent-Token:
+
+```bash
+go run ./cmd/smoke \
+  -endpoint https://cores.example.com/mcp \
+  -token "$MCP_TOKEN"
+```
+
+## Trennen
+
+Den Connector beim KI-Anbieter entfernen. Statische Tokens zusätzlich serverseitig aus `MCP_STATIC_TOKENS` entfernen und den Dienst neu starten. OAuth-Zugriffstokens laufen nach einer Stunde ab; Refresh-Tokens nach 30 Tagen.
+
+## Häufige Fehler
+
+- `401 Unauthorized`: Cores-Login fehlt, Token ist abgelaufen oder der Scope `cores:read` fehlt.
+- OAuth-Metadaten nicht gefunden: `/.well-known/*` wird vom Reverse Proxy nicht weitergeleitet.
+- Redirect-Fehler: Client-Callback wurde nicht bei Dynamic Client Registration registriert oder nutzt unsicheres HTTP außerhalb von localhost.
+- Origin abgelehnt: Browser-Origin stimmt nicht mit `MCP_PUBLIC_URL`/`MCP_ALLOWED_ORIGINS` überein.
+- Leere Ergebnisse: Das Tool hat keine passenden Cores-Datensätze gefunden; mit `cores.data.quality` auf Erfassungslücken prüfen.

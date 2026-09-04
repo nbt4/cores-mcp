@@ -1,0 +1,5 @@
+/cores-mcp
+/.env
+/coverage.out
+/oauth-data/
+*.log
