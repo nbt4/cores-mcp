@@ -15,7 +15,7 @@ Der MCP-Server liest operative Daten aus der gemeinsamen Cores-PostgreSQL-Datenb
 
 ## Read-only in drei Schichten
 
-1. MCP bietet ausschließlich fest definierte fachliche Abfragen an.
+1. MCP bietet ausschließlich fest definierte fachliche Abfragen und eine deklarative Query-API über kuratierte Entitäten, Felder, Operatoren und Beziehungen an. Freies SQL ist nicht möglich; sämtliche Werte werden parametrisiert.
 2. Der Store öffnet jede Transaktion mit PostgreSQL `READ ONLY` und setzt ein Statement-Timeout.
 3. Der Produktionsnutzer `cores_mcp` erhält ausschließlich `SELECT` auf das öffentliche Schema und `default_transaction_read_only=on`.
 

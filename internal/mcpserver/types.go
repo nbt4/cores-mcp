@@ -129,7 +129,13 @@ func sourcesFor(service, entity string, rows []map[string]any) []Source {
 }
 
 func rowID(row map[string]any) string {
-	keys := []string{"id", "job_id", "jobid", "product_id", "productid", "device_id", "deviceid", "task_id", "plan_id", "case_id", "caseid", "order_id", "number", "code"}
+	keys := []string{
+		"id", "job_id", "jobid", "requirement_id", "customer_id", "venue_id",
+		"product_id", "productid", "procurement_product_id", "device_id", "deviceid",
+		"defect_id", "maintenance_id", "task_id", "plan_id", "case_id", "caseid",
+		"offer_id", "supplier_id", "requisition_id", "requisition_line_id",
+		"purchase_order_id", "order_id", "order_line_id", "number", "code",
+	}
 	for _, key := range keys {
 		if value, ok := row[key]; ok && value != nil {
 			return fmt.Sprint(value)

@@ -2,7 +2,7 @@
 
 Cores MCP bindet die gesamte Cores Suite als sicheren, rein lesenden MCP-Server an ChatGPT, Claude, Codex und andere MCP-fähige Agents an. Der Chat bleibt beim jeweiligen KI-Anbieter; Cores stellt nur kontrollierte Werkzeuge und Kontext bereit.
 
-Der Server bietet 56 fachliche Tools, fünf wiederverwendbare Analyse-Prompts und dokumentierbare Knowledge-Ressourcen für RentalCore, WarehouseCore, PlannerCore und ProcurementCore. Es gibt bewusst kein beliebiges SQL-Tool und keinen Schreibzugriff.
+Der Server bietet 59 fachliche Tools, fünf wiederverwendbare Analyse-Prompts und dokumentierbare Knowledge-Ressourcen für RentalCore, WarehouseCore, PlannerCore und ProcurementCore. Es gibt bewusst kein beliebiges SQL-Tool und keinen Schreibzugriff.
 
 ## Typische Fragen
 
@@ -23,6 +23,16 @@ Der Server bietet 56 fachliche Tools, fünf wiederverwendbare Analyse-Prompts un
 | Authorization / Token | `/oauth/authorize`, `/oauth/token` |
 | Betriebsstatus | `/health`, `/ready` |
 | Maschinenlesbare Kurzdoku | `/mcp/docs` |
+
+## Frei kombinierbare Abfragen
+
+Neben den festen fachlichen Tools stellt MCP eine sichere, deklarative Abfrageschicht bereit:
+
+- `cores.query.catalog` beschreibt 19 freigegebene Entitäten, ihre Feldtypen und 20 geprüfte Cross-Core-Beziehungen.
+- `cores.query.records` führt bis zu acht parametrisierte Abfragen in einem Call aus und kann die Ergebnisse über Katalogbeziehungen oder explizit freigegebene Felder verknüpfen.
+- `cores.query.aggregate` gruppiert und aggregiert mit `count`, `count_distinct`, `sum`, `avg`, `min` und `max`.
+
+Damit lassen sich beispielsweise Jobs → Materialbedarf → Lagerprodukte → Beschaffungsprodukte → Angebote oder Geräte → Defekte → Wartung in einem strukturierten Aufruf untersuchen. Entitäten, Felder, Operatoren und Sortierung werden gegen serverseitige Whitelists geprüft; Werte bleiben SQL-Parameter.
 
 Die aktuelle Implementierung nutzt das offizielle Go SDK und den aktuellen MCP-Transport „Streamable HTTP“. Sie ist stateless und damit horizontal skalierbar; OAuth-Clientregistrierungen liegen in einem persistenten Volume.
 
@@ -86,7 +96,7 @@ Die vollständige Vorlage steht in [.env.example](.env.example).
 - Alle Tools sind `readOnlyHint=true` und `idempotentHint=true`.
 - Jede DB-Abfrage läuft in einer PostgreSQL-Transaktion mit `READ ONLY`, Timeout und Zeilenlimit.
 - Produktion verwendet zusätzlich die Rolle `cores_mcp` mit ausschließlich `SELECT`-Rechten.
-- Es existieren keine Tools für SQL, Dateien, Shell, E-Mail, Statusänderungen, Bestellungen oder Freigaben.
+- Es existieren keine Tools für beliebiges SQL, Dateien, Shell, E-Mail, Statusänderungen, Bestellungen oder Freigaben. Die flexible Abfrageschicht arbeitet ausschließlich mit kuratierten Entitäten und Feldern.
 - Kontaktinformationen, Secrets und interne private Notizen werden nicht absichtlich ausgegeben.
 - Nutzertexte aus Beschreibungen/Notizen gelten als nicht vertrauenswürdige Daten, niemals als Agent-Anweisung.
 - Toolantworten enthalten Zeitstempel, Quellen und fachliche Warnungen.

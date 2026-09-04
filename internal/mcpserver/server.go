@@ -11,16 +11,17 @@ import (
 	"github.com/nbt4/cores-mcp/internal/store"
 )
 
-const Version = "1.0.5"
+const Version = "1.1.0"
 
 func New(cfg config.Config, db *store.Store, logger *slog.Logger) *mcp.Server {
 	server := mcp.NewServer(&mcp.Implementation{
 		Name: "cores-mcp", Title: "Cores Suite", Version: Version,
-		Description: "Read-only operational context from RentalCore, WarehouseCore, PlannerCore and ProcurementCore.",
+		Description: "Read-only operational context and safe cross-core queries for RentalCore, WarehouseCore, PlannerCore and ProcurementCore.",
 		WebsiteURL:  cfg.PublicURL,
 	}, nil)
 	server.AddReceivingMiddleware(auditMiddleware(logger))
 	registerSuiteTools(server, cfg, db)
+	registerQueryTools(server, db)
 	registerRentalTools(server, db)
 	registerWarehouseTools(server, db)
 	registerPlannerTools(server, db)

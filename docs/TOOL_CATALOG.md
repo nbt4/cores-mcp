@@ -1,8 +1,8 @@
 # Tool-Katalog
 
-Alle 56 Tools sind read-only und idempotent. Suchtools akzeptieren üblicherweise `query`, `limit` und `offset`; Zeitfenster `from`, `to` und `limit`; Detailtools `id`. Datumswerte sind `YYYY-MM-DD` oder RFC3339.
+Alle 59 Tools sind read-only und idempotent. Suchtools akzeptieren üblicherweise `query`, `limit` und `offset`; Zeitfenster `from`, `to` und `limit`; Detailtools `id`. Datumswerte sind `YYYY-MM-DD` oder RFC3339.
 
-## Suiteweit und Wissen (8)
+## Suiteweit, flexible Abfragen und Wissen (11)
 
 | Tool | Zweck |
 |---|---|
@@ -12,8 +12,47 @@ Alle 56 Tools sind read-only und idempotent. Suchtools akzeptieren üblicherweis
 | `cores.services.health` | Live-Healthchecks aller Suite-Dienste |
 | `cores.data.dictionary` | Tabellen- und Spalteninventar der freigegebenen Cores-Daten |
 | `cores.data.quality` | Entscheidungsrelevante Erfassungs- und Verknüpfungslücken |
+| `cores.query.catalog` | Freigegebene Entitäten, Felder, Typen, Operatoren und Cross-Core-Beziehungen |
+| `cores.query.records` | Bis zu acht gefilterte Entitätsabfragen ausführen und Ergebnisse sicher verknüpfen |
+| `cores.query.aggregate` | Eine freigegebene Entität gruppieren und mit Count, Summe, Durchschnitt, Min oder Max aggregieren |
 | `knowledge.documents.list` | Verfügbare Strategie- und Referenzdokumente |
 | `knowledge.documents.search` | Volltextsuche in freigegebenen Knowledge-Dokumenten |
+
+### Flexible Query-Syntax
+
+`cores.query.records` unterstützt 19 kuratierte Entitäten aus allen vier Cores. Jede Query besitzt einen Alias, eine Entität sowie optional `search`, `fields`, `filters`, `sort`, `limit` und `offset`. Filter werden mit AND kombiniert. Unterstützte Operatoren sind `eq`, `ne`, `contains`, `not_contains`, `prefix`, `gt`, `gte`, `lt`, `lte`, `in`, `not_in`, `between`, `is_null` und `is_not_null`.
+
+Joins referenzieren zwei Query-Aliasse. Mit `relationship` wird eine Beziehung aus `cores.query.catalog` verwendet; alternativ dürfen zwei im Katalog freigegebene Felder mit `left_field` und `right_field` verbunden werden. `inner` und `left` werden unterstützt. Join-Felder werden automatisch in die Projektion aufgenommen.
+
+Beispiel für Jobs samt Anforderungen und Lagerprodukt:
+
+```json
+{
+  "queries": [
+    {
+      "alias": "jobs",
+      "entity": "rental.jobs",
+      "filters": [{"field": "start_date", "operator": "between", "values": ["2026-10-01", "2026-10-31"]}],
+      "sort": [{"field": "start_date", "direction": "asc"}]
+    },
+    {
+      "alias": "needs",
+      "entity": "rental.requirements",
+      "filters": [{"field": "start_date", "operator": "between", "values": ["2026-10-01", "2026-10-31"]}],
+      "limit": 200
+    },
+    {"alias": "products", "entity": "warehouse.products", "limit": 200}
+  ],
+  "joins": [
+    {"alias": "job_needs", "left": "jobs", "right": "needs", "relationship": "rental.job_requirements", "type": "left"},
+    {"alias": "need_products", "left": "needs", "right": "products", "relationship": "inventory.requirement_product"}
+  ]
+}
+```
+
+`cores.query.aggregate` verwendet dieselben Such- und Filterregeln. `group_by` akzeptiert bis zu vier Felder; `metrics` bis zu acht Ausdrücke mit optionalem Alias. `sum` und `avg` sind nur für numerische Felder erlaubt. Ohne `metrics` wird `record_count` ausgegeben.
+
+Alle Query-Namen und Felder stammen aus einer festen Registry. Nutzwerte werden ausschließlich als PostgreSQL-Parameter gebunden. Resultate bleiben durch das globale Zeilenlimit, Query-Limits, Read-only-Transaktionen und Statement-Timeouts begrenzt.
 
 ## RentalCore (9)
 

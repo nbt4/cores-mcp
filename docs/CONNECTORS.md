@@ -72,3 +72,4 @@ Den Connector beim KI-Anbieter entfernen. Statische Tokens zusätzlich serversei
 - Redirect-Fehler: Client-Callback wurde nicht bei Dynamic Client Registration registriert oder nutzt unsicheres HTTP außerhalb von localhost.
 - Origin abgelehnt: Browser-Origin stimmt nicht mit `MCP_PUBLIC_URL`/`MCP_ALLOWED_ORIGINS` überein.
 - Leere Ergebnisse: Das Tool hat keine passenden Cores-Datensätze gefunden; mit `cores.data.quality` auf Erfassungslücken prüfen.
+- Ungewöhnliche Kombinationen: Zuerst `cores.query.catalog` aufrufen, dann die benötigten Entitäten in einem `cores.query.records`-Call abfragen und über eine dokumentierte Beziehung verbinden. Für Kennzahlen `cores.query.aggregate` verwenden.
