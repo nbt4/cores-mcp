@@ -123,3 +123,22 @@ func TestAuthenticateClient(t *testing.T) {
 		t.Fatal("confidential client authentication mismatch")
 	}
 }
+
+func TestMalformedAuthorizationFormDoesNotRedirect(t *testing.T) {
+	server, err := NewOAuthServer("https://mcp.example.com", "https://cores.example.com", strings.Repeat("s", 48), t.TempDir()+"/clients.json", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	mux := http.NewServeMux()
+	server.Register(mux)
+	request := httptest.NewRequest(http.MethodPost, "/oauth/authorize?redirect_uri=https://attacker.example/callback", strings.NewReader("%=broken"))
+	request.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	response := httptest.NewRecorder()
+	mux.ServeHTTP(response, request)
+	if response.Code != http.StatusBadRequest {
+		t.Fatalf("status=%d, want %d", response.Code, http.StatusBadRequest)
+	}
+	if location := response.Header().Get("Location"); location != "" {
+		t.Fatalf("unexpected redirect to %q", location)
+	}
+}

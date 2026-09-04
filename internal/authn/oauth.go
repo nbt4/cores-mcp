@@ -231,7 +231,7 @@ func (s *OAuthServer) authorize(w http.ResponseWriter, r *http.Request) {
 	params := r.URL.Query()
 	if r.Method == http.MethodPost {
 		if err := r.ParseForm(); err != nil {
-			oauthRedirectError(w, r, "invalid_request", "invalid authorization form")
+			oauthError(w, "invalid_request", "invalid authorization form", http.StatusBadRequest)
 			return
 		}
 		params = r.Form
@@ -485,9 +485,13 @@ func authenticateClient(client oauthClient, secret string) bool {
 }
 
 func subtleCompare(a, b string) bool {
-	if len(a) != len(b) { return false }
+	if len(a) != len(b) {
+		return false
+	}
 	var difference byte
-	for i := range len(a) { difference |= a[i] ^ b[i] }
+	for i := range len(a) {
+		difference |= a[i] ^ b[i]
+	}
 	return difference == 0
 }
 
