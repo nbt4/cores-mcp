@@ -20,6 +20,8 @@ import (
 
 	jwtlib "github.com/golang-jwt/jwt/v5"
 	"github.com/modelcontextprotocol/go-sdk/auth"
+
+	"github.com/nbt4/cores-mcp/internal/httpx"
 )
 
 const readScope = "cores:read"
@@ -260,6 +262,7 @@ func (s *OAuthServer) authorize(w http.ResponseWriter, r *http.Request) {
 	if r.Method == http.MethodGet {
 		csrf := randomToken(24)
 		http.SetCookie(w, &http.Cookie{Name: "cores_mcp_csrf", Value: csrf, Path: "/oauth/authorize", HttpOnly: true, Secure: strings.HasPrefix(s.issuer, "https://"), SameSite: http.SameSiteLaxMode, MaxAge: 600})
+		w.Header().Set("Content-Security-Policy", httpx.ContentSecurityPolicy(s.issuer, params.Get("redirect_uri")))
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		_ = consentTemplate.Execute(w, map[string]any{
 			"Client": client.Name,

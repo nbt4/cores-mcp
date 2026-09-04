@@ -75,6 +75,9 @@ func TestOAuthAuthorizationCodeFlow(t *testing.T) {
 	if consent.Code != http.StatusOK || len(consent.Result().Cookies()) == 0 {
 		t.Fatalf("authorize status=%d body=%s", consent.Code, consent.Body.String())
 	}
+	if policy := consent.Header().Get("Content-Security-Policy"); !strings.Contains(policy, "form-action 'self' https://mcp.example.com https://client.example.com;") {
+		t.Fatalf("consent CSP does not allow the validated callback origin: %s", policy)
+	}
 	assertAuthorizationFields(t, consent.Body.String(), query)
 	csrf := consent.Result().Cookies()[0]
 

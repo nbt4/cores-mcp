@@ -11,7 +11,7 @@ import (
 	"github.com/nbt4/cores-mcp/internal/store"
 )
 
-const Version = "1.0.4"
+const Version = "1.0.5"
 
 func New(cfg config.Config, db *store.Store, logger *slog.Logger) *mcp.Server {
 	server := mcp.NewServer(&mcp.Implementation{

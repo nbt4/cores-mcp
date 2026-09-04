@@ -27,8 +27,23 @@ func TestSecurityHeadersAllowCanonicalConsentResources(t *testing.T) {
 }
 
 func TestSecurityHeadersIgnoreInvalidPublicURL(t *testing.T) {
-	policy := contentSecurityPolicy("javascript:alert(1)")
+	policy := ContentSecurityPolicy("javascript:alert(1)")
 	if !strings.Contains(policy, "form-action 'self';") || strings.Contains(policy, "javascript") {
 		t.Fatalf("unexpected policy for invalid public URL: %q", policy)
+	}
+}
+
+func TestContentSecurityPolicyAllowsOnlyValidRedirectOrigins(t *testing.T) {
+	policy := ContentSecurityPolicy(
+		"https://cores.tsunami-events.de",
+		"https://claude.ai/api/mcp/auth_callback",
+		"https://claude.ai/duplicate",
+		"javascript:alert(1)",
+	)
+	if !strings.Contains(policy, "form-action 'self' https://cores.tsunami-events.de https://claude.ai;") {
+		t.Fatalf("registered redirect origin missing from policy: %q", policy)
+	}
+	if strings.Contains(policy, "javascript") || strings.Count(policy, "https://claude.ai") != 1 {
+		t.Fatalf("unsafe or duplicate redirect origin in policy: %q", policy)
 	}
 }
