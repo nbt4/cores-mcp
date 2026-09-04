@@ -102,7 +102,7 @@ func main() {
 	mux.Handle("/mcp", httpx.ValidateOrigin(cfg.PublicURL, cfg.AllowedOrigins, protected))
 
 	limiter := httpx.NewRateLimiter(cfg.RateLimitPerMinute, cfg.TrustProxyHeaders)
-	server := &http.Server{Addr: cfg.Address, Handler: httpx.Recover(logger, httpx.SecurityHeaders(limiter.Middleware(mux))), ReadHeaderTimeout: 10 * time.Second, ReadTimeout: 30 * time.Second, WriteTimeout: 2 * time.Minute, IdleTimeout: 2 * time.Minute}
+	server := &http.Server{Addr: cfg.Address, Handler: httpx.Recover(logger, httpx.SecurityHeaders(cfg.PublicURL, limiter.Middleware(mux))), ReadHeaderTimeout: 10 * time.Second, ReadTimeout: 30 * time.Second, WriteTimeout: 2 * time.Minute, IdleTimeout: 2 * time.Minute}
 
 	go func() {
 		logger.Info("cores-mcp listening", "address", cfg.Address, "public_url", cfg.PublicURL, "auth_mode", cfg.AuthMode)
