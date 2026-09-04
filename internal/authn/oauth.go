@@ -245,7 +245,10 @@ func (s *OAuthServer) authorize(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		w.WriteHeader(http.StatusUnauthorized)
-		_ = loginTemplate.Execute(w, map[string]string{"Dashboard": s.dashboardURL, "Retry": r.URL.String()})
+		_ = loginTemplate.Execute(w, map[string]any{
+			"Dashboard": s.dashboardURL,
+			"Retry":     authorizationURL(params),
+		})
 		return
 	}
 	if s.validateUser != nil {
@@ -259,7 +262,7 @@ func (s *OAuthServer) authorize(w http.ResponseWriter, r *http.Request) {
 		csrf := randomToken(24)
 		http.SetCookie(w, &http.Cookie{Name: "cores_mcp_csrf", Value: csrf, Path: "/oauth/authorize", HttpOnly: true, Secure: strings.HasPrefix(s.issuer, "https://"), SameSite: http.SameSiteLaxMode, MaxAge: 600})
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		_ = consentTemplate.Execute(w, map[string]any{"Client": client.Name, "User": user.Username, "Values": params.Encode(), "CSRF": csrf})
+		_ = consentTemplate.Execute(w, map[string]any{"Client": client.Name, "User": user.Username, "Action": authorizationURL(params), "CSRF": csrf})
 		return
 	}
 	csrfCookie, csrfErr := r.Cookie("cores_mcp_csrf")
@@ -526,6 +529,13 @@ func firstNonEmpty(values ...string) string {
 	return ""
 }
 
+// authorizationURL marks only the fixed local authorization path as trusted.
+// The query itself is still encoded with url.Values, while html/template keeps
+// applying HTML attribute escaping (for example, '&' becomes '&amp;').
+func authorizationURL(values url.Values) template.URL {
+	return template.URL("/oauth/authorize?" + values.Encode())
+}
+
 func oauthRedirectError(w http.ResponseWriter, r *http.Request, code, description string) {
 	redirectURI := firstNonEmpty(r.FormValue("redirect_uri"), r.URL.Query().Get("redirect_uri"))
 	if !validRedirectURI(redirectURI) {
@@ -555,4 +565,4 @@ func writeJSON(w http.ResponseWriter, status int, value any) {
 
 var loginTemplate = template.Must(template.New("login").Parse(`<!doctype html><html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Cores MCP</title></head><body style="font-family:system-ui;max-width:42rem;margin:4rem auto;padding:1rem"><h1>Cores-Anmeldung erforderlich</h1><p>Melde dich zuerst im Cores Dashboard an. Kehre anschließend hierher zurück und versuche die Verbindung erneut.</p><p><a href="{{.Dashboard}}/login" target="_blank" rel="noopener">Cores Dashboard öffnen</a></p><p><a href="{{.Retry}}">Nach der Anmeldung erneut versuchen</a></p></body></html>`))
 
-var consentTemplate = template.Must(template.New("consent").Parse(`<!doctype html><html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Cores MCP freigeben</title></head><body style="font-family:system-ui;max-width:42rem;margin:4rem auto;padding:1rem"><h1>Cores MCP verbinden</h1><p><strong>{{.Client}}</strong> möchte im Namen von <strong>{{.User}}</strong> lesend auf freigegebene Cores-Daten zugreifen.</p><p>Die Verbindung kann Bestände, Jobs, Planungen und Beschaffungsinformationen lesen. Sie kann keine Daten verändern.</p><form method="post" action="/oauth/authorize?{{.Values}}"><input type="hidden" name="csrf" value="{{.CSRF}}"><button name="decision" value="allow" type="submit">Lesenden Zugriff erlauben</button> <button name="decision" value="deny" type="submit">Ablehnen</button></form></body></html>`))
+var consentTemplate = template.Must(template.New("consent").Parse(`<!doctype html><html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Cores MCP freigeben</title></head><body style="font-family:system-ui;max-width:42rem;margin:4rem auto;padding:1rem"><h1>Cores MCP verbinden</h1><p><strong>{{.Client}}</strong> möchte im Namen von <strong>{{.User}}</strong> lesend auf freigegebene Cores-Daten zugreifen.</p><p>Die Verbindung kann Bestände, Jobs, Planungen und Beschaffungsinformationen lesen. Sie kann keine Daten verändern.</p><form method="post" action="{{.Action}}"><input type="hidden" name="csrf" value="{{.CSRF}}"><button name="decision" value="allow" type="submit">Lesenden Zugriff erlauben</button> <button name="decision" value="deny" type="submit">Ablehnen</button></form></body></html>`))

@@ -67,6 +67,7 @@ Den Connector beim KI-Anbieter entfernen. Statische Tokens zusätzlich serversei
 ## Häufige Fehler
 
 - `401 Unauthorized`: Cores-Login fehlt, Token ist abgelaufen oder der Scope `cores:read` fehlt.
+- `only response_type=code is supported` nach „Nach der Anmeldung erneut versuchen“: Der Autorisierungslink ist veraltet oder wurde von einem Proxy doppelt URL-encodiert. Die Verbindung beim KI-Anbieter entfernen, neu anlegen und darauf achten, dass die Browser-URL echte Parameter wie `?client_id=...&response_type=code` enthält, nicht `client_id%3d...%26response_type=code`.
 - OAuth-Metadaten nicht gefunden: `/.well-known/*` wird vom Reverse Proxy nicht weitergeleitet.
 - Redirect-Fehler: Client-Callback wurde nicht bei Dynamic Client Registration registriert oder nutzt unsicheres HTTP außerhalb von localhost.
 - Origin abgelehnt: Browser-Origin stimmt nicht mit `MCP_PUBLIC_URL`/`MCP_ALLOWED_ORIGINS` überein.

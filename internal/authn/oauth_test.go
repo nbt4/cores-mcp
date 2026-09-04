@@ -73,6 +73,7 @@ func TestOAuthAuthorizationCodeFlow(t *testing.T) {
 	if consent.Code != http.StatusOK || len(consent.Result().Cookies()) == 0 {
 		t.Fatalf("authorize status=%d body=%s", consent.Code, consent.Body.String())
 	}
+	assertAuthorizationLinkEncoding(t, consent.Body.String())
 	csrf := consent.Result().Cookies()[0]
 
 	form := url.Values{"csrf": {csrf.Value}, "decision": {"allow"}}
@@ -110,6 +111,53 @@ func TestOAuthAuthorizationCodeFlow(t *testing.T) {
 	}
 	if _, err := server.VerifyToken(context.Background(), tokens.Access, httptest.NewRequest(http.MethodPost, "/mcp", nil)); err != nil {
 		t.Fatalf("verify token: %v", err)
+	}
+}
+
+func TestOAuthLoginRetryKeepsAuthorizationQuery(t *testing.T) {
+	server, err := NewOAuthServer("https://mcp.example.com", "https://cores.example.com", strings.Repeat("s", 48), t.TempDir()+"/clients.json", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	mux := http.NewServeMux()
+	server.Register(mux)
+
+	registration := httptest.NewRequest(http.MethodPost, "/oauth/register", strings.NewReader(`{"client_name":"Claude","redirect_uris":["https://claude.ai/api/mcp/auth_callback"],"token_endpoint_auth_method":"none"}`))
+	registration.Header.Set("Content-Type", "application/json")
+	registered := httptest.NewRecorder()
+	mux.ServeHTTP(registered, registration)
+	var client struct {
+		ID string `json:"client_id"`
+	}
+	if err := json.Unmarshal(registered.Body.Bytes(), &client); err != nil {
+		t.Fatal(err)
+	}
+
+	query := url.Values{
+		"response_type":         {"code"},
+		"client_id":             {client.ID},
+		"redirect_uri":          {"https://claude.ai/api/mcp/auth_callback"},
+		"code_challenge":        {"challenge"},
+		"code_challenge_method": {"S256"},
+		"scope":                 {readScope},
+		"state":                 {"state-1"},
+	}
+	request := httptest.NewRequest(http.MethodGet, "/oauth/authorize?"+query.Encode(), nil)
+	response := httptest.NewRecorder()
+	mux.ServeHTTP(response, request)
+	if response.Code != http.StatusUnauthorized {
+		t.Fatalf("authorize status=%d body=%s", response.Code, response.Body.String())
+	}
+	assertAuthorizationLinkEncoding(t, response.Body.String())
+}
+
+func assertAuthorizationLinkEncoding(t *testing.T, body string) {
+	t.Helper()
+	if strings.Contains(body, "client_id%3d") || strings.Contains(body, "response_type%3d") {
+		t.Fatalf("authorization query was URL-encoded as one value: %s", body)
+	}
+	if !strings.Contains(body, "client_id=") || !strings.Contains(body, "response_type=code") || !strings.Contains(body, "&amp;") {
+		t.Fatalf("authorization query is not browser-safe: %s", body)
 	}
 }
 
