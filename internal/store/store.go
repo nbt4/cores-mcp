@@ -6,6 +6,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"time"
+
+	"github.com/modelcontextprotocol/go-sdk/auth"
 )
 
 type Store struct {
@@ -47,6 +49,17 @@ func (s *Store) Query(ctx context.Context, query string, args ...any) ([]map[str
 	}
 	defer tx.Rollback()
 	if _, err := tx.ExecContext(ctx, fmt.Sprintf("SET LOCAL statement_timeout = %d", s.timeout.Milliseconds())); err != nil {
+		return nil, err
+	}
+	// Transaction-local identity cannot leak between pooled connections. Planner
+	// queries use this value for the same membership check as the Planner API.
+	// Anonymous and machine tokens have no numeric suite identity and therefore
+	// cannot read private plans. Administrator status never bypasses membership.
+	subject := ""
+	if info := auth.TokenInfoFromContext(ctx); info != nil {
+		subject = info.UserID
+	}
+	if _, err := tx.ExecContext(ctx, `SELECT set_config('cores.user_id', $1, true)`, subject); err != nil {
 		return nil, err
 	}
 	rows, err := tx.QueryContext(ctx, query, args...)

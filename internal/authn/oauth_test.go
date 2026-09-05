@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"html/template"
 	"net/http"
@@ -121,6 +122,55 @@ func TestOAuthAuthorizationCodeFlow(t *testing.T) {
 	}
 	if _, err := server.VerifyToken(context.Background(), tokens.Access, httptest.NewRequest(http.MethodPost, "/mcp", nil)); err != nil {
 		t.Fatalf("verify token: %v", err)
+	}
+}
+
+func TestAccessTokenRevokedWhenAccountDisabled(t *testing.T) {
+	active := true
+	var lookupErr error
+	server, err := NewOAuthServer("https://mcp.example.com", "https://cores.example.com", strings.Repeat("s", 48), t.TempDir()+"/clients.json", func(_ context.Context, id uint) (bool, error) { return active && id == 7, lookupErr })
+	if err != nil {
+		t.Fatal(err)
+	}
+	response := httptest.NewRecorder()
+	server.writeTokens(response, User{ID: 7}, "test-client")
+	var tokens struct {
+		Access string `json:"access_token"`
+	}
+	if err := json.Unmarshal(response.Body.Bytes(), &tokens); err != nil {
+		t.Fatal(err)
+	}
+	request := httptest.NewRequest(http.MethodPost, "/mcp", nil)
+	if _, err := server.VerifyToken(context.Background(), tokens.Access, request); err != nil {
+		t.Fatal(err)
+	}
+	active = false
+	if _, err := server.VerifyToken(context.Background(), tokens.Access, request); err == nil {
+		t.Fatal("disabled account retained MCP access")
+	}
+	active, lookupErr = true, errors.New("database unavailable")
+	if _, err := server.VerifyToken(context.Background(), tokens.Access, request); err == nil {
+		t.Fatal("database failure did not fail closed")
+	}
+}
+
+func TestAccessTokenRequiresExpiryAndNumericSubject(t *testing.T) {
+	server, err := NewOAuthServer("https://mcp.example.com", "https://cores.example.com", strings.Repeat("s", 48), t.TempDir()+"/clients.json", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, subject := range []string{"7garbage", "0", "7"} {
+		claims := tokenClaims{Type: "access", Scope: readScope, RegisteredClaims: jwtlib.RegisteredClaims{Subject: subject, Issuer: server.issuer, Audience: jwtlib.ClaimStrings{server.resource}}}
+		if subject != "7" {
+			claims.ExpiresAt = jwtlib.NewNumericDate(time.Now().Add(time.Hour))
+		}
+		raw, err := jwtlib.NewWithClaims(jwtlib.SigningMethodHS256, claims).SignedString(server.secret)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := server.VerifyToken(context.Background(), raw, nil); err == nil {
+			t.Fatalf("invalid claims accepted: %q", subject)
+		}
 	}
 }
 

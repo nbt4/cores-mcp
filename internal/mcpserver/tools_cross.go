@@ -152,7 +152,7 @@ func registerCrossCoreTools(server *mcp.Server, db *store.Store) {
                 UNION ALL SELECT 'procurement_product_not_linked_to_warehouse',count(*) FROM proc_products p WHERE p.active=true AND NOT EXISTS (SELECT 1 FROM core_product_links l WHERE l.procurement_product_id=p.id)
                 UNION ALL SELECT 'warehouse_product_not_linked_to_procurement',count(*) FROM products p WHERE COALESCE(p.lifecycle_status,'active')='active' AND NOT EXISTS (SELECT 1 FROM core_product_links l WHERE l.warehouse_product_id=p.productid)
                 UNION ALL SELECT 'active_offer_without_recent_check_30d',count(*) FROM proc_offers WHERE active=true AND (last_checked_at IS NULL OR last_checked_at<now()-interval '30 days')
-                UNION ALL SELECT 'open_planner_task_without_due_date',count(*) FROM planner_tasks t JOIN planner_plans p ON p.id=t.plan_id WHERE p.archived_at IS NULL AND t.completed_at IS NULL AND t.progress<100 AND t.due_date IS NULL
+                UNION ALL SELECT 'open_planner_task_without_due_date',count(*) FROM planner_tasks t JOIN planner_plans p ON p.id=t.plan_id WHERE EXISTS (SELECT 1 FROM planner_members access_member WHERE access_member.plan_id=p.id AND access_member.user_id=current_setting('cores.user_id', true)) AND p.archived_at IS NULL AND t.completed_at IS NULL AND t.progress<100 AND t.due_date IS NULL
               ) quality ORDER BY affected DESC,issue`)
 		return rows, []Source{{Service: "cores", Entity: "data_quality"}}, []string{"These checks flag missing fields, not necessarily business errors."}, err
 	})

@@ -10,6 +10,12 @@ Der MCP-Server liest operative Daten aus der gemeinsamen Cores-PostgreSQL-Datenb
 - Autorisierung nur mit gültigem Cores-Suite-Cookie und aktivem Benutzer in der Datenbank.
 - Exakte Redirect-URI-Prüfung, HTTPS-Pflicht außer localhost, State/CSRF-Schutz und kurzlebige einmalige Codes.
 - Signierte Access-Tokens: 1 Stunde; Refresh-Tokens: 30 Tage.
+- Aktiver Kontostatus wird bei jedem OAuth-API-Zugriff sowie beim Code- und
+  Refresh-Austausch erneut geprüft; Datenbankfehler verweigern Zugriff.
+- Planner-Daten erfordern eine aktuelle Mitgliedschaft, auch für Administratoren.
+  Der Store setzt die Nutzeridentität ausschließlich transaktionslokal; sie kann
+  nicht zwischen gepoolten Verbindungen oder Nutzern weitergegeben werden.
+  Statische Maschinentokens und anonyme Entwicklungszugriffe sehen keine Planner-Daten.
 - Optional benannte, starke Bearer-Tokens für Maschinenzugriff.
 - Origin-Prüfung, Security-Header, Request-Limits, Rate-Limit und strukturierte Audit-Logs.
 
@@ -39,5 +45,7 @@ Bestandsaussagen hängen von vollständig erfassten Anforderungen, Paketauflösu
 - Dedizierten Read-only-DB-Login verwenden und regelmäßig Berechtigungen prüfen.
 - `CORES_JWT_SECRET`, DB-Passwort und statische Tokens nur über Secret Management/.env zuführen.
 - OAuth-Datenvolume sichern; Logs zentral sammeln und auf ungewöhnliche Abrufmuster prüfen.
-- Nach Entzug eines Maschinenzugriffs Token rotieren. Nach Entzug eines Benutzers `users.is_active=false` setzen; neue OAuth-Autorisierungen werden dann verweigert.
+- Nach Entzug eines Maschinenzugriffs Token rotieren. Nach Entzug eines Benutzers
+  `users.is_active=false` setzen; auch bereits ausgestellte OAuth-Access-Tokens
+  werden bei der nächsten Anfrage verweigert.
 - Knowledge-Ordner nur lesend mounten und Änderungen reviewen.

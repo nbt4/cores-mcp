@@ -14,6 +14,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -116,9 +117,19 @@ func (s *OAuthServer) VerifyToken(ctx context.Context, raw string, _ *http.Reque
 			return nil, auth.ErrInvalidToken
 		}
 		return s.secret, nil
-	}, jwtlib.WithAudience(s.resource), jwtlib.WithIssuer(s.issuer))
+	}, jwtlib.WithAudience(s.resource), jwtlib.WithIssuer(s.issuer), jwtlib.WithExpirationRequired())
 	if err != nil || !token.Valid || claims.Type != "access" || claims.Subject == "" {
 		return nil, auth.ErrInvalidToken
+	}
+	userID, err := strconv.ParseUint(claims.Subject, 10, 32)
+	if err != nil || userID == 0 {
+		return nil, auth.ErrInvalidToken
+	}
+	if s.validateUser != nil {
+		active, err := s.validateUser(ctx, uint(userID))
+		if err != nil || !active {
+			return nil, auth.ErrInvalidToken
+		}
 	}
 	return &auth.TokenInfo{
 		Scopes:     strings.Fields(claims.Scope),
@@ -364,6 +375,13 @@ func (s *OAuthServer) exchangeCode(w http.ResponseWriter, r *http.Request, clien
 		oauthError(w, "invalid_grant", "PKCE verification failed", http.StatusBadRequest)
 		return
 	}
+	if s.validateUser != nil {
+		active, err := s.validateUser(r.Context(), code.User.ID)
+		if err != nil || !active {
+			oauthError(w, "invalid_grant", "Cores user is inactive", http.StatusBadRequest)
+			return
+		}
+	}
 	s.writeTokens(w, code.User, client.ID)
 }
 
@@ -374,16 +392,17 @@ func (s *OAuthServer) exchangeRefreshToken(w http.ResponseWriter, r *http.Reques
 			return nil, auth.ErrInvalidToken
 		}
 		return s.secret, nil
-	}, jwtlib.WithAudience(s.issuer+"/oauth/token"), jwtlib.WithIssuer(s.issuer))
+	}, jwtlib.WithAudience(s.issuer+"/oauth/token"), jwtlib.WithIssuer(s.issuer), jwtlib.WithExpirationRequired())
 	if err != nil || !token.Valid || claims.Type != "refresh" || claims.Subject == "" || claims.ID != client.ID {
 		oauthError(w, "invalid_grant", "refresh token is invalid or expired", http.StatusBadRequest)
 		return
 	}
-	var userID uint
-	if _, err := fmt.Sscanf(claims.Subject, "%d", &userID); err != nil {
+	parsedID, parseErr := strconv.ParseUint(claims.Subject, 10, 32)
+	if parseErr != nil || parsedID == 0 {
 		oauthError(w, "invalid_grant", "refresh token subject is invalid", http.StatusBadRequest)
 		return
 	}
+	userID := uint(parsedID)
 	if s.validateUser != nil {
 		active, validateErr := s.validateUser(r.Context(), userID)
 		if validateErr != nil || !active {
@@ -420,7 +439,7 @@ func (s *OAuthServer) sessionUser(r *http.Request) (User, bool) {
 			return nil, auth.ErrInvalidToken
 		}
 		return s.secret, nil
-	})
+	}, jwtlib.WithExpirationRequired())
 	if err != nil || !token.Valid || claims.UserID == 0 {
 		return User{}, false
 	}

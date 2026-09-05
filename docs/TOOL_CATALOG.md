@@ -1,5 +1,12 @@
 # Tool-Katalog
 
+Seit 1.1.1 sind alle Planner-Ergebnisse auf die aktuellen Planmitgliedschaften des
+OAuth-Benutzers beschränkt. Das gilt auch für `cores.search`,
+`cores.operations.overview`, `cores.activity.recent`, `cores.data.quality`,
+`cores.query.records` und `cores.query.aggregate`. Administratorstatus allein
+berechtigt nicht zum Lesen fremder Pläne. Maschinentokens liefern keine Planner-Daten.
+Toolnamen und Eingabeschemas bleiben unverändert.
+
 Alle 59 Tools sind read-only und idempotent. Suchtools akzeptieren üblicherweise `query`, `limit` und `offset`; Zeitfenster `from`, `to` und `limit`; Detailtools `id`. Datumswerte sind `YYYY-MM-DD` oder RFC3339.
 
 ## Suiteweit, flexible Abfragen und Wissen (11)

@@ -1,5 +1,23 @@
 # Cores MCP
 
+## Berechtigungen ab 1.1.1
+
+OAuth-Access-Tokens werden bei jeder Anfrage gegen den aktiven Kontostatus geprüft;
+Sperren wirken auch vor Ablauf eines bestehenden Tokens. Die Prüfung gilt ebenfalls
+beim Einlösen von Autorisierungscodes und Refresh-Tokens.
+
+Alle Planner-Tools und Planner-Anteile von Suche, Aktivitäten, Qualitätsprüfungen,
+Kennzahlen und flexiblen Abfragen berücksichtigen `planner_members`. Administratoren
+umgehen diese Mitgliedschaftsprüfung nicht. Statische Maschinentokens und der
+anonyme Entwicklungsmodus erhalten keine privaten Planner-Daten; für Planner
+ist ein persönlicher OAuth-Zugang mit passenden Mitgliedschaften erforderlich.
+Andere freigegebene operative Daten bleiben über den Scope `cores:read` verfügbar.
+
+Die Isolation wird über echten MCP-HTTP-Transport und PostgreSQL getestet:
+`CORES_MCP_AUTH_TEST_DATABASE_URL=postgres://.../cores_test go test -race ./internal/mcpserver`.
+Die Testdatenbank muss isoliert sein und auf `_test` enden. Der Test erzeugt und
+entfernt ausschließlich sein eigenes Schema.
+
 Cores MCP bindet die gesamte Cores Suite als sicheren, rein lesenden MCP-Server an ChatGPT, Claude, Codex und andere MCP-fähige Agents an. Der Chat bleibt beim jeweiligen KI-Anbieter; Cores stellt nur kontrollierte Werkzeuge und Kontext bereit.
 
 Der Server bietet 59 fachliche Tools, fünf wiederverwendbare Analyse-Prompts und dokumentierbare Knowledge-Ressourcen für RentalCore, WarehouseCore, PlannerCore und ProcurementCore. Es gibt bewusst kein beliebiges SQL-Tool und keinen Schreibzugriff.
