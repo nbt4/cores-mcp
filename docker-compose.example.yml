@@ -3,6 +3,8 @@ services:
     image: nobentie/cores-mcp:latest
     restart: unless-stopped
     env_file: .env
+    environment:
+      MCP_ENABLE_WRITES: "false"
     volumes:
       - cores-mcp-oauth:/var/lib/cores-mcp/oauth
       - ./knowledge:/knowledge/cores:ro

@@ -25,7 +25,10 @@ import (
 	"github.com/nbt4/cores-mcp/internal/httpx"
 )
 
-const readScope = "cores:read"
+const (
+	readScope  = "cores:read"
+	writeScope = "cores:write"
+)
 
 type User struct {
 	ID       uint
@@ -42,6 +45,7 @@ type OAuthServer struct {
 	secret       []byte
 	clients      *clientStore
 	validateUser UserValidator
+	enableWrites bool
 	mu           sync.Mutex
 	codes        map[string]authorizationCode
 }
@@ -53,6 +57,7 @@ type authorizationCode struct {
 	Resource    string
 	User        User
 	ExpiresAt   time.Time
+	Scopes      []string
 }
 
 type tokenClaims struct {
@@ -85,7 +90,7 @@ type clientStore struct {
 	clients map[string]oauthClient
 }
 
-func NewOAuthServer(issuer, dashboardURL, secret, dataFile string, validateUser UserValidator) (*OAuthServer, error) {
+func NewOAuthServer(issuer, dashboardURL, secret, dataFile string, enableWrites bool, validateUser UserValidator) (*OAuthServer, error) {
 	store, err := loadClientStore(dataFile)
 	if err != nil {
 		return nil, err
@@ -97,6 +102,7 @@ func NewOAuthServer(issuer, dashboardURL, secret, dataFile string, validateUser 
 		secret:       []byte(secret),
 		clients:      store,
 		validateUser: validateUser,
+		enableWrites: enableWrites,
 		codes:        make(map[string]authorizationCode),
 	}, nil
 }
@@ -169,7 +175,8 @@ func CombinedVerifier(primary auth.TokenVerifier, tokens map[string]string) auth
 	}
 }
 
-func ReadScope() string { return readScope }
+func ReadScope() string  { return readScope }
+func WriteScope() string { return writeScope }
 
 func (s *OAuthServer) metadata(w http.ResponseWriter, _ *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{
@@ -177,7 +184,7 @@ func (s *OAuthServer) metadata(w http.ResponseWriter, _ *http.Request) {
 		"authorization_endpoint":                s.issuer + "/oauth/authorize",
 		"token_endpoint":                        s.issuer + "/oauth/token",
 		"registration_endpoint":                 s.issuer + "/oauth/register",
-		"scopes_supported":                      []string{readScope},
+		"scopes_supported":                      s.supportedScopes(),
 		"response_types_supported":              []string{"code"},
 		"grant_types_supported":                 []string{"authorization_code", "refresh_token"},
 		"code_challenge_methods_supported":      []string{"S256"},
@@ -280,6 +287,7 @@ func (s *OAuthServer) authorize(w http.ResponseWriter, r *http.Request) {
 			"User":   user.Username,
 			"Params": authorizationFields(params),
 			"CSRF":   csrf,
+			"Writes": contains(requestedScopes(params.Get("scope"), s.enableWrites), writeScope),
 		})
 		return
 	}
@@ -299,6 +307,7 @@ func (s *OAuthServer) authorize(w http.ResponseWriter, r *http.Request) {
 	s.codes[code] = authorizationCode{
 		ClientID: client.ID, RedirectURI: params.Get("redirect_uri"), Challenge: params.Get("code_challenge"),
 		Resource: firstNonEmpty(params.Get("resource"), s.resource), User: user, ExpiresAt: time.Now().Add(5 * time.Minute),
+		Scopes: requestedScopes(params.Get("scope"), s.enableWrites),
 	}
 	s.mu.Unlock()
 	redirect, _ := url.Parse(params.Get("redirect_uri"))
@@ -329,7 +338,7 @@ func (s *OAuthServer) validateAuthorizationRequest(values url.Values) (oauthClie
 		return oauthClient{}, errors.New("invalid resource")
 	}
 	for _, scope := range strings.Fields(values.Get("scope")) {
-		if scope != readScope {
+		if scope != readScope && (!s.enableWrites || scope != writeScope) {
 			return oauthClient{}, errors.New("unsupported scope")
 		}
 	}
@@ -382,7 +391,7 @@ func (s *OAuthServer) exchangeCode(w http.ResponseWriter, r *http.Request, clien
 			return
 		}
 	}
-	s.writeTokens(w, code.User, client.ID)
+	s.writeTokens(w, code.User, client.ID, code.Scopes)
 }
 
 func (s *OAuthServer) exchangeRefreshToken(w http.ResponseWriter, r *http.Request, client oauthClient) {
@@ -410,22 +419,42 @@ func (s *OAuthServer) exchangeRefreshToken(w http.ResponseWriter, r *http.Reques
 			return
 		}
 	}
-	s.writeTokens(w, User{ID: userID, Username: claims.Username, IsAdmin: claims.IsAdmin}, client.ID)
+	s.writeTokens(w, User{ID: userID, Username: claims.Username, IsAdmin: claims.IsAdmin}, client.ID, requestedScopes(claims.Scope, s.enableWrites))
 }
 
-func (s *OAuthServer) writeTokens(w http.ResponseWriter, user User, clientID string) {
+func (s *OAuthServer) writeTokens(w http.ResponseWriter, user User, clientID string, scopes []string) {
 	now := time.Now().UTC()
+	scope := strings.Join(scopes, " ")
 	access, _ := jwtlib.NewWithClaims(jwtlib.SigningMethodHS256, tokenClaims{
-		Scope: readScope, Type: "access", Username: user.Username, IsAdmin: user.IsAdmin,
+		Scope: scope, Type: "access", Username: user.Username, IsAdmin: user.IsAdmin,
 		RegisteredClaims: jwtlib.RegisteredClaims{Issuer: s.issuer, Subject: fmt.Sprint(user.ID), Audience: jwtlib.ClaimStrings{s.resource}, IssuedAt: jwtlib.NewNumericDate(now), ExpiresAt: jwtlib.NewNumericDate(now.Add(time.Hour))},
 	}).SignedString(s.secret)
 	refresh, _ := jwtlib.NewWithClaims(jwtlib.SigningMethodHS256, tokenClaims{
-		Scope: readScope, Type: "refresh", Username: user.Username, IsAdmin: user.IsAdmin,
+		Scope: scope, Type: "refresh", Username: user.Username, IsAdmin: user.IsAdmin,
 		RegisteredClaims: jwtlib.RegisteredClaims{Issuer: s.issuer, Subject: fmt.Sprint(user.ID), Audience: jwtlib.ClaimStrings{s.issuer + "/oauth/token"}, ID: clientID, IssuedAt: jwtlib.NewNumericDate(now), ExpiresAt: jwtlib.NewNumericDate(now.Add(30 * 24 * time.Hour))},
 	}).SignedString(s.secret)
 	w.Header().Set("Cache-Control", "no-store")
 	w.Header().Set("Pragma", "no-cache")
-	writeJSON(w, http.StatusOK, map[string]any{"access_token": access, "token_type": "Bearer", "expires_in": 3600, "refresh_token": refresh, "scope": readScope})
+	writeJSON(w, http.StatusOK, map[string]any{"access_token": access, "token_type": "Bearer", "expires_in": 3600, "refresh_token": refresh, "scope": scope})
+}
+
+func (s *OAuthServer) supportedScopes() []string {
+	return requestedScopes("", s.enableWrites)
+}
+
+func requestedScopes(raw string, enableWrites bool) []string {
+	requested := strings.Fields(raw)
+	if len(requested) == 0 {
+		requested = []string{readScope}
+		if enableWrites {
+			requested = append(requested, writeScope)
+		}
+	}
+	result := []string{readScope}
+	if enableWrites && contains(requested, writeScope) {
+		result = append(result, writeScope)
+	}
+	return result
 }
 
 func (s *OAuthServer) sessionUser(r *http.Request) (User, bool) {
@@ -619,13 +648,13 @@ var consentTemplate = template.Must(template.New("consent").Parse(`<!doctype htm
     <p class="suite-auth-eyebrow">Sichere Verbindung</p>
     <h1 class="suite-auth-title">Cores MCP verbinden</h1>
     <p class="suite-auth-copy"><strong>{{.Client}}</strong> möchte im Namen von <strong>{{.User}}</strong> auf freigegebene Cores-Daten zugreifen.</p>
-    <div class="suite-auth-notice">Die Verbindung darf Bestände, Jobs, Planungen und Beschaffungsinformationen ausschließlich lesen. Sie kann keine Daten verändern.</div>
+    {{if .Writes}}<div class="suite-auth-notice">Die Verbindung darf Cores-Daten lesen sowie neue Produkte und Jobs anlegen. Jede Anlage wird vorab mit den erkannten Daten angezeigt und erfordert eine ausdrückliche Bestätigung. Bestellungen, Freigaben, Änderungen und Löschungen bleiben gesperrt.</div>{{else}}<div class="suite-auth-notice">Die Verbindung darf Bestände, Jobs, Planungen und Beschaffungsinformationen ausschließlich lesen. Sie kann keine Daten verändern.</div>{{end}}
     <form method="post" action="/oauth/authorize">
       {{range .Params}}<input type="hidden" name="{{.Name}}" value="{{.Value}}">{{end}}
       <input type="hidden" name="csrf" value="{{.CSRF}}">
       <div class="suite-auth-actions">
         <button class="suite-button" name="decision" value="deny" type="submit">Ablehnen</button>
-        <button class="suite-button suite-button--primary" name="decision" value="allow" type="submit">Lesenden Zugriff erlauben</button>
+        <button class="suite-button suite-button--primary" name="decision" value="allow" type="submit">{{if .Writes}}Lese- und Anlagezugriff erlauben{{else}}Lesenden Zugriff erlauben{{end}}</button>
       </div>
     </form>
   </main>

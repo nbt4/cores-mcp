@@ -97,7 +97,7 @@ func registerSuiteTools(server *mcp.Server, cfg config.Config, db *store.Store) 
 	})
 
 	addTool(server, "cores.data.dictionary", "Describe available Cores data", "Return the supported business entities, important fields, relationships, exclusions and relevant tools. Use this when deciding how to answer a new Cores question.", func(_ context.Context, _ struct{}) (any, []Source, []string, error) {
-		return dataDictionary(), []Source{{Service: "cores-mcp", Entity: "data_dictionary"}}, nil, nil
+		return dataDictionary(cfg.EnableWrites), []Source{{Service: "cores-mcp", Entity: "data_dictionary"}}, nil, nil
 	})
 }
 
@@ -108,12 +108,18 @@ func firstRow(rows []map[string]any) any {
 	return rows[0]
 }
 
-func dataDictionary() map[string]any {
+func dataDictionary(enableWrites bool) map[string]any {
 	return map[string]any{
 		"rental":      map[string]any{"entities": []string{"jobs", "customers (limited)", "venues", "requirements", "packages", "external rentals", "staffing"}, "time_basis": "job start/end dates"},
 		"warehouse":   map[string]any{"entities": []string{"products", "devices", "locations", "cases", "relations", "defects", "maintenance", "inventory counts", "movements", "cables"}, "availability": "quantity stock for bulk items; available device count for serialized items"},
 		"planner":     map[string]any{"entities": []string{"plans", "tasks", "buckets", "assignees", "goals", "sprints", "dependencies"}},
 		"procurement": map[string]any{"entities": []string{"products", "offers", "suppliers", "requisitions", "orders", "receipts", "price history", "warehouse links"}, "money": "integer cents unless a field explicitly says otherwise"},
 		"excluded":    []string{"password hashes", "session and API tokens", "2FA secrets", "bank details", "document bodies", "employee private addresses", "unnecessary customer contact details", "arbitrary SQL"},
+		"guided_creates": map[string]any{
+			"enabled":  enableWrites,
+			"entities": []string{"ProcurementCore product with optional offer", "RentalCore job"},
+			"contract": "prepare_create, ask every returned question, show final draft, obtain explicit confirmation, then create",
+			"excluded": []string{"updates", "deletes", "orders", "approvals", "receipts", "status changes", "user administration"},
+		},
 	}
 }

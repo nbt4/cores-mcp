@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/modelcontextprotocol/go-sdk/auth"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/nbt4/cores-mcp/internal/store"
 )
@@ -72,6 +73,48 @@ func addTool[In any](server *mcp.Server, name, title, description string, fn que
 		}
 		output := Output{AsOf: time.Now().UTC().Format(time.RFC3339), Summary: summarize(data), Data: data, Sources: sources, Warnings: warnings}
 		return nil, output, nil
+	})
+}
+
+func addCreateTool[In any](server *mcp.Server, name, title, description string, fn queryFn[In]) {
+	closed, additive := false, false
+	mcp.AddTool(server, &mcp.Tool{
+		Name: name, Title: title, Description: description,
+		Annotations: &mcp.ToolAnnotations{ReadOnlyHint: false, DestructiveHint: &additive, IdempotentHint: false, OpenWorldHint: &closed},
+	}, func(ctx context.Context, _ *mcp.CallToolRequest, input In) (*mcp.CallToolResult, Output, error) {
+		if info := auth.TokenInfoFromContext(ctx); info == nil || !containsString(info.Scopes, "cores:write") {
+			message := name + " requires the cores:write scope. Reconnect the Cores MCP connector and grant create access."
+			return &mcp.CallToolResult{IsError: true, Content: []mcp.Content{&mcp.TextContent{Text: message}}}, Output{
+				AsOf: time.Now().UTC().Format(time.RFC3339), Summary: message, Warnings: []string{"No data was changed."},
+			}, nil
+		}
+		data, sources, warnings, err := fn(ctx, input)
+		if err != nil {
+			message := fmt.Sprintf("%s failed: %v", name, err)
+			return &mcp.CallToolResult{IsError: true, Content: []mcp.Content{&mcp.TextContent{Text: message}}}, Output{
+				AsOf: time.Now().UTC().Format(time.RFC3339), Summary: message, Warnings: append(warnings, "No further data was changed."),
+			}, nil
+		}
+		return nil, Output{AsOf: time.Now().UTC().Format(time.RFC3339), Summary: summarize(data), Data: data, Sources: sources, Warnings: warnings}, nil
+	})
+}
+
+func addWritePreparationTool[In any](server *mcp.Server, name, title, description string, fn queryFn[In]) {
+	closed := false
+	mcp.AddTool(server, &mcp.Tool{
+		Name: name, Title: title, Description: description,
+		Annotations: &mcp.ToolAnnotations{ReadOnlyHint: true, IdempotentHint: true, OpenWorldHint: &closed},
+	}, func(ctx context.Context, _ *mcp.CallToolRequest, input In) (*mcp.CallToolResult, Output, error) {
+		if info := auth.TokenInfoFromContext(ctx); info == nil || !containsString(info.Scopes, "cores:write") {
+			message := name + " requires the cores:write scope. Reconnect the Cores MCP connector and grant create access."
+			return &mcp.CallToolResult{IsError: true, Content: []mcp.Content{&mcp.TextContent{Text: message}}}, Output{AsOf: time.Now().UTC().Format(time.RFC3339), Summary: message}, nil
+		}
+		data, sources, warnings, err := fn(ctx, input)
+		if err != nil {
+			message := fmt.Sprintf("%s failed: %v", name, err)
+			return &mcp.CallToolResult{IsError: true, Content: []mcp.Content{&mcp.TextContent{Text: message}}}, Output{AsOf: time.Now().UTC().Format(time.RFC3339), Summary: message, Warnings: warnings}, nil
+		}
+		return nil, Output{AsOf: time.Now().UTC().Format(time.RFC3339), Summary: summarize(data), Data: data, Sources: sources, Warnings: warnings}, nil
 	})
 }
 

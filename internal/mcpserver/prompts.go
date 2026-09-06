@@ -51,7 +51,7 @@ func registerPrompts(server *mcp.Server) {
 			description: "Vergleicht Bedarf, Angebote, Preisverlauf, Lieferzeit und Risiko.",
 			arguments:   []*mcp.PromptArgument{{Name: "product", Title: "Produkt", Description: "Produkt oder Kategorie", Required: true}, {Name: "needed_by", Title: "Benötigt bis", Description: "Optionales Zieldatum"}},
 			template: func(a map[string]string) string {
-				return fmt.Sprintf("Bewerte die Beschaffung von %q, benötigt bis %s. Prüfe zuerst den tatsächlichen Bestand und Bedarf, dann aktive Angebote, Stückpreis inklusive Packungsgröße/Mindestmenge, Preisverlauf, Lieferzeit, Lieferantenrating und -risiko sowie offene Bestellungen. Nutze procurement.offers.compare, procurement.prices.history, procurement.suppliers.search und inventory.procurement.recommendations. Gib keine Bestellung auf; liefere eine nachvollziehbare Rangfolge und offene Fragen.", a["product"], optional(a["needed_by"], "noch festzulegen"))
+				return fmt.Sprintf("Bewerte die Beschaffung von %q, benötigt bis %s. Löse zuerst mit procurement.products.search/get auf, um welches reale Produkt es sich handelt; ein Code oder Modellname allein ist keine Erklärung. Prüfe dann tatsächlichen Bestand und Bedarf, aktive Angebote, Stückpreis inklusive Packungsgröße/Mindestmenge, Preisverlauf, Lieferzeit, Lieferantenrating und -risiko sowie offene Bestellungen. Nutze procurement.offers.compare, procurement.prices.history, procurement.suppliers.search und inventory.procurement.recommendations. Gib keine Bestellung auf; liefere eine nachvollziehbare Rangfolge und offene Fragen.", a["product"], optional(a["needed_by"], "noch festzulegen"))
 			},
 		},
 		{

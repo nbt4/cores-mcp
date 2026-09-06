@@ -6,7 +6,7 @@ Der MCP-Server liest operative Daten aus der gemeinsamen Cores-PostgreSQL-Datenb
 
 ## Zugriffsschutz
 
-- OAuth 2.0 Authorization Code mit PKCE S256, Dynamic Client Registration und Scope `cores:read`.
+- OAuth 2.0 Authorization Code mit PKCE S256, Dynamic Client Registration und Scope `cores:read`; bei aktivierten Anlage-Tools kommt die getrennte Zustimmung zu `cores:write` hinzu.
 - Autorisierung nur mit gültigem Cores-Suite-Cookie und aktivem Benutzer in der Datenbank.
 - Exakte Redirect-URI-Prüfung, HTTPS-Pflicht außer localhost, State/CSRF-Schutz und kurzlebige einmalige Codes.
 - Signierte Access-Tokens: 1 Stunde; Refresh-Tokens: 30 Tage.
@@ -19,13 +19,15 @@ Der MCP-Server liest operative Daten aus der gemeinsamen Cores-PostgreSQL-Datenb
 - Optional benannte, starke Bearer-Tokens für Maschinenzugriff.
 - Origin-Prüfung, Security-Header, Request-Limits, Rate-Limit und strukturierte Audit-Logs.
 
-## Read-only in drei Schichten
+## Lesezugriff und eng begrenzte Anlagefunktionen
 
-1. MCP bietet ausschließlich fest definierte fachliche Abfragen und eine deklarative Query-API über kuratierte Entitäten, Felder, Operatoren und Beziehungen an. Freies SQL ist nicht möglich; sämtliche Werte werden parametrisiert.
+1. Die Abfrageseite bietet ausschließlich fest definierte fachliche Tools und eine deklarative Query-API über kuratierte Entitäten, Felder, Operatoren und Beziehungen an. Freies SQL ist nicht möglich; sämtliche Werte werden parametrisiert.
 2. Der Store öffnet jede Transaktion mit PostgreSQL `READ ONLY` und setzt ein Statement-Timeout.
 3. Der Produktionsnutzer `cores_mcp` erhält ausschließlich `SELECT` auf das öffentliche Schema und `default_transaction_read_only=on`.
 
-Es gibt absichtlich kein universelles SQL-, HTTP-, Datei- oder Shell-Werkzeug. Schreibzugriff, Bestellungen, Freigaben, Statusänderungen und Benutzerverwaltung sind nicht Teil dieses Dienstes.
+Optionale Create-Tools schreiben niemals über die Datenbankrolle. Sie rufen ausschließlich die validierten Produkt- bzw. Job-Endpunkte des verantwortlichen Core mit einem zweiminütigen, aus dem interaktiven OAuth-Benutzer abgeleiteten Suite-Token auf. Der Zielservice prüft Konto und Rolle erneut. ProcurementCore-Produkte erfordern dadurch weiterhin Administratorrechte; Jobs erfordern ein aktives Cores-Konto. Statische Maschinentokens können keine Schreibtools nutzen.
+
+Vor der Anlage liefert ein eigenes Vorbereitungstool Pflichtlücken, empfohlene Datenlücken, Referenzkandidaten und mögliche Duplikate. Das Create-Tool schreibt erst nach finaler Vorschau und `confirm_creation=true`; unvollständige empfohlene Produktdaten benötigen zusätzlich `accept_incomplete=true`. Es gibt absichtlich kein universelles SQL-, HTTP-, Datei- oder Shell-Werkzeug und keine Tools für Änderungen, Löschungen, Bestellungen, Freigaben, Wareneingänge, Statuswechsel oder Benutzerverwaltung.
 
 ## Datenminimierung
 
@@ -33,7 +35,7 @@ Tools schließen private Kontaktfelder, Passwörter, Tokens und unnötige Notize
 
 ## Prompt Injection
 
-Job-, Produkt-, Aufgaben- und Notiztexte sind nutzergenerierte, nicht vertrauenswürdige Daten. Toolbeschreibungen und Warnungen weisen Clients darauf hin, diese Inhalte nicht als Anweisungen zu befolgen. Da der Server keine schreibenden oder offenen Tools besitzt, bleibt der mögliche Schaden zusätzlich begrenzt.
+Job-, Produkt-, Shopseiten-, Aufgaben- und Notiztexte sind nutzergenerierte, nicht vertrauenswürdige Daten. Toolbeschreibungen und Warnungen weisen Clients darauf hin, diese Inhalte nicht als Anweisungen zu befolgen. Produktseiten werden ausschließlich über den SSRF-geschützten ProcurementCore-Importer gelesen. Extrahierte Werte werden als Entwurf behandelt; Rückfragen, Duplikatprüfung und explizite Bestätigung begrenzen das Risiko vor einer Anlage.
 
 ## Fachliche Grenzen
 

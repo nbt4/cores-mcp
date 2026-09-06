@@ -64,13 +64,13 @@ func main() {
 	mux.HandleFunc("GET /mcp/docs", func(w http.ResponseWriter, _ *http.Request) {
 		httpx.JSON(w, http.StatusOK, map[string]any{
 			"service": "Cores MCP", "version": mcpserver.Version, "endpoint": cfg.MCPURL(),
-			"transport": "Streamable HTTP", "access": "read-only", "scope": authn.ReadScope(),
+			"transport": "Streamable HTTP", "access": map[bool]string{true: "read and guided create", false: "read-only"}[cfg.EnableWrites], "scopes": supportedScopes(cfg),
 			"documentation": "https://github.com/nbt4/cores-mcp#readme",
 		})
 	})
 
 	metadata := auth.ProtectedResourceMetadataHandler(&oauthex.ProtectedResourceMetadata{
-		Resource: cfg.MCPURL(), AuthorizationServers: []string{cfg.PublicURL}, ScopesSupported: []string{authn.ReadScope()}, BearerMethodsSupported: []string{"header"},
+		Resource: cfg.MCPURL(), AuthorizationServers: []string{cfg.PublicURL}, ScopesSupported: supportedScopes(cfg), BearerMethodsSupported: []string{"header"},
 		ResourceName: "Cores Suite", ResourceDocumentation: cfg.PublicURL + "/mcp/docs",
 	})
 	mux.Handle("GET /.well-known/oauth-protected-resource", metadata)
@@ -79,7 +79,7 @@ func main() {
 	var protected http.Handler = mcpHandler
 	switch cfg.AuthMode {
 	case "oauth":
-		oauthServer, oauthErr := authn.NewOAuthServer(cfg.PublicURL, cfg.DashboardURL, cfg.JWTSecret, cfg.OAuthDataFile, func(ctx context.Context, userID uint) (bool, error) {
+		oauthServer, oauthErr := authn.NewOAuthServer(cfg.PublicURL, cfg.DashboardURL, cfg.JWTSecret, cfg.OAuthDataFile, cfg.EnableWrites, func(ctx context.Context, userID uint) (bool, error) {
 			rows, queryErr := repository.Query(ctx, `SELECT is_active FROM users WHERE userid=$1 LIMIT 1`, userID)
 			if queryErr != nil || len(rows) == 0 {
 				return false, queryErr
@@ -120,4 +120,12 @@ func main() {
 	if err := server.Shutdown(shutdownCtx); err != nil {
 		logger.Error("graceful shutdown failed", "error", err)
 	}
+}
+
+func supportedScopes(cfg config.Config) []string {
+	scopes := []string{authn.ReadScope()}
+	if cfg.EnableWrites {
+		scopes = append(scopes, authn.WriteScope())
+	}
+	return scopes
 }

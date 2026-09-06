@@ -37,9 +37,21 @@ func TestValidRedirectURI(t *testing.T) {
 	}
 }
 
+func TestRequestedScopesDefaultToEnabledCapabilities(t *testing.T) {
+	if got := strings.Join(requestedScopes("", true), " "); got != readScope+" "+writeScope {
+		t.Fatalf("default scopes = %q", got)
+	}
+	if got := strings.Join(requestedScopes(readScope, true), " "); got != readScope {
+		t.Fatalf("explicit read-only scopes = %q", got)
+	}
+	if got := strings.Join(requestedScopes(readScope+" "+writeScope, false), " "); got != readScope {
+		t.Fatalf("disabled write scope survived: %q", got)
+	}
+}
+
 func TestOAuthAuthorizationCodeFlow(t *testing.T) {
 	secret := strings.Repeat("s", 48)
-	server, err := NewOAuthServer("https://mcp.example.com", "https://cores.example.com", secret, t.TempDir()+"/clients.json", func(_ context.Context, id uint) (bool, error) { return id == 7, nil })
+	server, err := NewOAuthServer("https://mcp.example.com", "https://cores.example.com", secret, t.TempDir()+"/clients.json", true, func(_ context.Context, id uint) (bool, error) { return id == 7, nil })
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -63,7 +75,7 @@ func TestOAuthAuthorizationCodeFlow(t *testing.T) {
 	verifier := "test-code-verifier-with-sufficient-entropy"
 	digest := sha256.Sum256([]byte(verifier))
 	challenge := base64.RawURLEncoding.EncodeToString(digest[:])
-	query := url.Values{"response_type": {"code"}, "client_id": {client.ID}, "redirect_uri": {"https://client.example.com/callback"}, "code_challenge": {challenge}, "code_challenge_method": {"S256"}, "scope": {readScope}, "state": {"state-1"}}
+	query := url.Values{"response_type": {"code"}, "client_id": {client.ID}, "redirect_uri": {"https://client.example.com/callback"}, "code_challenge": {challenge}, "code_challenge_method": {"S256"}, "scope": {readScope + " " + writeScope}, "state": {"state-1"}}
 
 	suiteToken, err := jwtlib.NewWithClaims(jwtlib.SigningMethodHS256, suiteClaims{UserID: 7, Username: "tester", RegisteredClaims: jwtlib.RegisteredClaims{ExpiresAt: jwtlib.NewNumericDate(time.Now().Add(time.Hour))}}).SignedString([]byte(secret))
 	if err != nil {
@@ -113,12 +125,16 @@ func TestOAuthAuthorizationCodeFlow(t *testing.T) {
 	var tokens struct {
 		Access  string `json:"access_token"`
 		Refresh string `json:"refresh_token"`
+		Scope   string `json:"scope"`
 	}
 	if err := json.Unmarshal(tokenResponse.Body.Bytes(), &tokens); err != nil {
 		t.Fatal(err)
 	}
 	if tokens.Access == "" || tokens.Refresh == "" {
 		t.Fatalf("missing tokens: %s", tokenResponse.Body.String())
+	}
+	if tokens.Scope != readScope+" "+writeScope {
+		t.Fatalf("scope = %q", tokens.Scope)
 	}
 	if _, err := server.VerifyToken(context.Background(), tokens.Access, httptest.NewRequest(http.MethodPost, "/mcp", nil)); err != nil {
 		t.Fatalf("verify token: %v", err)
@@ -128,12 +144,12 @@ func TestOAuthAuthorizationCodeFlow(t *testing.T) {
 func TestAccessTokenRevokedWhenAccountDisabled(t *testing.T) {
 	active := true
 	var lookupErr error
-	server, err := NewOAuthServer("https://mcp.example.com", "https://cores.example.com", strings.Repeat("s", 48), t.TempDir()+"/clients.json", func(_ context.Context, id uint) (bool, error) { return active && id == 7, lookupErr })
+	server, err := NewOAuthServer("https://mcp.example.com", "https://cores.example.com", strings.Repeat("s", 48), t.TempDir()+"/clients.json", false, func(_ context.Context, id uint) (bool, error) { return active && id == 7, lookupErr })
 	if err != nil {
 		t.Fatal(err)
 	}
 	response := httptest.NewRecorder()
-	server.writeTokens(response, User{ID: 7}, "test-client")
+	server.writeTokens(response, User{ID: 7}, "test-client", []string{readScope})
 	var tokens struct {
 		Access string `json:"access_token"`
 	}
@@ -155,7 +171,7 @@ func TestAccessTokenRevokedWhenAccountDisabled(t *testing.T) {
 }
 
 func TestAccessTokenRequiresExpiryAndNumericSubject(t *testing.T) {
-	server, err := NewOAuthServer("https://mcp.example.com", "https://cores.example.com", strings.Repeat("s", 48), t.TempDir()+"/clients.json", nil)
+	server, err := NewOAuthServer("https://mcp.example.com", "https://cores.example.com", strings.Repeat("s", 48), t.TempDir()+"/clients.json", false, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -175,7 +191,7 @@ func TestAccessTokenRequiresExpiryAndNumericSubject(t *testing.T) {
 }
 
 func TestOAuthLoginRetryKeepsAuthorizationQuery(t *testing.T) {
-	server, err := NewOAuthServer("https://mcp.example.com", "https://cores.example.com", strings.Repeat("s", 48), t.TempDir()+"/clients.json", nil)
+	server, err := NewOAuthServer("https://mcp.example.com", "https://cores.example.com", strings.Repeat("s", 48), t.TempDir()+"/clients.json", false, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -244,7 +260,7 @@ func TestAuthenticateClient(t *testing.T) {
 }
 
 func TestMalformedAuthorizationFormDoesNotRedirect(t *testing.T) {
-	server, err := NewOAuthServer("https://mcp.example.com", "https://cores.example.com", strings.Repeat("s", 48), t.TempDir()+"/clients.json", nil)
+	server, err := NewOAuthServer("https://mcp.example.com", "https://cores.example.com", strings.Repeat("s", 48), t.TempDir()+"/clients.json", false, nil)
 	if err != nil {
 		t.Fatal(err)
 	}

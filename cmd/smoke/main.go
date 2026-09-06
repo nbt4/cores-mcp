@@ -31,6 +31,10 @@ func main() {
 	}
 	failures := 0
 	for _, tool := range listed.Tools {
+		if strings.HasSuffix(tool.Name, ".prepare_create") || tool.Annotations != nil && !tool.Annotations.ReadOnlyHint {
+			fmt.Printf("SKIP %s (requires interactive cores:write consent)\n", tool.Name)
+			continue
+		}
 		result, callErr := session.CallTool(context.Background(), &mcp.CallToolParams{Name: tool.Name, Arguments: smokeArguments(tool.Name)})
 		if callErr != nil || result.IsError {
 			failures++

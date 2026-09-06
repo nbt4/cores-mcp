@@ -1,6 +1,10 @@
 # Cores MCP Agent Rules
 
-- The server is read-only. Never add a tool that mutates suite or external data.
+- Keep database access read-only. Mutations are limited to documented, additive,
+  guided tools that call the owning Core API with `cores:write`, a real suite user,
+  complete validation, a final preview, and explicit user confirmation.
+- Never add arbitrary mutation, delete, update, order, approval, receipt, shell,
+  file, email, or unrestricted HTTP tools.
 - Expose business capabilities, not arbitrary SQL or unrestricted table access.
 - Select fields explicitly and exclude credentials, password hashes, tokens, bank data, private document contents and unnecessary personal data.
 - Every tool result must identify its data timestamp and source records.

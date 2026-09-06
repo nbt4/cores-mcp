@@ -15,3 +15,11 @@ func TestSplitClean(t *testing.T) {
 		t.Fatalf("unexpected values: %#v", got)
 	}
 }
+
+func TestWritesRequireInteractiveOAuth(t *testing.T) {
+	t.Setenv("MCP_AUTH_MODE", "none")
+	t.Setenv("MCP_ENABLE_WRITES", "true")
+	if _, err := Load(); err == nil {
+		t.Fatal("write tools were enabled without interactive OAuth")
+	}
+}

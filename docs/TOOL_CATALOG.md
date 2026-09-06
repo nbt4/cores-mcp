@@ -7,7 +7,7 @@ OAuth-Benutzers beschränkt. Das gilt auch für `cores.search`,
 berechtigt nicht zum Lesen fremder Pläne. Maschinentokens liefern keine Planner-Daten.
 Toolnamen und Eingabeschemas bleiben unverändert.
 
-Alle 59 Tools sind read-only und idempotent. Suchtools akzeptieren üblicherweise `query`, `limit` und `offset`; Zeitfenster `from`, `to` und `limit`; Detailtools `id`. Datumswerte sind `YYYY-MM-DD` oder RFC3339.
+Die 59 Abfragetools sind read-only und idempotent. Bei `MCP_ENABLE_WRITES=true` werden zusätzlich zwei vorbereitende sowie zwei additive Create-Tools registriert. Suchtools akzeptieren üblicherweise `query`, `limit` und `offset`; Zeitfenster `from`, `to` und `limit`; Detailtools `id`. Datumswerte sind `YYYY-MM-DD` oder RFC3339.
 
 ## Suiteweit, flexible Abfragen und Wissen (11)
 
@@ -61,7 +61,7 @@ Beispiel für Jobs samt Anforderungen und Lagerprodukt:
 
 Alle Query-Namen und Felder stammen aus einer festen Registry. Nutzwerte werden ausschließlich als PostgreSQL-Parameter gebunden. Resultate bleiben durch das globale Zeilenlimit, Query-Limits, Read-only-Transaktionen und Statement-Timeouts begrenzt.
 
-## RentalCore (9)
+## RentalCore (9 + 2 geführte Anlage-Tools)
 
 | Tool | Zweck |
 |---|---|
@@ -74,6 +74,8 @@ Alle Query-Namen und Felder stammen aus einer festen Registry. Nutzwerte werden 
 | `rental.revenue.summary` | Geplanter und finaler Umsatz nach Monat und Status |
 | `rental.staffing.requirements` | Personalzuordnung und Skills für Jobs |
 | `rental.external_equipment.list` | Fremdmietkatalog, Nutzung und historische Kosten |
+| `rental.jobs.prepare_create` | Kunde, Status, Kategorie, Ort und Datumswerte auflösen; konkrete Rückfragen liefern |
+| `rental.jobs.create` | Einen bestätigten, vollständig aufgelösten Job über die RentalCore-API anlegen |
 
 ## WarehouseCore (16)
 
@@ -109,11 +111,11 @@ Alle Query-Namen und Felder stammen aus einer festen Registry. Nutzwerte werden 
 | `planner.sprints.list` | Sprints samt Taskfortschritt |
 | `planner.workload.summary` | Offene Arbeit nach Zuständigem, Plan und Priorität |
 
-## ProcurementCore (11)
+## ProcurementCore (11 + 2 geführte Anlage-Tools)
 
 | Tool | Zweck |
 |---|---|
-| `procurement.products.search` | Beschaffungsprodukte und Attribute suchen |
+| `procurement.products.search` | Beschaffungsprodukte tolerant suchen und mit fachlichem Kontext statt nur Codes erklären |
 | `procurement.products.get` | Produkt mit Angeboten, Historie, Bedarf, Orders und Lagerlink |
 | `procurement.offers.compare` | Angebote normalisiert nach Stückpreis, Packung, Mindestmenge und Lieferzeit |
 | `procurement.suppliers.search` | Lieferantenleistung, Risiko, Angebote und Bestellvolumen |
@@ -124,6 +126,12 @@ Alle Query-Namen und Felder stammen aus einer festen Registry. Nutzwerte werden 
 | `procurement.reorder.candidates` | Produkte unter Meldebestand samt bestem Angebot |
 | `procurement.spend.summary` | Bestellvolumen nach Monat, Lieferant, Status und Währung |
 | `procurement.risks.list` | Lieferanten-, Angebots-, Preis- und Lieferrisiken |
+| `procurement.products.prepare_create` | Produktlink analysieren, Daten zusammenführen, Duplikate prüfen und konkrete Rückfragen liefern |
+| `procurement.products.create` | Bestätigtes Produkt und optional eine Bezugsquelle über die ProcurementCore-API anlegen |
+
+### Anlagevertrag
+
+Vor jedem Create wird das jeweilige `prepare_create`-Tool aufgerufen. Es liefert einen strukturierten Entwurf, `required_missing_fields`, `recommended_missing_fields` (bei Produkten), `questions_for_user` und `ready_to_create`. Der Client fragt diese Angaben beim Benutzer ab, zeigt anschließend den finalen Entwurf und setzt `confirm_creation=true` erst nach ausdrücklicher Zustimmung. Empfohlene Produktlücken dürfen nur mit `accept_incomplete=true` und ausdrücklicher Nutzerentscheidung offen bleiben. Duplikate, ungültige IDs und mehrdeutige Referenzen blockieren die Anlage.
 
 ## Cross-Core-Entscheidungen (4)
 

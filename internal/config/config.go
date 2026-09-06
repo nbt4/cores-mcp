@@ -27,6 +27,7 @@ type Config struct {
 	WarehouseURL       string
 	PlannerURL         string
 	ProcurementURL     string
+	EnableWrites       bool
 	TrustProxyHeaders  bool
 }
 
@@ -48,6 +49,7 @@ func Load() (Config, error) {
 		WarehouseURL:       strings.TrimRight(env("WAREHOUSECORE_URL", "http://warehousecore:8082"), "/"),
 		PlannerURL:         strings.TrimRight(env("PLANNERCORE_URL", "http://plannercore:8080"), "/"),
 		ProcurementURL:     strings.TrimRight(env("PROCUREMENTCORE_URL", "http://procurementcore:8084"), "/"),
+		EnableWrites:       boolEnv("MCP_ENABLE_WRITES", false),
 		TrustProxyHeaders:  boolEnv("TRUST_PROXY_HEADERS", true),
 	}
 
@@ -71,6 +73,9 @@ func Load() (Config, error) {
 	}
 	if cfg.AuthMode == "bearer" && len(cfg.StaticTokens) == 0 {
 		return Config{}, errors.New("MCP_STATIC_TOKENS is required in bearer mode")
+	}
+	if cfg.EnableWrites && cfg.AuthMode != "oauth" {
+		return Config{}, errors.New("MCP_ENABLE_WRITES requires MCP_AUTH_MODE=oauth so every change has a Cores user identity")
 	}
 	if cfg.MaxRows < 1 || cfg.MaxRows > 1000 {
 		return Config{}, errors.New("MCP_MAX_ROWS must be between 1 and 1000")
