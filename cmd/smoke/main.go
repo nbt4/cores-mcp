@@ -80,6 +80,12 @@ func contentText(contents []mcp.Content) string {
 
 func smokeArguments(name string) map[string]any {
 	switch {
+	case name == "cores.query.catalog":
+		return map[string]any{}
+	case name == "cores.query.records":
+		return map[string]any{"queries": []map[string]any{{"alias": "jobs", "entity": "rental.jobs", "limit": 1}}}
+	case name == "cores.query.aggregate":
+		return map[string]any{"entity": "rental.jobs", "limit": 1}
 	case name == "cores.data.dictionary" || name == "cores.data.quality" || name == "cores.operations.overview" || name == "cores.services.health" || name == "knowledge.documents.list":
 		return map[string]any{}
 	case strings.Contains(name, ".get"):
