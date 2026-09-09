@@ -9,6 +9,10 @@ Toolnamen und Eingabeschemas bleiben unverändert.
 
 Die 59 Abfragetools sind read-only und idempotent. Bei `MCP_ENABLE_WRITES=true` werden zusätzlich fünf vorbereitende sowie fünf additive Create-Tools für alle vier Core-Services registriert. Suchtools akzeptieren üblicherweise `query`, `limit` und `offset`; Zeitfenster `from`, `to` und `limit`; Detailtools `id`. Datumswerte sind `YYYY-MM-DD` oder RFC3339.
 
+Bei aktivierten Schreibtools fordert die OAuth-Challenge `cores:read` und
+`cores:write` gemeinsam an. Dadurch kann der Client die vorbereitenden Tools
+nicht mehr mit einem unbemerkt weiterverwendeten Read-only-Token aufrufen.
+
 ## Suiteweit, flexible Abfragen und Wissen (11)
 
 | Tool | Zweck |

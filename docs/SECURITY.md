@@ -7,6 +7,9 @@ Der MCP-Server liest operative Daten aus der gemeinsamen Cores-PostgreSQL-Datenb
 ## Zugriffsschutz
 
 - OAuth 2.0 Authorization Code mit PKCE S256, Dynamic Client Registration und Scope `cores:read`; bei aktivierten Anlage-Tools kommt die getrennte Zustimmung zu `cores:write` hinzu.
+- Bei aktivierten Anlage-Tools verlangt der MCP-Endpunkt beide Scopes bereits in
+  der OAuth-Challenge. Alte Lesetokens können damit keine Tool-Sitzung fortsetzen,
+  sondern müssen den sichtbaren Consent für den Schreibzugriff erneut durchlaufen.
 - Autorisierung nur mit gültigem Cores-Suite-Cookie und aktivem Benutzer in der Datenbank.
 - Exakte Redirect-URI-Prüfung, HTTPS-Pflicht außer localhost, State/CSRF-Schutz und kurzlebige einmalige Codes.
 - Signierte Access-Tokens: 1 Stunde; Refresh-Tokens: 30 Tage.

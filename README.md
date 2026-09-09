@@ -1,5 +1,13 @@
 # Cores MCP
 
+## Verlässliche Schreibfreigabe ab 1.2.3
+
+Wenn `MCP_ENABLE_WRITES=true` gesetzt ist, fordert die OAuth-Challenge jetzt
+verbindlich `cores:read` und `cores:write` an. MCP-Clients erhalten dadurch beim
+Verbinden tatsächlich den im Consent bestätigten Anlagezugriff, statt trotz
+aktivierter Schreibtools unbemerkt bei einem alten Read-only-Token zu bleiben.
+Bestehende Lesetokens werden zur erneuten Autorisierung aufgefordert.
+
 ## Geführte Schreibzugriffe ab 1.2.2
 
 Mit `MCP_ENABLE_WRITES=true` besitzt jeder Core mindestens einen sicher geführten,
@@ -156,7 +164,7 @@ Markdown-, Text-, CSV- und JSON-Dateien unter `MCP_KNOWLEDGE_DIRS` werden als MC
 
 ```bash
 make check
-docker build -t nobentie/cores-mcp:1.2.2 -t nobentie/cores-mcp:latest .
+docker build -t nobentie/cores-mcp:1.2.3 -t nobentie/cores-mcp:latest .
 ```
 
 Die Umbrella-Compose-Datei der Cores Suite bindet den Dienst intern ein. Der Cores-Dashboard-Reverse-Proxy veröffentlicht MCP und OAuth auf derselben Domain, damit der bestehende Suite-Login genutzt werden kann.

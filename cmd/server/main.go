@@ -93,9 +93,9 @@ func main() {
 		}
 		oauthServer.Register(mux)
 		verifier := authn.CombinedVerifier(oauthServer.VerifyToken, cfg.StaticTokens)
-		protected = auth.RequireBearerToken(verifier, &auth.RequireBearerTokenOptions{Scopes: []string{authn.ReadScope()}, ResourceMetadataURL: cfg.PublicURL + "/.well-known/oauth-protected-resource/mcp", ClockSkew: 30 * time.Second})(mcpHandler)
+		protected = auth.RequireBearerToken(verifier, bearerOptions(cfg))(mcpHandler)
 	case "bearer":
-		protected = auth.RequireBearerToken(authn.StaticVerifier(cfg.StaticTokens), &auth.RequireBearerTokenOptions{Scopes: []string{authn.ReadScope()}, ResourceMetadataURL: cfg.PublicURL + "/.well-known/oauth-protected-resource/mcp"})(mcpHandler)
+		protected = auth.RequireBearerToken(authn.StaticVerifier(cfg.StaticTokens), bearerOptions(cfg))(mcpHandler)
 	case "none":
 		logger.Warn("MCP authentication is disabled; use only in isolated development")
 	}
@@ -128,4 +128,12 @@ func supportedScopes(cfg config.Config) []string {
 		scopes = append(scopes, authn.WriteScope())
 	}
 	return scopes
+}
+
+func bearerOptions(cfg config.Config) *auth.RequireBearerTokenOptions {
+	return &auth.RequireBearerTokenOptions{
+		Scopes:              supportedScopes(cfg),
+		ResourceMetadataURL: cfg.PublicURL + "/.well-known/oauth-protected-resource/mcp",
+		ClockSkew:           30 * time.Second,
+	}
 }
