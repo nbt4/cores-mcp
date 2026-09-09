@@ -64,7 +64,7 @@ func main() {
 	mux.HandleFunc("GET /mcp/docs", func(w http.ResponseWriter, _ *http.Request) {
 		httpx.JSON(w, http.StatusOK, map[string]any{
 			"service": "Cores MCP", "version": mcpserver.Version, "endpoint": cfg.MCPURL(),
-			"transport": "Streamable HTTP", "access": map[bool]string{true: "read and guided create", false: "read-only"}[cfg.EnableWrites], "scopes": supportedScopes(cfg),
+			"transport": "Streamable HTTP", "access": map[bool]string{true: "read and guided additive create across all Cores", false: "read-only"}[cfg.EnableWrites], "scopes": supportedScopes(cfg),
 			"documentation": "https://github.com/nbt4/cores-mcp#readme",
 		})
 	})

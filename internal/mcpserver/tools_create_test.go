@@ -77,6 +77,31 @@ func TestProductCreateInputJSONUsesGuidedConfirmationFields(t *testing.T) {
 	}
 }
 
+func TestOperationalCreateInputsRequireCompleteDrafts(t *testing.T) {
+	plan, err := preparePlannerPlanCreate(context.Background(), nil, PlannerPlanCreateInput{})
+	if err != nil || plan.Ready || !containsString(plan.Missing, "name") {
+		t.Fatalf("plan draft = %#v, err=%v", plan, err)
+	}
+	task, err := preparePlannerTaskCreate(context.Background(), nil, PlannerTaskCreateInput{})
+	if err != nil || task.Ready || !containsString(task.Missing, "plan_id") || !containsString(task.Missing, "title") {
+		t.Fatalf("task draft = %#v, err=%v", task, err)
+	}
+	warehouseTask, err := prepareWarehouseTaskCreate(context.Background(), nil, WarehouseTaskCreateInput{TaskType: "unknown", Priority: 101})
+	if err != nil || warehouseTask.Ready || !containsString(warehouseTask.Missing, "task_type") || !containsString(warehouseTask.Missing, "priority") || !containsString(warehouseTask.Missing, "context") {
+		t.Fatalf("warehouse task draft = %#v, err=%v", warehouseTask, err)
+	}
+}
+
+func TestWarehouseTaskInputJSONUsesExplicitConfirmation(t *testing.T) {
+	data, err := json.Marshal(WarehouseTaskCreateInput{TaskType: "count", ConfirmCreation: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(data), `"confirm_creation":true`) {
+		t.Fatalf("missing explicit confirmation: %s", data)
+	}
+}
+
 func TestWriteToolsExposeSafeAnnotationsAndSchemas(t *testing.T) {
 	server := New(config.Config{EnableWrites: true, JWTSecret: strings.Repeat("s", 48)}, nil, slog.New(slog.NewTextHandler(io.Discard, nil)))
 	clientTransport, serverTransport := mcp.NewInMemoryTransports()
@@ -99,15 +124,15 @@ func TestWriteToolsExposeSafeAnnotationsAndSchemas(t *testing.T) {
 	for _, tool := range listed.Tools {
 		tools[tool.Name] = tool
 	}
-	if len(tools) != 63 {
-		t.Fatalf("tool count = %d, want 63", len(tools))
+	if len(tools) != 69 {
+		t.Fatalf("tool count = %d, want 69", len(tools))
 	}
-	for _, name := range []string{"procurement.products.prepare_create", "rental.jobs.prepare_create"} {
+	for _, name := range []string{"procurement.products.prepare_create", "rental.jobs.prepare_create", "planner.plans.prepare_create", "planner.tasks.prepare_create", "warehouse.tasks.prepare_create"} {
 		if tools[name] == nil || tools[name].Annotations == nil || !tools[name].Annotations.ReadOnlyHint {
 			t.Fatalf("%s is missing read-only preparation annotation", name)
 		}
 	}
-	for _, name := range []string{"procurement.products.create", "rental.jobs.create"} {
+	for _, name := range []string{"procurement.products.create", "rental.jobs.create", "planner.plans.create", "planner.tasks.create", "warehouse.tasks.create"} {
 		tool := tools[name]
 		if tool == nil || tool.Annotations == nil || tool.Annotations.ReadOnlyHint || tool.Annotations.DestructiveHint == nil || *tool.Annotations.DestructiveHint {
 			t.Fatalf("%s is not marked as an additive write", name)

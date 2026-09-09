@@ -7,7 +7,7 @@ OAuth-Benutzers beschränkt. Das gilt auch für `cores.search`,
 berechtigt nicht zum Lesen fremder Pläne. Maschinentokens liefern keine Planner-Daten.
 Toolnamen und Eingabeschemas bleiben unverändert.
 
-Die 59 Abfragetools sind read-only und idempotent. Bei `MCP_ENABLE_WRITES=true` werden zusätzlich zwei vorbereitende sowie zwei additive Create-Tools registriert. Suchtools akzeptieren üblicherweise `query`, `limit` und `offset`; Zeitfenster `from`, `to` und `limit`; Detailtools `id`. Datumswerte sind `YYYY-MM-DD` oder RFC3339.
+Die 59 Abfragetools sind read-only und idempotent. Bei `MCP_ENABLE_WRITES=true` werden zusätzlich fünf vorbereitende sowie fünf additive Create-Tools für alle vier Core-Services registriert. Suchtools akzeptieren üblicherweise `query`, `limit` und `offset`; Zeitfenster `from`, `to` und `limit`; Detailtools `id`. Datumswerte sind `YYYY-MM-DD` oder RFC3339.
 
 ## Suiteweit, flexible Abfragen und Wissen (11)
 
@@ -77,7 +77,7 @@ Alle Query-Namen und Felder stammen aus einer festen Registry. Nutzwerte werden 
 | `rental.jobs.prepare_create` | Kunde, Status, Kategorie, Ort und Datumswerte auflösen; konkrete Rückfragen liefern |
 | `rental.jobs.create` | Einen bestätigten, vollständig aufgelösten Job über die RentalCore-API anlegen |
 
-## WarehouseCore (16)
+## WarehouseCore (16 + 2 geführte Anlage-Tools)
 
 | Tool | Zweck |
 |---|---|
@@ -97,8 +97,10 @@ Alle Query-Namen und Felder stammen aus einer festen Registry. Nutzwerte werden 
 | `warehouse.cables.search` | Kabelbestand nach Steckern, Typ und Länge |
 | `warehouse.packages.search` | Produktpakete, Mengen, Preise und Jobnutzung |
 | `warehouse.utilization.summary` | Gerätenutzung, Umsatz, Ausfälle und Defekte nach Produkt |
+| `warehouse.tasks.prepare_create` | Aufgabentyp, Priorität, Fälligkeit und referenzierte Live-Datensätze prüfen |
+| `warehouse.tasks.create` | Eine bestätigte Lageraufgabe über die WarehouseCore-API anlegen |
 
-## PlannerCore (8)
+## PlannerCore (8 + 4 geführte Anlage-Tools)
 
 | Tool | Zweck |
 |---|---|
@@ -110,6 +112,10 @@ Alle Query-Namen und Felder stammen aus einer festen Registry. Nutzwerte werden 
 | `planner.goals.list` | Ziele, Fortschritt und Termin |
 | `planner.sprints.list` | Sprints samt Taskfortschritt |
 | `planner.workload.summary` | Offene Arbeit nach Zuständigem, Plan und Priorität |
+| `planner.plans.prepare_create` | Planname und mögliche Duplikate prüfen |
+| `planner.plans.create` | Einen bestätigten Plan über die PlannerCore-API anlegen |
+| `planner.tasks.prepare_create` | Planmitgliedschaft, Bucket-Zugehörigkeit, Titel und Duplikate prüfen |
+| `planner.tasks.create` | Eine bestätigte Aufgabe im freigegebenen Plan anlegen |
 
 ## ProcurementCore (11 + 2 geführte Anlage-Tools)
 
@@ -131,7 +137,7 @@ Alle Query-Namen und Felder stammen aus einer festen Registry. Nutzwerte werden 
 
 ### Anlagevertrag
 
-Vor jedem Create wird das jeweilige `prepare_create`-Tool aufgerufen. Es liefert einen strukturierten Entwurf, `required_missing_fields`, `recommended_missing_fields` (bei Produkten), `questions_for_user` und `ready_to_create`. Der Client fragt diese Angaben beim Benutzer ab, zeigt anschließend den finalen Entwurf und setzt `confirm_creation=true` erst nach ausdrücklicher Zustimmung. Empfohlene Produktlücken dürfen nur mit `accept_incomplete=true` und ausdrücklicher Nutzerentscheidung offen bleiben. Duplikate, ungültige IDs und mehrdeutige Referenzen blockieren die Anlage.
+Vor jedem Create wird das jeweilige `prepare_create`-Tool aufgerufen. Es liefert einen strukturierten Entwurf, `required_missing_fields`, `recommended_missing_fields` (bei Produkten), `questions_for_user` und `ready_to_create`. Der Client fragt diese Angaben beim Benutzer ab, zeigt anschließend den finalen Entwurf und setzt `confirm_creation=true` erst nach ausdrücklicher Zustimmung. Empfohlene Produktlücken dürfen nur mit `accept_incomplete=true` und ausdrücklicher Nutzerentscheidung offen bleiben. Duplikate, ungültige IDs, fremde Planner-Pläne und mehrdeutige Referenzen blockieren die Anlage.
 
 ## Cross-Core-Entscheidungen (4)
 

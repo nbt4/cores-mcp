@@ -117,7 +117,7 @@ func dataDictionary(enableWrites bool) map[string]any {
 		"excluded":    []string{"password hashes", "session and API tokens", "2FA secrets", "bank details", "document bodies", "employee private addresses", "unnecessary customer contact details", "arbitrary SQL"},
 		"guided_creates": map[string]any{
 			"enabled":  enableWrites,
-			"entities": []string{"ProcurementCore product with optional offer", "RentalCore job"},
+			"entities": []string{"ProcurementCore product with optional offer", "RentalCore job", "PlannerCore plan", "PlannerCore task", "WarehouseCore warehouse task"},
 			"contract": "prepare_create, ask every returned question, show final draft, obtain explicit confirmation, then create",
 			"excluded": []string{"updates", "deletes", "orders", "approvals", "receipts", "status changes", "user administration"},
 		},
