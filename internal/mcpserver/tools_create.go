@@ -59,6 +59,15 @@ type JobCreateInput struct {
 	ConfirmCreation  bool    `json:"confirm_creation,omitempty" jsonschema:"Set true only after showing the resolved final draft to the user and receiving explicit confirmation."`
 }
 
+type RequirementCreateInput struct {
+	JobID           int64  `json:"job_id,omitempty" jsonschema:"Exact existing RentalCore job ID."`
+	JobQuery        string `json:"job_query,omitempty" jsonschema:"Job code or description to resolve when job_id is unknown."`
+	ProductID       int64  `json:"product_id,omitempty" jsonschema:"Exact active WarehouseCore product ID."`
+	ProductQuery    string `json:"product_query,omitempty" jsonschema:"Product name, code, barcode, model, or manufacturer to resolve when product_id is unknown."`
+	Quantity        int    `json:"quantity,omitempty" jsonschema:"Required positive product quantity."`
+	ConfirmCreation bool   `json:"confirm_creation,omitempty" jsonschema:"Set true only after showing the resolved final draft to the user and receiving explicit confirmation."`
+}
+
 type productImportPreview struct {
 	Name         string            `json:"name"`
 	Description  string            `json:"description"`
@@ -140,6 +149,133 @@ func registerCreateTools(server *mcp.Server, cfg config.Config, db *store.Store)
 		id := fmt.Sprint(created["jobID"])
 		return map[string]any{"creation_status": "created", "job": created}, []Source{{Service: "rentalcore", Entity: "job", ID: id}}, nil, nil
 	})
+
+	addWritePreparationTool(server, "rental.requirements.prepare_create", "Prepare rental product requirement", "Resolve one job and one active product, validate a positive quantity, and detect an existing job-product link. Call this before creating a requirement and never guess among ambiguous matches.", func(ctx context.Context, input RequirementCreateInput) (any, []Source, []string, error) {
+		prepared, err := prepareRequirementCreate(ctx, db, input)
+		return prepared.response("draft"), requirementSources(prepared), nil, err
+	})
+	addCreateTool(server, "rental.requirements.create", "Create rental product requirement", "Add one new product requirement to an existing RentalCore job. First call rental.requirements.prepare_create, resolve every question, show the final draft, and obtain explicit confirmation. Existing requirements are never overwritten.", func(ctx context.Context, input RequirementCreateInput) (any, []Source, []string, error) {
+		prepared, err := prepareRequirementCreate(ctx, db, input)
+		if err != nil {
+			return nil, nil, nil, err
+		}
+		if !prepared.Ready {
+			return prepared.response("needs_input"), requirementSources(prepared), []string{"No data was changed. Ask the listed questions before retrying."}, nil
+		}
+		if !input.ConfirmCreation {
+			return prepared.response("confirmation_required"), requirementSources(prepared), []string{"No data was changed. Show this final draft and ask the user for explicit confirmation."}, nil
+		}
+		jobID := numericID(prepared.Draft["job_id"])
+		payload := map[string]any{"product_id": prepared.Draft["product_id"], "quantity": prepared.Draft["quantity"]}
+		var created map[string]any
+		if err := api.doJSON(ctx, cfg.RentalURL, fmt.Sprintf("/api/v1/jobs/%d/requirements", jobID), http.MethodPost, payload, &created); err != nil {
+			return nil, nil, nil, err
+		}
+		return map[string]any{"creation_status": "created", "requirement": created["requirement"]}, []Source{
+			{Service: "rentalcore", Entity: "job", ID: fmt.Sprint(jobID)},
+			{Service: "warehousecore", Entity: "product", ID: fmt.Sprint(prepared.Draft["product_id"])},
+		}, nil, nil
+	})
+}
+
+type preparedRequirement struct {
+	Draft     map[string]any
+	Missing   []string
+	Questions []map[string]any
+	Existing  []map[string]any
+	Ready     bool
+}
+
+func (p preparedRequirement) response(status string) map[string]any {
+	return map[string]any{
+		"creation_status":         status,
+		"ready_to_create":         p.Ready,
+		"draft":                   p.Draft,
+		"required_missing_fields": p.Missing,
+		"questions_for_user":      p.Questions,
+		"existing_requirements":   p.Existing,
+	}
+}
+
+func requirementSources(prepared preparedRequirement) []Source {
+	sources := []Source{}
+	if id := numericID(prepared.Draft["job_id"]); id > 0 {
+		sources = append(sources, Source{Service: "rentalcore", Entity: "job", ID: fmt.Sprint(id)})
+	}
+	if id := numericID(prepared.Draft["product_id"]); id > 0 {
+		sources = append(sources, Source{Service: "warehousecore", Entity: "product", ID: fmt.Sprint(id)})
+	}
+	if len(sources) == 0 {
+		return []Source{{Service: "rentalcore", Entity: "job_product_requirement_draft"}}
+	}
+	return sources
+}
+
+func prepareRequirementCreate(ctx context.Context, db *store.Store, input RequirementCreateInput) (preparedRequirement, error) {
+	draft := map[string]any{}
+	missing := []string{}
+	questions := []map[string]any{}
+
+	var job map[string]any
+	if input.JobID > 0 || strings.TrimSpace(input.JobQuery) != "" {
+		resolved, options, err := resolveReference(ctx, db, `SELECT jobid AS id,COALESCE(NULLIF(TRIM(job_code),''),'Job ' || jobid::text) AS label,concat_ws(' · ',description,startdate::text,enddate::text) AS context FROM jobs WHERE deleted_at IS NULL`, input.JobID, input.JobQuery)
+		if err != nil {
+			return preparedRequirement{}, err
+		}
+		job = resolved
+		if job == nil {
+			missing = append(missing, "job_id")
+			questions = append(questions, question("job_id", "For which existing job should the product be required?", "required", options))
+		}
+	} else {
+		missing = append(missing, "job_id")
+		questions = append(questions, question("job_id", "For which existing job should the product be required?", "required", nil))
+	}
+	if job != nil {
+		draft["job_id"], draft["job"], draft["job_context"] = job["id"], job["label"], job["context"]
+	}
+
+	var product map[string]any
+	if input.ProductID > 0 || strings.TrimSpace(input.ProductQuery) != "" {
+		resolved, options, err := resolveReference(ctx, db, `SELECT productid AS id,name AS label,concat_ws(' · ',product_code,manufacturer,model_number) AS context FROM products WHERE lifecycle_status='active'`, input.ProductID, input.ProductQuery)
+		if err != nil {
+			return preparedRequirement{}, err
+		}
+		product = resolved
+		if product == nil {
+			missing = append(missing, "product_id")
+			questions = append(questions, question("product_id", "Which active warehouse product is required?", "required", options))
+		}
+	} else {
+		missing = append(missing, "product_id")
+		questions = append(questions, question("product_id", "Which active warehouse product is required?", "required", nil))
+	}
+	if product != nil {
+		draft["product_id"], draft["product"], draft["product_context"] = product["id"], product["label"], product["context"]
+	}
+
+	if input.Quantity <= 0 {
+		missing = append(missing, "quantity")
+		questions = append(questions, question("quantity", "How many units of this product does the job require?", "required", nil))
+	} else {
+		draft["quantity"] = input.Quantity
+	}
+
+	existing := []map[string]any{}
+	if job != nil && product != nil {
+		rows, err := db.Query(ctx, `SELECT id,job_id,product_id,quantity FROM job_product_requirements WHERE job_id=$1 AND product_id=$2`, job["id"], product["id"])
+		if err != nil {
+			return preparedRequirement{}, err
+		}
+		existing = rows
+		if len(rows) > 0 {
+			missing = append(missing, "existing_requirement")
+			questions = append(questions, question("existing_requirement", "This job already has a requirement for the selected product. Review it in RentalCore; this additive tool will not overwrite it.", "blocking", rows))
+		}
+	}
+
+	missing = unique(missing)
+	return preparedRequirement{Draft: draft, Missing: missing, Questions: questions, Existing: existing, Ready: len(missing) == 0}, nil
 }
 
 type preparedProduct struct {

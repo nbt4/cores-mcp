@@ -1,5 +1,13 @@
 # Cores MCP
 
+## Job-Produktbedarfe per MCP ab 1.2.4
+
+`rental.requirements.prepare_create` löst Job und aktives Warehouse-Produkt auf,
+prüft die positive Menge und erkennt bereits vorhandene Verknüpfungen.
+`rental.requirements.create` legt nach ausdrücklicher Bestätigung genau einen
+neuen Bedarf über die RentalCore-API an. Bestehende Bedarfsmengen werden bewusst
+nicht überschrieben.
+
 ## Verlässliche Schreibfreigabe ab 1.2.3
 
 Wenn `MCP_ENABLE_WRITES=true` gesetzt ist, fordert die OAuth-Challenge jetzt
@@ -41,7 +49,7 @@ entfernt ausschließlich sein eigenes Schema.
 
 Cores MCP bindet die gesamte Cores Suite als sicheren MCP-Server an ChatGPT, Claude, Codex und andere MCP-fähige Agents an. Der Chat bleibt beim jeweiligen KI-Anbieter; Cores stellt nur kontrollierte Werkzeuge und Kontext bereit.
 
-Der Server bietet 59 lesende fachliche Tools, fünf wiederverwendbare Analyse-Prompts und dokumentierbare Knowledge-Ressourcen für RentalCore, WarehouseCore, PlannerCore und ProcurementCore. Bei `MCP_ENABLE_WRITES=true` kommen fünf vorbereitende und fünf bestätigte Anlage-Tools für alle vier Core-Services hinzu. Es gibt bewusst kein beliebiges SQL und keine Tools zum Ändern, Löschen, Bestellen oder Freigeben.
+Der Server bietet 59 lesende fachliche Tools, fünf wiederverwendbare Analyse-Prompts und dokumentierbare Knowledge-Ressourcen für RentalCore, WarehouseCore, PlannerCore und ProcurementCore. Bei `MCP_ENABLE_WRITES=true` kommen sechs vorbereitende und sechs bestätigte Anlage-Tools für alle vier Core-Services hinzu. Es gibt bewusst kein beliebiges SQL und keine Tools zum Ändern, Löschen, Bestellen oder Freigeben.
 
 ## Geführtes Anlegen mit Rückfragen
 
@@ -49,6 +57,7 @@ Der Server bietet 59 lesende fachliche Tools, fünf wiederverwendbare Analyse-Pr
 - `procurement.products.create` legt erst an, wenn Pflichtfelder eindeutig sind, empfohlene Lücken ausgefüllt oder ausdrücklich akzeptiert wurden und `confirm_creation=true` nach einer finalen Vorschau gesetzt ist.
 - `rental.jobs.prepare_create` löst Kunden, Status, Jobkategorie und Location gegen die Live-Daten auf. Mehrdeutige Namen werden nie geraten, sondern als Auswahl zurückgegeben.
 - `rental.jobs.create` verlangt vollständige Kerndaten und dieselbe ausdrückliche Bestätigung.
+- `rental.requirements.prepare_create` und `rental.requirements.create` lösen Job und Produkt eindeutig auf, prüfen die Menge und verweigern das Überschreiben eines vorhandenen Bedarfs.
 - `planner.plans.prepare_create` und `planner.plans.create` prüfen Namen und Duplikate, bevor ein Plan angelegt wird.
 - `planner.tasks.prepare_create` und `planner.tasks.create` erzwingen Planmitgliedschaft, Bucket-Zugehörigkeit und eine bewusste Duplikatentscheidung.
 - `warehouse.tasks.prepare_create` und `warehouse.tasks.create` prüfen Aufgabentyp, Priorität, Fälligkeit sowie jede referenzierte Zone, jedes Case, Gerät, Produkt und jeden Job live.
@@ -128,7 +137,7 @@ Der Smoke-Test verbindet einen echten MCP-Client, listet alle Tools und ruft jed
 | `MCP_PUBLIC_URL` | `http://localhost:8090` | Öffentliche Basis-URL ohne `/mcp` |
 | `CORES_DASHBOARD_PUBLIC_URL` | `http://localhost:8080` | Cores-Login, auf den OAuth verweist |
 | `MCP_AUTH_MODE` | `oauth` | `oauth`, `bearer` oder nur lokal `none` |
-| `MCP_ENABLE_WRITES` | `false` | Aktiviert zehn geführte Anlage-Tools für alle vier Cores; nur mit `MCP_AUTH_MODE=oauth` zulässig |
+| `MCP_ENABLE_WRITES` | `false` | Aktiviert zwölf geführte Anlage-Tools für alle vier Cores; nur mit `MCP_AUTH_MODE=oauth` zulässig |
 | `CORES_JWT_SECRET` | – | Dasselbe Signatur-Secret wie das Cores Dashboard, mindestens 32 Zeichen |
 | `MCP_STATIC_TOKENS` | – | Optionale `name:secret`-Paare für Agents |
 | `DATABASE_URL` | – | Komplette PostgreSQL-URL; überschreibt einzelne DB-Variablen |
@@ -145,7 +154,7 @@ Die vollständige Vorlage steht in [.env.example](.env.example).
 
 ## Sicherheitsmodell
 
-- Die 59 Abfragetools sind `readOnlyHint=true` und `idempotentHint=true`; die fünf Create-Tools sind als additive, nicht-idempotente Schreibvorgänge annotiert.
+- Die 59 Abfragetools sind `readOnlyHint=true` und `idempotentHint=true`; die sechs Create-Tools sind als additive, nicht-idempotente Schreibvorgänge annotiert.
 - Jede DB-Abfrage läuft in einer PostgreSQL-Transaktion mit `READ ONLY`, Timeout und Zeilenlimit.
 - Produktion verwendet zusätzlich die Rolle `cores_mcp` mit ausschließlich `SELECT`-Rechten.
 - Schreibtools verwenden ausschließlich validierte Endpunkte des jeweils verantwortlichen Core und ein zweiminütiges, auf den OAuth-Benutzer delegiertes Suite-Token. Rollenänderungen und Kontosperren werden dort live geprüft.
@@ -164,7 +173,7 @@ Markdown-, Text-, CSV- und JSON-Dateien unter `MCP_KNOWLEDGE_DIRS` werden als MC
 
 ```bash
 make check
-docker build -t nobentie/cores-mcp:1.2.3 -t nobentie/cores-mcp:latest .
+docker build -t nobentie/cores-mcp:1.2.4 -t nobentie/cores-mcp:latest .
 ```
 
 Die Umbrella-Compose-Datei der Cores Suite bindet den Dienst intern ein. Der Cores-Dashboard-Reverse-Proxy veröffentlicht MCP und OAuth auf derselben Domain, damit der bestehende Suite-Login genutzt werden kann.

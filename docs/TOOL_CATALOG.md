@@ -7,7 +7,7 @@ OAuth-Benutzers beschränkt. Das gilt auch für `cores.search`,
 berechtigt nicht zum Lesen fremder Pläne. Maschinentokens liefern keine Planner-Daten.
 Toolnamen und Eingabeschemas bleiben unverändert.
 
-Die 59 Abfragetools sind read-only und idempotent. Bei `MCP_ENABLE_WRITES=true` werden zusätzlich fünf vorbereitende sowie fünf additive Create-Tools für alle vier Core-Services registriert. Suchtools akzeptieren üblicherweise `query`, `limit` und `offset`; Zeitfenster `from`, `to` und `limit`; Detailtools `id`. Datumswerte sind `YYYY-MM-DD` oder RFC3339.
+Die 59 Abfragetools sind read-only und idempotent. Bei `MCP_ENABLE_WRITES=true` werden zusätzlich sechs vorbereitende sowie sechs additive Create-Tools für alle vier Core-Services registriert. Suchtools akzeptieren üblicherweise `query`, `limit` und `offset`; Zeitfenster `from`, `to` und `limit`; Detailtools `id`. Datumswerte sind `YYYY-MM-DD` oder RFC3339.
 
 Bei aktivierten Schreibtools fordert die OAuth-Challenge `cores:read` und
 `cores:write` gemeinsam an. Dadurch kann der Client die vorbereitenden Tools
@@ -65,7 +65,7 @@ Beispiel für Jobs samt Anforderungen und Lagerprodukt:
 
 Alle Query-Namen und Felder stammen aus einer festen Registry. Nutzwerte werden ausschließlich als PostgreSQL-Parameter gebunden. Resultate bleiben durch das globale Zeilenlimit, Query-Limits, Read-only-Transaktionen und Statement-Timeouts begrenzt.
 
-## RentalCore (9 + 2 geführte Anlage-Tools)
+## RentalCore (9 + 4 geführte Anlage-Tools)
 
 | Tool | Zweck |
 |---|---|
@@ -80,6 +80,8 @@ Alle Query-Namen und Felder stammen aus einer festen Registry. Nutzwerte werden 
 | `rental.external_equipment.list` | Fremdmietkatalog, Nutzung und historische Kosten |
 | `rental.jobs.prepare_create` | Kunde, Status, Kategorie, Ort und Datumswerte auflösen; konkrete Rückfragen liefern |
 | `rental.jobs.create` | Einen bestätigten, vollständig aufgelösten Job über die RentalCore-API anlegen |
+| `rental.requirements.prepare_create` | Job und aktives Produkt eindeutig auflösen, positive Menge prüfen und vorhandenen Bedarf erkennen |
+| `rental.requirements.create` | Einen bestätigten Produktbedarf additiv anlegen, ohne bestehende Mengen zu überschreiben |
 
 ## WarehouseCore (16 + 2 geführte Anlage-Tools)
 

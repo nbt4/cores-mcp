@@ -102,6 +102,23 @@ func TestWarehouseTaskInputJSONUsesExplicitConfirmation(t *testing.T) {
 	}
 }
 
+func TestRequirementCreateNeedsResolvedReferencesAndQuantity(t *testing.T) {
+	prepared, err := prepareRequirementCreate(context.Background(), nil, RequirementCreateInput{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if prepared.Ready || !containsString(prepared.Missing, "job_id") || !containsString(prepared.Missing, "product_id") || !containsString(prepared.Missing, "quantity") {
+		t.Fatalf("requirement draft = %#v", prepared)
+	}
+	if len(prepared.Questions) != 3 {
+		t.Fatalf("questions = %d, want 3", len(prepared.Questions))
+	}
+	response := prepared.response("draft")
+	if _, ok := response["required_missing_fields"]; !ok {
+		t.Fatalf("response lacks required_missing_fields: %#v", response)
+	}
+}
+
 func TestWriteToolsExposeSafeAnnotationsAndSchemas(t *testing.T) {
 	server := New(config.Config{EnableWrites: true, JWTSecret: strings.Repeat("s", 48)}, nil, slog.New(slog.NewTextHandler(io.Discard, nil)))
 	clientTransport, serverTransport := mcp.NewInMemoryTransports()
@@ -124,15 +141,15 @@ func TestWriteToolsExposeSafeAnnotationsAndSchemas(t *testing.T) {
 	for _, tool := range listed.Tools {
 		tools[tool.Name] = tool
 	}
-	if len(tools) != 69 {
-		t.Fatalf("tool count = %d, want 69", len(tools))
+	if len(tools) != 71 {
+		t.Fatalf("tool count = %d, want 71", len(tools))
 	}
-	for _, name := range []string{"procurement.products.prepare_create", "rental.jobs.prepare_create", "planner.plans.prepare_create", "planner.tasks.prepare_create", "warehouse.tasks.prepare_create"} {
+	for _, name := range []string{"procurement.products.prepare_create", "rental.jobs.prepare_create", "rental.requirements.prepare_create", "planner.plans.prepare_create", "planner.tasks.prepare_create", "warehouse.tasks.prepare_create"} {
 		if tools[name] == nil || tools[name].Annotations == nil || !tools[name].Annotations.ReadOnlyHint {
 			t.Fatalf("%s is missing read-only preparation annotation", name)
 		}
 	}
-	for _, name := range []string{"procurement.products.create", "rental.jobs.create", "planner.plans.create", "planner.tasks.create", "warehouse.tasks.create"} {
+	for _, name := range []string{"procurement.products.create", "rental.jobs.create", "rental.requirements.create", "planner.plans.create", "planner.tasks.create", "warehouse.tasks.create"} {
 		tool := tools[name]
 		if tool == nil || tool.Annotations == nil || tool.Annotations.ReadOnlyHint || tool.Annotations.DestructiveHint == nil || *tool.Annotations.DestructiveHint {
 			t.Fatalf("%s is not marked as an additive write", name)
