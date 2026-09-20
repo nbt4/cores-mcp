@@ -31,7 +31,7 @@ func main() {
 	}
 	failures := 0
 	for _, tool := range listed.Tools {
-		if strings.HasSuffix(tool.Name, ".prepare_create") || tool.Annotations != nil && !tool.Annotations.ReadOnlyHint {
+		if strings.Contains(tool.Name, ".prepare_") || tool.Annotations != nil && !tool.Annotations.ReadOnlyHint {
 			fmt.Printf("SKIP %s (requires interactive cores:write consent)\n", tool.Name)
 			continue
 		}

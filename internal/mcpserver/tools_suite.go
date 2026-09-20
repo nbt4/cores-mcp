@@ -46,9 +46,10 @@ func registerSuiteTools(server *mcp.Server, cfg config.Config, db *store.Store) 
               ) results ORDER BY updated_at DESC NULLS LAST LIMIT $2 OFFSET $3`, []any{searchPattern(input.Query), db.Limit(input.Limit), cleanOffset(input.Offset)}
 	})
 
-	windowRowsTool(server, db, "cores.activity.recent", "List recent cross-suite activity", "Return recent operational changes from jobs, devices, planner tasks, procurement activities, movements, defects and maintenance.", "cores", "activity", func(input WindowInput, from, to time.Time) (string, []any) {
+	windowRowsTool(server, db, "cores.activity.recent", "List recent cross-suite activity", "Return recent operational changes from RentalCore job history, jobs, devices, planner tasks, procurement activities, movements, defects and maintenance.", "cores", "activity", func(input WindowInput, from, to time.Time) (string, []any) {
 		return `SELECT * FROM (
 				SELECT 'rental_job' AS source,j.jobid::text AS id,COALESCE(NULLIF(j.description,''),j.job_code) AS subject,'updated' AS action,j.updated_at AS occurred_at FROM jobs j WHERE j.deleted_at IS NULL AND j.updated_at >= $1 AND j.updated_at < $2::timestamp+interval '1 day'
+				UNION ALL SELECT 'rental_job_history',h.history_id::text,COALESCE(NULLIF(j.job_code,''),'Job '||j.jobid::text),concat_ws(' · ',h.change_type,h.field_name),h.changed_at FROM job_history h JOIN jobs j ON j.jobid=h.job_id WHERE h.changed_at >= $1 AND h.changed_at < $2::timestamp+interval '1 day'
 				UNION ALL SELECT 'device',d.deviceid,p.name,concat('status=',d.status,', condition=',d.condition_status),d.updated_at FROM devices d JOIN products p ON p.productid=d.productid WHERE d.updated_at >= $1 AND d.updated_at < $2::timestamp+interval '1 day'
 				UNION ALL SELECT 'planner_task',t.id::text,t.title,concat('progress=',t.progress),t.updated_at FROM planner_tasks t WHERE EXISTS (SELECT 1 FROM planner_members access_member WHERE access_member.plan_id=t.plan_id AND access_member.user_id=current_setting('cores.user_id', true)) AND t.updated_at >= $1 AND t.updated_at < $2::timestamptz+interval '1 day'
 				UNION ALL SELECT 'procurement',a.entity_id::text,concat(a.entity_type,' ',a.entity_id),a.action,a.created_at FROM proc_activities a WHERE a.created_at >= $1 AND a.created_at < $2::timestamptz+interval '1 day'
@@ -115,11 +116,12 @@ func dataDictionary(enableWrites bool) map[string]any {
 		"planner":     map[string]any{"entities": []string{"plans", "tasks", "buckets", "assignees", "goals", "sprints", "dependencies"}},
 		"procurement": map[string]any{"entities": []string{"products", "offers", "suppliers", "requisitions", "orders", "receipts", "price history", "warehouse links"}, "money": "integer cents unless a field explicitly says otherwise"},
 		"excluded":    []string{"password hashes", "session and API tokens", "2FA secrets", "bank details", "document bodies", "employee private addresses", "unnecessary customer contact details", "arbitrary SQL"},
-		"guided_creates": map[string]any{
-			"enabled":  enableWrites,
-			"entities": []string{"ProcurementCore product with optional offer", "RentalCore job", "PlannerCore plan", "PlannerCore task", "WarehouseCore warehouse task"},
-			"contract": "prepare_create, ask every returned question, show final draft, obtain explicit confirmation, then create",
-			"excluded": []string{"updates", "deletes", "orders", "approvals", "receipts", "status changes", "user administration"},
+		"guided_writes": map[string]any{
+			"enabled":   enableWrites,
+			"creates":   []string{"ProcurementCore product with optional offer", "RentalCore job and requirement", "PlannerCore plan and task", "WarehouseCore warehouse task", "ProcurementCore purchase order"},
+			"workflows": []string{"RentalCore device assignment", "RentalCore job/status update", "RentalCore requirement quantity update", "WarehouseCore physical movement", "WarehouseCore device status update"},
+			"contract":  "call the matching prepare tool, ask every returned question, show current and final state plus risks, obtain explicit confirmation, then execute",
+			"excluded":  []string{"deletes", "approvals", "receipts", "user administration", "arbitrary mutation"},
 		},
 	}
 }

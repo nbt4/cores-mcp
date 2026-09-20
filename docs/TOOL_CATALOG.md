@@ -7,7 +7,7 @@ OAuth-Benutzers beschränkt. Das gilt auch für `cores.search`,
 berechtigt nicht zum Lesen fremder Pläne. Maschinentokens liefern keine Planner-Daten.
 Toolnamen und Eingabeschemas bleiben unverändert.
 
-Die 59 Abfragetools sind read-only und idempotent. Bei `MCP_ENABLE_WRITES=true` werden zusätzlich sechs vorbereitende sowie sechs additive Create-Tools für alle vier Core-Services registriert. Suchtools akzeptieren üblicherweise `query`, `limit` und `offset`; Zeitfenster `from`, `to` und `limit`; Detailtools `id`. Datumswerte sind `YYYY-MM-DD` oder RFC3339.
+Die 59 Abfragetools sind read-only und idempotent. Bei `MCP_ENABLE_WRITES=true` werden zusätzlich zwölf vorbereitende und zwölf bestätigte Schreibtools für alle vier Core-Services registriert. Suchtools akzeptieren üblicherweise `query`, `limit` und `offset`; Zeitfenster `from`, `to` und `limit`; Detailtools `id`. Datumswerte sind `YYYY-MM-DD` oder RFC3339.
 
 Bei aktivierten Schreibtools fordert die OAuth-Challenge `cores:read` und
 `cores:write` gemeinsam an. Dadurch kann der Client die vorbereitenden Tools
@@ -65,7 +65,7 @@ Beispiel für Jobs samt Anforderungen und Lagerprodukt:
 
 Alle Query-Namen und Felder stammen aus einer festen Registry. Nutzwerte werden ausschließlich als PostgreSQL-Parameter gebunden. Resultate bleiben durch das globale Zeilenlimit, Query-Limits, Read-only-Transaktionen und Statement-Timeouts begrenzt.
 
-## RentalCore (9 + 4 geführte Anlage-Tools)
+## RentalCore (9 + 10 geführte Schreibtools)
 
 | Tool | Zweck |
 |---|---|
@@ -82,8 +82,14 @@ Alle Query-Namen und Felder stammen aus einer festen Registry. Nutzwerte werden 
 | `rental.jobs.create` | Einen bestätigten, vollständig aufgelösten Job über die RentalCore-API anlegen |
 | `rental.requirements.prepare_create` | Job und aktives Produkt eindeutig auflösen, positive Menge prüfen und vorhandenen Bedarf erkennen |
 | `rental.requirements.create` | Einen bestätigten Produktbedarf additiv anlegen, ohne bestehende Mengen zu überschreiben |
+| `rental.jobs.prepare_assign_device` | Job und aktives Gerät auflösen sowie vorhandene Zuweisung prüfen |
+| `rental.jobs.assign_device` | Ein bestätigtes Gerät einem Job zuweisen |
+| `rental.jobs.prepare_update` | Aktuellen Job laden, neue Referenzen/Termine prüfen und Stornofolgen anzeigen |
+| `rental.jobs.update` | Jobdaten oder Status bestätigt ändern; Storno ersetzt keine Löschung |
+| `rental.requirements.prepare_update` | Vorhandene Bedarfszeile und neue positive Menge prüfen |
+| `rental.requirements.update` | Ausschließlich die bestätigte Menge einer Bedarfszeile ändern |
 
-## WarehouseCore (16 + 2 geführte Anlage-Tools)
+## WarehouseCore (16 + 6 geführte Schreibtools)
 
 | Tool | Zweck |
 |---|---|
@@ -105,6 +111,10 @@ Alle Query-Namen und Felder stammen aus einer festen Registry. Nutzwerte werden 
 | `warehouse.utilization.summary` | Gerätenutzung, Umsatz, Ausfälle und Defekte nach Produkt |
 | `warehouse.tasks.prepare_create` | Aufgabentyp, Priorität, Fälligkeit und referenzierte Live-Datensätze prüfen |
 | `warehouse.tasks.create` | Eine bestätigte Lageraufgabe über die WarehouseCore-API anlegen |
+| `warehouse.movements.prepare_create` | Gerät/Mengenartikel sowie Einlagerung, Ausgabe oder Transfer mit Ziel prüfen |
+| `warehouse.movements.create` | Bestätigte physische Bewegung über den auditierten Scannerprozess buchen |
+| `warehouse.devices.prepare_update_status` | Aktuellen physischen und betrieblichen Gerätezustand samt Prozessgrenzen prüfen |
+| `warehouse.devices.update_status` | Bestätigten, manuell zulässigen Gerätezustand ändern |
 
 ## PlannerCore (8 + 4 geführte Anlage-Tools)
 
@@ -123,7 +133,7 @@ Alle Query-Namen und Felder stammen aus einer festen Registry. Nutzwerte werden 
 | `planner.tasks.prepare_create` | Planmitgliedschaft, Bucket-Zugehörigkeit, Titel und Duplikate prüfen |
 | `planner.tasks.create` | Eine bestätigte Aufgabe im freigegebenen Plan anlegen |
 
-## ProcurementCore (11 + 2 geführte Anlage-Tools)
+## ProcurementCore (11 + 4 geführte Schreibtools)
 
 | Tool | Zweck |
 |---|---|
@@ -140,10 +150,12 @@ Alle Query-Namen und Felder stammen aus einer festen Registry. Nutzwerte werden 
 | `procurement.risks.list` | Lieferanten-, Angebots-, Preis- und Lieferrisiken |
 | `procurement.products.prepare_create` | Produktlink analysieren, Daten zusammenführen, Duplikate prüfen und konkrete Rückfragen liefern |
 | `procurement.products.create` | Bestätigtes Produkt und optional eine Bezugsquelle über die ProcurementCore-API anlegen |
+| `procurement.orders.prepare_create` | Lieferant, Positionen, Termine, Währung, Duplikate und Gesamtwert prüfen |
+| `procurement.orders.create` | Bestätigte Bestellung mit Procurement-Administratorrechten anlegen |
 
-### Anlagevertrag
+### Schreibvertrag
 
-Vor jedem Create wird das jeweilige `prepare_create`-Tool aufgerufen. Es liefert einen strukturierten Entwurf, `required_missing_fields`, `recommended_missing_fields` (bei Produkten), `questions_for_user` und `ready_to_create`. Der Client fragt diese Angaben beim Benutzer ab, zeigt anschließend den finalen Entwurf und setzt `confirm_creation=true` erst nach ausdrücklicher Zustimmung. Empfohlene Produktlücken dürfen nur mit `accept_incomplete=true` und ausdrücklicher Nutzerentscheidung offen bleiben. Duplikate, ungültige IDs, fremde Planner-Pläne und mehrdeutige Referenzen blockieren die Anlage.
+Vor jeder Schreiboperation wird das zugehörige `prepare_*`-Tool aufgerufen. Es liefert einen strukturierten Entwurf, aktuelle Werte, `required_missing_fields`, `questions_for_user`, Risiken und `ready_to_execute` beziehungsweise bei älteren Create-Tools `ready_to_create`. Der Client fragt offene Angaben ab, zeigt den finalen Entwurf und setzt das passende `confirm_*` erst nach ausdrücklicher Zustimmung. Empfohlene Produktlücken dürfen nur mit `accept_incomplete=true` und ausdrücklicher Nutzerentscheidung offen bleiben. Duplikate, ungültige IDs, fremde Planner-Pläne, unzulässige Zustände und mehrdeutige Referenzen blockieren die Ausführung.
 
 ## Cross-Core-Entscheidungen (4)
 

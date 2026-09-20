@@ -648,7 +648,7 @@ var consentTemplate = template.Must(template.New("consent").Parse(`<!doctype htm
     <p class="suite-auth-eyebrow">Sichere Verbindung</p>
     <h1 class="suite-auth-title">Cores MCP verbinden</h1>
     <p class="suite-auth-copy"><strong>{{.Client}}</strong> möchte im Namen von <strong>{{.User}}</strong> auf freigegebene Cores-Daten zugreifen.</p>
-    {{if .Writes}}<div class="suite-auth-notice">Die Verbindung darf Cores-Daten lesen sowie neue Produkte und Jobs anlegen. Jede Anlage wird vorab mit den erkannten Daten angezeigt und erfordert eine ausdrückliche Bestätigung. Bestellungen, Freigaben, Änderungen und Löschungen bleiben gesperrt.</div>{{else}}<div class="suite-auth-notice">Die Verbindung darf Bestände, Jobs, Planungen und Beschaffungsinformationen ausschließlich lesen. Sie kann keine Daten verändern.</div>{{end}}
+    {{if .Writes}}<div class="suite-auth-notice">Die Verbindung darf Cores-Daten lesen und die dokumentierten operativen Workflows ausführen: Anlagen, Gerätezuweisung, Job- und Bedarfsänderung, Bestellung, Lagerbewegung sowie Gerätezustand. Jede Aktion wird vorab validiert, vollständig angezeigt und erfordert eine ausdrückliche Bestätigung; Rollen des Ziel-Cores gelten weiterhin. Löschungen und Freigaben bleiben gesperrt.</div>{{else}}<div class="suite-auth-notice">Die Verbindung darf Bestände, Jobs, Planungen und Beschaffungsinformationen ausschließlich lesen. Sie kann keine Daten verändern.</div>{{end}}
     <form method="post" action="/oauth/authorize">
       {{range .Params}}<input type="hidden" name="{{.Name}}" value="{{.Value}}">{{end}}
       <input type="hidden" name="csrf" value="{{.CSRF}}">

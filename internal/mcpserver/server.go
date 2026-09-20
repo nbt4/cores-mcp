@@ -11,12 +11,12 @@ import (
 	"github.com/nbt4/cores-mcp/internal/store"
 )
 
-const Version = "1.2.4"
+const Version = "1.3.0"
 
 func New(cfg config.Config, db *store.Store, logger *slog.Logger) *mcp.Server {
 	description := "Read-only operational context and safe cross-core queries for RentalCore, WarehouseCore, PlannerCore and ProcurementCore."
 	if cfg.EnableWrites {
-		description = "Operational context, safe cross-core queries, and guided additive creation across all four Cores services."
+		description = "Operational context, safe cross-core queries, and confirmed guided business workflows across all four Cores services."
 	}
 	server := mcp.NewServer(&mcp.Implementation{
 		Name: "cores-mcp", Title: "Cores Suite", Version: Version,
@@ -34,6 +34,7 @@ func New(cfg config.Config, db *store.Store, logger *slog.Logger) *mcp.Server {
 	if cfg.EnableWrites {
 		registerCreateTools(server, cfg, db)
 		registerOperationalCreateTools(server, cfg, db)
+		registerWorkflowTools(server, cfg, db)
 	}
 	registerKnowledge(server, cfg.KnowledgeDirs)
 	registerPrompts(server)
@@ -46,6 +47,9 @@ func auditMiddleware(logger *slog.Logger) mcp.Middleware {
 			started := time.Now()
 			result, err := next(ctx, method, request)
 			attributes := []any{"method", method, "duration_ms", time.Since(started).Milliseconds()}
+			if params, ok := request.GetParams().(*mcp.CallToolParamsRaw); ok {
+				attributes = append(attributes, "tool", params.Name)
+			}
 			if info := auth.TokenInfoFromContext(ctx); info != nil {
 				attributes = append(attributes, "subject", info.UserID)
 			}
