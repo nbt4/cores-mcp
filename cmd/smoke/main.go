@@ -111,6 +111,8 @@ func smokeArguments(name string) map[string]any {
 		return map[string]any{"query": "Schelle", "limit": 5}
 	case name == "knowledge.documents.search":
 		return map[string]any{"query": "Cores", "limit": 5}
+	case isWriteTool(name):
+		return map[string]any{}
 	case strings.Contains(name, ".upcoming") || strings.Contains(name, ".requirements") || strings.Contains(name, ".due") || strings.Contains(name, ".recent") || strings.Contains(name, ".expected"):
 		return map[string]any{"from": "2026-01-01", "to": "2027-12-31", "limit": 5}
 	case strings.Contains(name, ".summary"):
@@ -118,8 +120,6 @@ func smokeArguments(name string) map[string]any {
 			return map[string]any{"limit": 5}
 		}
 		return map[string]any{"from": "2026-01-01", "to": "2027-12-31"}
-	case isWriteTool(name):
-		return map[string]any{}
 	default:
 		return map[string]any{"query": "", "limit": 5}
 	}

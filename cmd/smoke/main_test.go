@@ -27,7 +27,11 @@ func TestWriteSmokeArgumentsNeverConfirmMutation(t *testing.T) {
 		"warehouse.movements.create",
 		"warehouse.devices.update_status",
 	} {
-		for key, value := range smokeArguments(name) {
+		arguments := smokeArguments(name)
+		if name == "rental.requirements.update" && len(arguments) != 0 {
+			t.Fatalf("%s arguments = %#v, want empty safe draft", name, arguments)
+		}
+		for key, value := range arguments {
 			if value == true {
 				t.Fatalf("%s sets %s=true", name, key)
 			}
