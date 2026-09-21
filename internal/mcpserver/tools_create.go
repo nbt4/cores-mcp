@@ -186,6 +186,11 @@ type preparedRequirement struct {
 	Ready     bool
 }
 
+const activeProductReferenceQuery = `SELECT p.productid AS id,p.name AS label,concat_ws(' · ',p.product_code,m.name,p.model_number) AS context
+FROM products p
+LEFT JOIN manufacturer m ON m.manufacturerid=p.manufacturerid
+WHERE p.lifecycle_status='active'`
+
 func (p preparedRequirement) response(status string) map[string]any {
 	return map[string]any{
 		"creation_status":         status,
@@ -237,7 +242,7 @@ func prepareRequirementCreate(ctx context.Context, db *store.Store, input Requir
 
 	var product map[string]any
 	if input.ProductID > 0 || strings.TrimSpace(input.ProductQuery) != "" {
-		resolved, options, err := resolveReference(ctx, db, `SELECT productid AS id,name AS label,concat_ws(' · ',product_code,manufacturer,model_number) AS context FROM products WHERE lifecycle_status='active'`, input.ProductID, input.ProductQuery)
+		resolved, options, err := resolveReference(ctx, db, activeProductReferenceQuery, input.ProductID, input.ProductQuery)
 		if err != nil {
 			return preparedRequirement{}, err
 		}

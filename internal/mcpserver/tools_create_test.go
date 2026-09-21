@@ -119,6 +119,16 @@ func TestRequirementCreateNeedsResolvedReferencesAndQuantity(t *testing.T) {
 	}
 }
 
+func TestRequirementProductReferenceUsesManufacturerRelation(t *testing.T) {
+	query := strings.ToLower(activeProductReferenceQuery)
+	if !strings.Contains(query, "left join manufacturer") || !strings.Contains(query, "m.name") {
+		t.Fatalf("product reference query does not resolve manufacturer name: %s", activeProductReferenceQuery)
+	}
+	if strings.Contains(query, "product_code,manufacturer,model_number") {
+		t.Fatalf("product reference query reads nonexistent products.manufacturer: %s", activeProductReferenceQuery)
+	}
+}
+
 func TestWriteToolsExposeSafeAnnotationsAndSchemas(t *testing.T) {
 	server := New(config.Config{EnableWrites: true, JWTSecret: strings.Repeat("s", 48)}, nil, slog.New(slog.NewTextHandler(io.Discard, nil)))
 	clientTransport, serverTransport := mcp.NewInMemoryTransports()

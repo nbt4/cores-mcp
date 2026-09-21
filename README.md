@@ -1,5 +1,12 @@
 # Cores MCP
 
+## Requirement-Produktsuche ab 1.3.1
+
+Die Vorbereitung und Anlage von Job-Produktbedarfen löst den Hersteller jetzt
+über die Warehouse-Produktrelation auf. Dadurch funktionieren
+`rental.requirements.prepare_create` und `rental.requirements.create` auch bei
+Produkt-IDs, ohne auf eine nicht vorhandene Produktspalte zuzugreifen.
+
 ## Operative P0/P1-Workflows ab 1.3.0
 
 Sechs neue, jeweils zweistufige Workflows schließen den operativen Weg vom Job
@@ -194,7 +201,7 @@ Markdown-, Text-, CSV- und JSON-Dateien unter `MCP_KNOWLEDGE_DIRS` werden als MC
 
 ```bash
 make check
-docker build -t nobentie/cores-mcp:1.3.0 -t nobentie/cores-mcp:latest .
+docker build -t nobentie/cores-mcp:1.3.1 -t nobentie/cores-mcp:latest .
 ```
 
 Die Umbrella-Compose-Datei der Cores Suite bindet den Dienst intern ein. Der Cores-Dashboard-Reverse-Proxy veröffentlicht MCP und OAuth auf derselben Domain, damit der bestehende Suite-Login genutzt werden kann.
