@@ -37,9 +37,19 @@ func main() {
 			continue
 		}
 		result, callErr := session.CallTool(context.Background(), &mcp.CallToolParams{Name: tool.Name, Arguments: smokeArguments(tool.Name)})
-		if callErr != nil || result.IsError {
+		if callErr != nil {
 			failures++
-			fmt.Printf("FAIL %s: %v %s\n", tool.Name, callErr, contentText(result.Content))
+			fmt.Printf("FAIL %s: %v\n", tool.Name, callErr)
+			continue
+		}
+		if result == nil {
+			failures++
+			fmt.Printf("FAIL %s: empty tool result\n", tool.Name)
+			continue
+		}
+		if result.IsError {
+			failures++
+			fmt.Printf("FAIL %s: %s\n", tool.Name, contentText(result.Content))
 			continue
 		}
 		fmt.Printf("OK   %s\n", tool.Name)
