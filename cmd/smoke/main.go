@@ -14,6 +14,7 @@ import (
 func main() {
 	endpoint := flag.String("endpoint", "http://127.0.0.1:8090/mcp", "MCP endpoint")
 	token := flag.String("token", "", "optional bearer token")
+	includeWrites := flag.Bool("include-writes", false, "test guided write tools without confirming any mutation")
 	flag.Parse()
 	transport := &mcp.StreamableClientTransport{Endpoint: *endpoint}
 	if *token != "" {
@@ -31,7 +32,7 @@ func main() {
 	}
 	failures := 0
 	for _, tool := range listed.Tools {
-		if strings.Contains(tool.Name, ".prepare_") || tool.Annotations != nil && !tool.Annotations.ReadOnlyHint {
+		if !*includeWrites && (strings.Contains(tool.Name, ".prepare_") || tool.Annotations != nil && !tool.Annotations.ReadOnlyHint) {
 			fmt.Printf("SKIP %s (requires interactive cores:write consent)\n", tool.Name)
 			continue
 		}
@@ -80,6 +81,10 @@ func contentText(contents []mcp.Content) string {
 
 func smokeArguments(name string) map[string]any {
 	switch {
+	case name == "rental.requirements.prepare_create" || name == "rental.requirements.create":
+		return map[string]any{"job_id": 1160, "product_id": 4, "quantity": 1}
+	case strings.Contains(name, ".prepare_"):
+		return map[string]any{}
 	case name == "cores.query.catalog":
 		return map[string]any{}
 	case name == "cores.query.records":
@@ -101,9 +106,20 @@ func smokeArguments(name string) map[string]any {
 			return map[string]any{"limit": 5}
 		}
 		return map[string]any{"from": "2026-01-01", "to": "2027-12-31"}
+	case isWriteTool(name):
+		return map[string]any{}
 	default:
 		return map[string]any{"query": "", "limit": 5}
 	}
+}
+
+func isWriteTool(name string) bool {
+	for _, suffix := range []string{".create", ".update", ".assign_device", ".update_status"} {
+		if strings.HasSuffix(name, suffix) {
+			return true
+		}
+	}
+	return name == "warehouse.movements.create"
 }
 
 type bearerTransport struct{ token string }

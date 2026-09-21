@@ -156,6 +156,14 @@ Für eine isolierte lokale Prüfung darf `MCP_AUTH_MODE=none` gesetzt werden. Da
 MCP_ENDPOINT=http://127.0.0.1:8090/mcp make smoke
 ```
 
+Mit einem interaktiven OAuth-Token inklusive `cores:write` prüft der sichere
+Full-Smoke auch alle Vorbereitungs- und Ausführungstools. Er setzt keine
+Bestätigungsfelder und führt daher keine Mutation aus:
+
+```bash
+go run ./cmd/smoke -endpoint "$MCP_ENDPOINT" -token "$MCP_TOKEN" -include-writes
+```
+
 Der Smoke-Test verbindet einen echten MCP-Client, listet alle Tools und ruft jedes Tool mit repräsentativen Eingaben auf.
 
 ## Konfiguration
