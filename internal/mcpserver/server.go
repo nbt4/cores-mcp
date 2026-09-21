@@ -11,7 +11,7 @@ import (
 	"github.com/nbt4/cores-mcp/internal/store"
 )
 
-const Version = "1.3.1"
+const Version = "1.4.0"
 
 func New(cfg config.Config, db *store.Store, logger *slog.Logger) *mcp.Server {
 	description := "Read-only operational context and safe cross-core queries for RentalCore, WarehouseCore, PlannerCore and ProcurementCore."
@@ -25,14 +25,17 @@ func New(cfg config.Config, db *store.Store, logger *slog.Logger) *mcp.Server {
 	}, nil)
 	server.AddReceivingMiddleware(auditMiddleware(logger))
 	registerSuiteTools(server, cfg, db)
+	registerSchemaTools(server)
 	registerQueryTools(server, db)
 	registerRentalTools(server, db)
 	registerWarehouseTools(server, db)
+	registerWarehouseMasterTools(server, db)
 	registerPlannerTools(server, db)
 	registerProcurementTools(server, db)
 	registerCrossCoreTools(server, db)
 	if cfg.EnableWrites {
 		registerCreateTools(server, cfg, db)
+		registerWarehouseProductCreateTools(server, cfg, db)
 		registerOperationalCreateTools(server, cfg, db)
 		registerWorkflowTools(server, cfg, db)
 	}

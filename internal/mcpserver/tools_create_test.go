@@ -151,15 +151,15 @@ func TestWriteToolsExposeSafeAnnotationsAndSchemas(t *testing.T) {
 	for _, tool := range listed.Tools {
 		tools[tool.Name] = tool
 	}
-	if len(tools) != 83 {
-		t.Fatalf("tool count = %d, want 83", len(tools))
+	if len(tools) != 87 {
+		t.Fatalf("tool count = %d, want 87", len(tools))
 	}
-	for _, name := range []string{"procurement.products.prepare_create", "rental.jobs.prepare_create", "rental.requirements.prepare_create", "planner.plans.prepare_create", "planner.tasks.prepare_create", "warehouse.tasks.prepare_create", "rental.jobs.prepare_assign_device", "rental.jobs.prepare_update", "rental.requirements.prepare_update", "procurement.orders.prepare_create", "warehouse.movements.prepare_create", "warehouse.devices.prepare_update_status"} {
+	for _, name := range []string{"procurement.products.prepare_create", "rental.jobs.prepare_create", "rental.requirements.prepare_create", "planner.plans.prepare_create", "planner.tasks.prepare_create", "warehouse.tasks.prepare_create", "warehouse.products.prepare_create", "rental.jobs.prepare_assign_device", "rental.jobs.prepare_update", "rental.requirements.prepare_update", "procurement.orders.prepare_create", "warehouse.movements.prepare_create", "warehouse.devices.prepare_update_status"} {
 		if tools[name] == nil || tools[name].Annotations == nil || !tools[name].Annotations.ReadOnlyHint {
 			t.Fatalf("%s is missing read-only preparation annotation", name)
 		}
 	}
-	for _, name := range []string{"procurement.products.create", "rental.jobs.create", "rental.requirements.create", "planner.plans.create", "planner.tasks.create", "warehouse.tasks.create", "rental.jobs.assign_device", "procurement.orders.create"} {
+	for _, name := range []string{"procurement.products.create", "rental.jobs.create", "rental.requirements.create", "planner.plans.create", "planner.tasks.create", "warehouse.tasks.create", "warehouse.products.create", "rental.jobs.assign_device", "procurement.orders.create"} {
 		tool := tools[name]
 		if tool == nil || tool.Annotations == nil || tool.Annotations.ReadOnlyHint || tool.Annotations.DestructiveHint == nil || *tool.Annotations.DestructiveHint {
 			t.Fatalf("%s is not marked as an additive write", name)
@@ -170,5 +170,44 @@ func TestWriteToolsExposeSafeAnnotationsAndSchemas(t *testing.T) {
 		if tool == nil || tool.Annotations == nil || tool.Annotations.ReadOnlyHint || tool.Annotations.DestructiveHint == nil || !*tool.Annotations.DestructiveHint {
 			t.Fatalf("%s is not marked as a state-changing write", name)
 		}
+	}
+}
+
+func TestWarehouseProductCreateRequiresCoreMasterData(t *testing.T) {
+	prepared, err := prepareWarehouseProductCreate(context.Background(), nil, WarehouseProductCreateInput{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if prepared.Ready || !containsString(prepared.RequiredMissing, "name") || !containsString(prepared.RequiredMissing, "manufacturer") || !containsString(prepared.RequiredMissing, "category") {
+		t.Fatalf("unexpected product draft: %#v", prepared)
+	}
+	if prepared.Draft["product_type"] != "equipment" || prepared.Draft["tracking_mode"] != "individual" || prepared.Draft["product_kind"] != "standard" {
+		t.Fatalf("unexpected defaults: %#v", prepared.Draft)
+	}
+}
+
+func TestWarehouseMasterMatchingHandlesSpellingVariants(t *testing.T) {
+	if score := warehouseMatchScore("MA Lighting", "MA Lighting International GmbH", ""); score < 75 {
+		t.Fatalf("manufacturer score = %d, want >= 75", score)
+	}
+	if score := warehouseMatchScore("grand ma", "grandMA", "MA Lighting"); score < 30 {
+		t.Fatalf("brand score = %d, want >= 30", score)
+	}
+}
+
+func TestEntitySchemaExposesWarehouseProductFields(t *testing.T) {
+	schema := renderWritableEntitySchema(writableEntitySchemas()["warehouse.products"])
+	fields, ok := schema["fields"].([]map[string]any)
+	if !ok || len(fields) == 0 {
+		t.Fatalf("missing fields: %#v", schema)
+	}
+	foundCreateManufacturer := false
+	for _, field := range fields {
+		if field["name"] == "create_manufacturer" && field["type"] == "boolean" {
+			foundCreateManufacturer = true
+		}
+	}
+	if !foundCreateManufacturer {
+		t.Fatalf("warehouse product schema lacks create_manufacturer: %#v", fields)
 	}
 }

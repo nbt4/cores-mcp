@@ -7,13 +7,13 @@ OAuth-Benutzers beschränkt. Das gilt auch für `cores.search`,
 berechtigt nicht zum Lesen fremder Pläne. Maschinentokens liefern keine Planner-Daten.
 Toolnamen und Eingabeschemas bleiben unverändert.
 
-Die 59 Abfragetools sind read-only und idempotent. Bei `MCP_ENABLE_WRITES=true` werden zusätzlich zwölf vorbereitende und zwölf bestätigte Schreibtools für alle vier Core-Services registriert. Suchtools akzeptieren üblicherweise `query`, `limit` und `offset`; Zeitfenster `from`, `to` und `limit`; Detailtools `id`. Datumswerte sind `YYYY-MM-DD` oder RFC3339.
+Die 61 Abfragetools sind read-only und idempotent. Bei `MCP_ENABLE_WRITES=true` werden zusätzlich dreizehn vorbereitende und dreizehn bestätigte Schreibtools für alle vier Core-Services registriert. Suchtools akzeptieren üblicherweise `query`, `limit` und `offset`; Zeitfenster `from`, `to` und `limit`; Detailtools `id`. Datumswerte sind `YYYY-MM-DD` oder RFC3339.
 
 Bei aktivierten Schreibtools fordert die OAuth-Challenge `cores:read` und
 `cores:write` gemeinsam an. Dadurch kann der Client die vorbereitenden Tools
 nicht mehr mit einem unbemerkt weiterverwendeten Read-only-Token aufrufen.
 
-## Suiteweit, flexible Abfragen und Wissen (11)
+## Suiteweit, flexible Abfragen und Wissen (12)
 
 | Tool | Zweck |
 |---|---|
@@ -22,6 +22,7 @@ nicht mehr mit einem unbemerkt weiterverwendeten Read-only-Token aufrufen.
 | `cores.activity.recent` | Letzte Änderungen aus allen Cores in einem Zeitfenster |
 | `cores.services.health` | Live-Healthchecks aller Suite-Dienste |
 | `cores.data.dictionary` | Tabellen- und Spalteninventar der freigegebenen Cores-Daten |
+| `cores.entities.schema` | Pflegbare Felder, Typen, Validierungen und geführte Operationen pro Schreibentität |
 | `cores.data.quality` | Entscheidungsrelevante Erfassungs- und Verknüpfungslücken |
 | `cores.query.catalog` | Freigegebene Entitäten, Felder, Typen, Operatoren und Cross-Core-Beziehungen |
 | `cores.query.records` | Bis zu acht gefilterte Entitätsabfragen ausführen und Ergebnisse sicher verknüpfen |
@@ -89,13 +90,14 @@ Alle Query-Namen und Felder stammen aus einer festen Registry. Nutzwerte werden 
 | `rental.requirements.prepare_update` | Vorhandene Bedarfszeile und neue positive Menge prüfen |
 | `rental.requirements.update` | Ausschließlich die bestätigte Menge einer Bedarfszeile ändern |
 
-## WarehouseCore (16 + 6 geführte Schreibtools)
+## WarehouseCore (17 + 8 geführte Schreibtools)
 
 | Tool | Zweck |
 |---|---|
 | `warehouse.products.search` | Produktstamm, Hersteller, Kategorie, Stock und Geräteanzahl suchen |
 | `warehouse.products.get` | Produktdetail mit Geräten, Orten, Relationen, Bedarf und Beschaffungslink |
 | `warehouse.products.relations` | Alternativen, Zubehör und Abhängigkeiten |
+| `warehouse.master_data.resolve` | Hersteller, Marken, Kategorien, Einheiten und Lagerplätze fuzzy auflösen und Trefferart klassifizieren |
 | `warehouse.devices.search` | Geräte nach ID, Seriennummer, Barcode, Produkt oder Zustand suchen |
 | `warehouse.devices.get` | Gerätehistorie, Jobs, Bewegungen, Defekte und Wartung |
 | `warehouse.stock.shortages` | Mindestbestands- und Verfügbarkeitsengpässe |
@@ -111,6 +113,8 @@ Alle Query-Namen und Felder stammen aus einer festen Registry. Nutzwerte werden 
 | `warehouse.utilization.summary` | Gerätenutzung, Umsatz, Ausfälle und Defekte nach Produkt |
 | `warehouse.tasks.prepare_create` | Aufgabentyp, Priorität, Fälligkeit und referenzierte Live-Datensätze prüfen |
 | `warehouse.tasks.create` | Eine bestätigte Lageraufgabe über die WarehouseCore-API anlegen |
+| `warehouse.products.prepare_create` | Vollständigen Produktentwurf, Stammdatenplan, ähnliche Artikel und offene Pflicht-/Empfehlungsfelder liefern |
+| `warehouse.products.create` | Bestätigte Stammdaten, Produkt, Anfangsbestand und Devices atomar über WarehouseCore anlegen |
 | `warehouse.movements.prepare_create` | Gerät/Mengenartikel sowie Einlagerung, Ausgabe oder Transfer mit Ziel prüfen |
 | `warehouse.movements.create` | Bestätigte physische Bewegung über den auditierten Scannerprozess buchen |
 | `warehouse.devices.prepare_update_status` | Aktuellen physischen und betrieblichen Gerätezustand samt Prozessgrenzen prüfen |
