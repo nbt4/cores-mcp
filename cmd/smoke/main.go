@@ -63,7 +63,19 @@ func main() {
 	if err != nil {
 		fatal("list resources", err)
 	}
-	fmt.Printf("%d tools, %d prompts, %d resources, %d failures\n", len(listed.Tools), len(prompts.Prompts), len(resources.Resources), failures)
+	for _, resource := range resources.Resources {
+		if _, readErr := session.ReadResource(context.Background(), &mcp.ReadResourceParams{URI: resource.URI}); readErr != nil {
+			failures++
+			fmt.Printf("FAIL resource/%s: %v\n", resource.Name, readErr)
+			continue
+		}
+		fmt.Printf("OK   resource/%s\n", resource.Name)
+	}
+	templates, err := session.ListResourceTemplates(context.Background(), nil)
+	if err != nil {
+		fatal("list resource templates", err)
+	}
+	fmt.Printf("%d tools, %d prompts, %d resources, %d resource templates, %d failures\n", len(listed.Tools), len(prompts.Prompts), len(resources.Resources), len(templates.ResourceTemplates), failures)
 	if failures > 0 {
 		os.Exit(1)
 	}
