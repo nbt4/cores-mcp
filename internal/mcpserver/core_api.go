@@ -61,6 +61,7 @@ func (c *coreAPIClient) doJSON(ctx context.Context, baseURL, path, method string
 	}
 	request.Header.Set("Accept", "application/json")
 	request.Header.Set("Content-Type", "application/json")
+	request.Header.Set("X-Cores-Origin", "MCP/AI")
 	if idempotencyKey := mutationIdempotencyFromContext(ctx); idempotencyKey != "" {
 		request.Header.Set("Idempotency-Key", idempotencyKey)
 	}

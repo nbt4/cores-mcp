@@ -1,8 +1,25 @@
 # Cores MCP
 
+## Procurement-Lifecycle ab 1.5.0
+
+Vier neue, zweistufige Tools decken sicherheitskritische Procurement-Prozesse
+ab: `procurement.requisitions.prepare_decide`/`.decide` genehmigen, lehnen ab
+oder geben einen eingereichten Bedarf zurück;
+`procurement.orders.prepare_receive`/`.receive` buchen Teil-, Voll- oder
+ausdrücklich bestätigte Überlieferungen. Freigaben erzwingen das Vier-Augen-
+Prinzip. Beide Prozesse prüfen `expected_updated_at`, benötigen eigene Scopes
+und eine datensatzgebundene Bestätigungsphrase zusätzlich zu `confirm_*` und
+`idempotency_key`.
+
+ProcurementCore 1.0.38 speichert MCP-Idempotenzschlüssel und Ergebnis atomar mit
+der Fachmutation. Wareneingänge legen bei Einzelverfolgung je Seriennummer ein
+Gerät an, aktualisieren Mengenbestand und erzeugen einen offenen Putaway-Task.
+Audit-Einträge kennzeichnen die Herkunft `MCP/AI`; identische Wiederholungen
+bleiben auch nach MCP-Neustarts wirkungslos.
+
 ## Schreibschutz-Grundlage ab 1.4.1
 
-Alle dreizehn Ausführungstools unterstützen `dry_run` und
+Alle Ausführungstools unterstützen `dry_run` und
 `idempotency_key`. Ein Dry-Run unterdrückt selbst bei versehentlich gesetztem
 `confirm_*` jede Ausführung und liefert ausschließlich die validierte Vorschau.
 Jeder bestätigte Schreibaufruf benötigt einen Schlüssel mit 8–128 sicheren
@@ -82,9 +99,10 @@ Vorbereitungstool, vollständig validierte Live-Referenzen, eine finale Vorschau
 und `confirm_creation=true` nach ausdrücklicher Benutzerbestätigung.
 
 Seit 1.3.0 ergänzen einzelne validierte P0/P1-Capabilities diese ursprünglich
-rein additive Grenze. Beliebige Schreib-, Lösch-, SQL-, HTTP-, Freigabe- oder
-Wareneingangswerkzeuge bleiben ausgeschlossen. Fachlogik, Rollen und Bestände
-können nicht durch einen MCP-Client umgangen werden.
+rein additive Grenze. Seit 1.5.0 sind ausschließlich die dokumentierten,
+scope-getrennten Freigabe- und Wareneingangsprozesse zusätzlich erlaubt.
+Beliebige Schreib-, Lösch-, SQL- oder HTTP-Werkzeuge bleiben ausgeschlossen.
+Fachlogik, Rollen und Bestände können nicht durch einen MCP-Client umgangen werden.
 
 ## Berechtigungen ab 1.1.1
 
@@ -106,7 +124,7 @@ entfernt ausschließlich sein eigenes Schema.
 
 Cores MCP bindet die gesamte Cores Suite als sicheren MCP-Server an ChatGPT, Claude, Codex und andere MCP-fähige Agents an. Der Chat bleibt beim jeweiligen KI-Anbieter; Cores stellt nur kontrollierte Werkzeuge und Kontext bereit.
 
-Der Server bietet 61 lesende fachliche Tools, fünf wiederverwendbare Analyse-Prompts und dokumentierbare Knowledge-Ressourcen für RentalCore, WarehouseCore, PlannerCore und ProcurementCore. Bei `MCP_ENABLE_WRITES=true` kommen dreizehn vorbereitende und dreizehn bestätigte, eng begrenzte Schreibtools für alle vier Core-Services hinzu. Beliebiges SQL, generische HTTP-Aufrufe, Löschen und Freigeben bleiben ausgeschlossen.
+Der Server bietet 61 lesende fachliche Tools, fünf wiederverwendbare Analyse-Prompts und dokumentierbare Knowledge-Ressourcen für RentalCore, WarehouseCore, PlannerCore und ProcurementCore. Bei `MCP_ENABLE_WRITES=true` kommen fünfzehn vorbereitende und fünfzehn bestätigte, eng begrenzte Schreibtools für alle vier Core-Services hinzu. Beliebiges SQL, generische HTTP-Aufrufe und Hard-Deletes bleiben ausgeschlossen.
 
 ## Geführte Schreibzugriffe mit Rückfragen
 
@@ -119,6 +137,8 @@ Der Server bietet 61 lesende fachliche Tools, fünf wiederverwendbare Analyse-Pr
 - `rental.jobs.prepare_update` und `rental.jobs.update` zeigen Alt-/Neuzustand und verwenden für Stornos den konfigurierten Storno-Status statt Löschung.
 - `rental.requirements.prepare_update` und `rental.requirements.update` ändern nur die Menge einer einzelnen Bedarfszeile.
 - `procurement.orders.prepare_create` und `procurement.orders.create` validieren Lieferant, Positionen, Währung, Termine, Duplikate und Gesamtwert; die Ausführung bleibt auf Procurement-Administratoren begrenzt.
+- `procurement.requisitions.prepare_decide` und `procurement.requisitions.decide` prüfen Status, Version und Vier-Augen-Trennung und verlangen eine ID-gebundene Bestätigungsphrase.
+- `procurement.orders.prepare_receive` und `procurement.orders.receive` prüfen offene Menge, Produktverknüpfung, Seriennummern und Zielzone; die atomare Buchung erzeugt Bestand, Geräte und Putaway-Task.
 - `warehouse.movements.prepare_create` und `warehouse.movements.create` buchen bestätigte Einlagerung, Ausgabe oder Transfer über den auditierten Scannerprozess.
 - `warehouse.devices.prepare_update_status` und `warehouse.devices.update_status` trennen physischen Lagerstatus und Betriebszustand; Jobbewegungen können nicht umgangen werden.
 - `planner.plans.prepare_create` und `planner.plans.create` prüfen Namen und Duplikate, bevor ein Plan angelegt wird.
@@ -210,7 +230,7 @@ Der Smoke-Test verbindet einen echten MCP-Client, listet alle Tools und ruft jed
 | `MCP_PUBLIC_URL` | `http://localhost:8090` | Öffentliche Basis-URL ohne `/mcp` |
 | `CORES_DASHBOARD_PUBLIC_URL` | `http://localhost:8080` | Cores-Login, auf den OAuth verweist |
 | `MCP_AUTH_MODE` | `oauth` | `oauth`, `bearer` oder nur lokal `none` |
-| `MCP_ENABLE_WRITES` | `false` | Aktiviert 26 geführte Schreibtools (dreizehn Vorschauen plus dreizehn Ausführungen); nur mit `MCP_AUTH_MODE=oauth` zulässig |
+| `MCP_ENABLE_WRITES` | `false` | Aktiviert 30 geführte Schreibtools (fünfzehn Vorschauen plus fünfzehn Ausführungen); nur mit `MCP_AUTH_MODE=oauth` zulässig |
 | `CORES_JWT_SECRET` | – | Dasselbe Signatur-Secret wie das Cores Dashboard, mindestens 32 Zeichen |
 | `MCP_STATIC_TOKENS` | – | Optionale `name:secret`-Paare für Agents |
 | `DATABASE_URL` | – | Komplette PostgreSQL-URL; überschreibt einzelne DB-Variablen |
@@ -227,11 +247,11 @@ Die vollständige Vorlage steht in [.env.example](.env.example).
 
 ## Sicherheitsmodell
 
-- Die 61 Abfragetools und dreizehn Vorbereitungstools sind `readOnlyHint=true`; Ausführungstools erzwingen einen Idempotenzschlüssel und sind `idempotentHint=true`. Zustandsänderungen sind zusätzlich als destruktiv annotiert.
+- Die 61 Abfragetools und fünfzehn Vorbereitungstools sind `readOnlyHint=true`; Ausführungstools erzwingen einen Idempotenzschlüssel und sind `idempotentHint=true`. Zustandsänderungen sind zusätzlich als destruktiv annotiert.
 - Jede DB-Abfrage läuft in einer PostgreSQL-Transaktion mit `READ ONLY`, Timeout und Zeilenlimit.
 - Produktion verwendet zusätzlich die Rolle `cores_mcp` mit ausschließlich `SELECT`-Rechten.
 - Schreibtools verwenden ausschließlich validierte Endpunkte des jeweils verantwortlichen Core und ein zweiminütiges, auf den OAuth-Benutzer delegiertes Suite-Token. Rollenänderungen und Kontosperren werden dort live geprüft.
-- Es existieren keine Tools für beliebiges SQL, Dateien, Shell, E-Mail, generische Änderungen, Löschungen oder Freigaben. Zulässige Änderungen, Statuswechsel, Bewegungen und Bestellungen sind einzelne fachliche Capabilities mit Live-Validierung, Ziel-Core-Berechtigung, finaler Vorschau und ausdrücklicher Bestätigung.
+- Es existieren keine Tools für beliebiges SQL, Dateien, Shell, E-Mail, generische Änderungen oder Hard-Deletes. Zulässige Änderungen, Statuswechsel, Bewegungen, Bestellungen, Procurement-Freigaben und Wareneingänge sind einzelne fachliche Capabilities mit Live-Validierung, Ziel-Core-Berechtigung, finaler Vorschau und ausdrücklicher Bestätigung.
 - Kontaktinformationen, Secrets und interne private Notizen werden nicht absichtlich ausgegeben.
 - Nutzertexte aus Beschreibungen/Notizen gelten als nicht vertrauenswürdige Daten, niemals als Agent-Anweisung.
 - Toolantworten enthalten Zeitstempel, Quellen und fachliche Warnungen.
@@ -246,7 +266,7 @@ Markdown-, Text-, CSV- und JSON-Dateien unter `MCP_KNOWLEDGE_DIRS` werden als MC
 
 ```bash
 make check
-docker build -t nobentie/cores-mcp:1.4.1 -t nobentie/cores-mcp:latest .
+docker build -t nobentie/cores-mcp:1.5.0 -t nobentie/cores-mcp:latest .
 ```
 
 Die Umbrella-Compose-Datei der Cores Suite bindet den Dienst intern ein. Der Cores-Dashboard-Reverse-Proxy veröffentlicht MCP und OAuth auf derselben Domain, damit der bestehende Suite-Login genutzt werden kann.

@@ -15,7 +15,7 @@ https://cores.example.com/mcp
 
 ## ChatGPT
 
-In den ChatGPT-Einstellungen eine benutzerdefinierte App bzw. ein MCP-Plugin hinzufügen und die MCP-URL eintragen. Nach „Verbinden“ öffnet sich der Cores-OAuth-Dialog. Dort den Lesezugriff und nur die benötigten Schreibrechte bestätigen. `cores:write` bleibt als kompatibler Sammel-Scope verfügbar; Clients können stattdessen gezielt `cores:<service>:create` oder `cores:<service>:update` anfordern. Ein Token nur mit `cores:read` bleibt vollständig read-only. Falls der Client für einen neuen Scope den Dialog nicht selbst öffnet, die Verbindung einmal trennen und neu verbinden.
+In den ChatGPT-Einstellungen eine benutzerdefinierte App bzw. ein MCP-Plugin hinzufügen und die MCP-URL eintragen. Nach „Verbinden“ öffnet sich der Cores-OAuth-Dialog. Dort den Lesezugriff und nur die benötigten Schreibrechte bestätigen. `cores:write` bleibt als kompatibler Sammel-Scope verfügbar; Clients können stattdessen gezielt `cores:<service>:create`, `cores:<service>:update`, `cores:procurement:approve` oder `cores:procurement:receive` anfordern. Ein Token nur mit `cores:read` bleibt vollständig read-only. Falls der Client für einen neuen Scope den Dialog nicht selbst öffnet, die Verbindung einmal trennen und neu verbinden.
 
 Offizielle Referenz: <https://developers.openai.com/plugins/>
 

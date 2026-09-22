@@ -7,7 +7,7 @@ OAuth-Benutzers beschränkt. Das gilt auch für `cores.search`,
 berechtigt nicht zum Lesen fremder Pläne. Maschinentokens liefern keine Planner-Daten.
 Toolnamen und Eingabeschemas bleiben unverändert.
 
-Die 61 Abfragetools sind read-only und idempotent. Bei `MCP_ENABLE_WRITES=true` werden zusätzlich dreizehn vorbereitende und dreizehn bestätigte Schreibtools für alle vier Core-Services registriert. Suchtools akzeptieren üblicherweise `query`, `limit` und `offset`; Zeitfenster `from`, `to` und `limit`; Detailtools `id`. Datumswerte sind `YYYY-MM-DD` oder RFC3339.
+Die 61 Abfragetools sind read-only und idempotent. Bei `MCP_ENABLE_WRITES=true` werden zusätzlich fünfzehn vorbereitende und fünfzehn bestätigte Schreibtools für alle vier Core-Services registriert. Suchtools akzeptieren üblicherweise `query`, `limit` und `offset`; Zeitfenster `from`, `to` und `limit`; Detailtools `id`. Datumswerte sind `YYYY-MM-DD` oder RFC3339.
 
 Der MCP-Endpunkt verlangt immer `cores:read`. Für ein Vorbereitung- oder
 Ausführungstool ist zusätzlich entweder der kompatible Sammel-Scope
@@ -21,6 +21,8 @@ Ausführungstool ist zusätzlich entweder der kompatible Sammel-Scope
 | `cores:warehouse:update` | Bewegungen und Gerätezustände buchen |
 | `cores:planner:create` | Pläne und Tasks anlegen |
 | `cores:procurement:create` | Produkte und Bestellungen anlegen |
+| `cores:procurement:approve` | Eingereichte Bedarfe im Vier-Augen-Prinzip entscheiden |
+| `cores:procurement:receive` | Bestätigten Wareneingang mit Lagerwirkung buchen |
 
 Ohne Schreibscope bleibt das Token read-only, auch wenn
 `MCP_ENABLE_WRITES=true` gesetzt ist. Die Rechte des interaktiven Cores-Nutzers
@@ -150,7 +152,7 @@ Alle Query-Namen und Felder stammen aus einer festen Registry. Nutzwerte werden 
 | `planner.tasks.prepare_create` | Planmitgliedschaft, Bucket-Zugehörigkeit, Titel und Duplikate prüfen |
 | `planner.tasks.create` | Eine bestätigte Aufgabe im freigegebenen Plan anlegen |
 
-## ProcurementCore (11 + 4 geführte Schreibtools)
+## ProcurementCore (11 + 8 geführte Schreibtools)
 
 | Tool | Zweck |
 |---|---|
@@ -169,6 +171,10 @@ Alle Query-Namen und Felder stammen aus einer festen Registry. Nutzwerte werden 
 | `procurement.products.create` | Bestätigtes Produkt und optional eine Bezugsquelle über die ProcurementCore-API anlegen |
 | `procurement.orders.prepare_create` | Lieferant, Positionen, Termine, Währung, Duplikate und Gesamtwert prüfen |
 | `procurement.orders.create` | Bestätigte Bestellung mit Procurement-Administratorrechten anlegen |
+| `procurement.requisitions.prepare_decide` | Eingereichten Bedarf, Version und Vier-Augen-Trennung für Genehmigung, Ablehnung oder Rückgabe prüfen |
+| `procurement.requisitions.decide` | Bedarf mit eigenem Approval-Scope, Versionsprüfung und datensatzgebundener Bestätigungsphrase entscheiden |
+| `procurement.orders.prepare_receive` | Offene Bestellmenge, Überlieferung, Produktlink, Seriennummern und Zielzone prüfen |
+| `procurement.orders.receive` | Wareneingang atomar mit Bestand/Geräten und offenem Putaway-Task buchen |
 
 ### Schreibvertrag
 
@@ -181,7 +187,14 @@ Jedes Ausführungstool akzeptiert zusätzlich:
   Daten geändert.
 - `idempotency_key`: Für jeden Aufruf mit aktivem `confirm_*` verpflichtend.
   Zulässig sind 8–128 Zeichen aus Buchstaben, Ziffern, `.`, `_`, `:` und `-`.
-  Der Client verwendet pro fachlichem Vorgang einen stabilen, neuen Schlüssel.
+Der Client verwendet pro fachlichem Vorgang einen stabilen, neuen Schlüssel.
+
+Kritische Procurement-Aktionen verlangen zusätzlich den unverändert aus der
+Vorschau übernommenen Wert `expected_updated_at` und die dort ausgegebene
+`confirmation_text_required`-Phrase. Freigaben dürfen nicht durch den
+Anforderer selbst erfolgen. Überlieferungen benötigen
+`allow_overdelivery=true` und eine abweichende, ausdrücklich auf
+„OVERDELIVERY“ lautende Phrase.
 
 Identische Wiederholungen desselben Benutzers werden pro MCP-Instanz 24 Stunden
 lang ohne zweite Mutation beantwortet; parallele Aufrufe werden
@@ -189,7 +202,9 @@ zusammengeführt. Eine abweichende Payload mit demselben Schlüssel wird
 abgewiesen. Der Schlüssel wird als `Idempotency-Key` an den Ziel-Core
 weitergegeben. Nach einem MCP-Neustart oder über mehrere Replikate hinweg ist
 die dauerhafte Deduplizierung erst garantiert, sobald auch der jeweilige
-Ziel-Core diesen Header persistent verarbeitet.
+Ziel-Core diesen Header persistent verarbeitet. ProcurementCore verarbeitet
+ihn für Bedarfsentscheidungen und Wareneingänge bereits transaktional und
+speichert das Ergebnis zusammen mit der Fachmutation.
 
 ## Cross-Core-Entscheidungen (4)
 

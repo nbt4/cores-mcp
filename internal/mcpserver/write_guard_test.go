@@ -6,6 +6,7 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"reflect"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -184,13 +185,22 @@ func TestAuthorizeMutationEnforcesServiceAndActionScope(t *testing.T) {
 	if _, err := authorizeMutation(rentalCreate, "warehouse.products.create"); err == nil {
 		t.Fatal("rental create scope authorized a warehouse create")
 	}
+	procurementApprove := writeScopeContextWithScopes(t, coresauth.ReadScope(), coresauth.ServiceWriteScope("procurement", "approve"))
+	if _, err := authorizeMutation(procurementApprove, "procurement.requisitions.decide"); err != nil {
+		t.Fatalf("procurement approval was rejected: %v", err)
+	}
+	if _, err := authorizeMutation(procurementApprove, "procurement.orders.receive"); err == nil {
+		t.Fatal("procurement approval scope authorized goods receipt")
+	}
 }
 
 func TestCoreAPIForwardsIdempotencyKey(t *testing.T) {
 	secret := strings.Repeat("i", 48)
 	var header string
+	var origin string
 	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		header = r.Header.Get("Idempotency-Key")
+		origin = r.Header.Get("X-Cores-Origin")
 		w.Header().Set("Content-Type", "application/json")
 		_, _ = w.Write([]byte(`{"ok":true}`))
 	}))
@@ -203,6 +213,9 @@ func TestCoreAPIForwardsIdempotencyKey(t *testing.T) {
 	}
 	if header != "warehouse-product-99" {
 		t.Fatalf("Idempotency-Key = %q", header)
+	}
+	if origin != "MCP/AI" {
+		t.Fatalf("X-Cores-Origin = %q", origin)
 	}
 }
 
@@ -254,5 +267,43 @@ func TestMutationAuditAttributesExcludeRawIdempotencyKey(t *testing.T) {
 	}
 	if strings.Contains(text, "secret-retry-key") || strings.Contains(text, "private value") {
 		t.Fatalf("audit attributes leaked request data: %s", text)
+	}
+}
+
+func TestCriticalProcurementConfirmationPhrases(t *testing.T) {
+	if got := requisitionDecisionPhrase("approved", 17); got != "APPROVE REQUISITION 17" {
+		t.Fatalf("approval phrase = %q", got)
+	}
+	if got := requisitionDecisionPhrase("returned", 17); got != "RETURN REQUISITION 17" {
+		t.Fatalf("return phrase = %q", got)
+	}
+	if got := requisitionDecisionPhrase("unknown", 17); got != "" {
+		t.Fatalf("invalid decision phrase = %q", got)
+	}
+	if got := purchaseOrderReceiptPhrase(23, 42); got != "RECEIVE ORDER 23 LINE 42" {
+		t.Fatalf("receipt phrase = %q", got)
+	}
+	overdelivery := PurchaseOrderReceiptInput{OrderID: 23, LineID: 42, AllowOverdelivery: true}
+	if got := purchaseOrderReceiptConfirmation(overdelivery); got != "RECEIVE OVERDELIVERY ORDER 23 LINE 42" {
+		t.Fatalf("overdelivery phrase = %q", got)
+	}
+}
+
+func TestNormalizeSerialInputs(t *testing.T) {
+	got := normalizeSerialInputs([]string{" SN-1 ", "sn-1", "", "SN-2"})
+	want := []string{"SN-1", "SN-2"}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("serials = %#v, want %#v", got, want)
+	}
+}
+
+func TestRFC3339ValuePreservesDatabaseVersion(t *testing.T) {
+	want := "2026-09-22T08:15:00.123456Z"
+	if got := rfc3339Value(want); got != want {
+		t.Fatalf("version = %q, want %q", got, want)
+	}
+	value := time.Date(2026, 9, 22, 8, 15, 0, 123456000, time.UTC)
+	if got := rfc3339Value(value); got != want {
+		t.Fatalf("time version = %q, want %q", got, want)
 	}
 }
