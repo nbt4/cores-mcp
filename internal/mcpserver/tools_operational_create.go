@@ -13,6 +13,7 @@ import (
 )
 
 type PlannerPlanCreateInput struct {
+	MutationControl
 	Name            string `json:"name,omitempty" jsonschema:"Required plan name."`
 	Description     string `json:"description,omitempty"`
 	AllowDuplicate  bool   `json:"allow_duplicate,omitempty" jsonschema:"Set true only when the user explicitly confirms that a same-named plan is intentional."`
@@ -20,6 +21,7 @@ type PlannerPlanCreateInput struct {
 }
 
 type PlannerTaskCreateInput struct {
+	MutationControl
 	PlanID          string `json:"plan_id,omitempty" jsonschema:"Exact accessible PlannerCore plan UUID."`
 	BucketID        string `json:"bucket_id,omitempty" jsonschema:"Optional bucket UUID belonging to the selected plan."`
 	Title           string `json:"title,omitempty" jsonschema:"Required task title."`
@@ -28,6 +30,7 @@ type PlannerTaskCreateInput struct {
 }
 
 type WarehouseTaskCreateInput struct {
+	MutationControl
 	TaskType        string   `json:"task_type,omitempty" jsonschema:"One of putaway, move, pick, replenish, count, inspect, pack, or return."`
 	Priority        int      `json:"priority,omitempty" jsonschema:"Priority from 1 to 100; defaults to 50."`
 	FromZoneID      *int64   `json:"from_zone_id,omitempty"`

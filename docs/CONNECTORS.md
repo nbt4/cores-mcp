@@ -15,7 +15,7 @@ https://cores.example.com/mcp
 
 ## ChatGPT
 
-In den ChatGPT-Einstellungen eine benutzerdefinierte App bzw. ein MCP-Plugin hinzufügen und die MCP-URL eintragen. Nach „Verbinden“ öffnet sich der Cores-OAuth-Dialog. Dort den Lesezugriff und – falls `MCP_ENABLE_WRITES=true` – zusätzlich das geführte Anlegen bestätigen. Bei aktivierten Schreibtools fordert die OAuth-Challenge beide Scopes verbindlich an; ein alter Read-only-Token löst dadurch automatisch eine erneute Autorisierung aus. Falls der Client den Dialog nicht selbst öffnet, die Verbindung einmal trennen und neu verbinden.
+In den ChatGPT-Einstellungen eine benutzerdefinierte App bzw. ein MCP-Plugin hinzufügen und die MCP-URL eintragen. Nach „Verbinden“ öffnet sich der Cores-OAuth-Dialog. Dort den Lesezugriff und nur die benötigten Schreibrechte bestätigen. `cores:write` bleibt als kompatibler Sammel-Scope verfügbar; Clients können stattdessen gezielt `cores:<service>:create` oder `cores:<service>:update` anfordern. Ein Token nur mit `cores:read` bleibt vollständig read-only. Falls der Client für einen neuen Scope den Dialog nicht selbst öffnet, die Verbindung einmal trennen und neu verbinden.
 
 Offizielle Referenz: <https://developers.openai.com/plugins/>
 
@@ -68,7 +68,7 @@ Den Connector beim KI-Anbieter entfernen. Statische Tokens zusätzlich serversei
 ## Häufige Fehler
 
 - `401 Unauthorized`: Cores-Login fehlt, Token ist abgelaufen oder der Scope `cores:read` fehlt.
-- `cores:write permission is required`: Die Verbindung besitzt noch einen alten Lesetoken oder der Server hat Schreibtools nicht aktiviert. `MCP_ENABLE_WRITES=true` setzen und den Autorisierungsdialog erneut abschließen; falls der Client ihn nicht automatisch öffnet, den Connector einmal trennen und neu verbinden.
+- `mutation scope is required`: Die Verbindung besitzt nur Leserechte oder nicht den für Service und Aktion passenden Schreibscope. `MCP_ENABLE_WRITES=true` setzen und den Autorisierungsdialog mit `cores:write` oder dem genannten granularen Scope erneut abschließen; falls der Client ihn nicht automatisch öffnet, den Connector einmal trennen und neu verbinden.
 - `only response_type=code is supported` nach „Nach der Anmeldung erneut versuchen“: Der Autorisierungslink ist veraltet oder wurde von einem Proxy doppelt URL-encodiert. Die Verbindung beim KI-Anbieter entfernen, neu anlegen und darauf achten, dass die Browser-URL echte Parameter wie `?client_id=...&response_type=code` enthält, nicht `client_id%3d...%26response_type=code`.
 - OAuth-Metadaten nicht gefunden: `/.well-known/*` wird vom Reverse Proxy nicht weitergeleitet.
 - Redirect-Fehler: Client-Callback wurde nicht bei Dynamic Client Registration registriert oder nutzt unsicheres HTTP außerhalb von localhost.

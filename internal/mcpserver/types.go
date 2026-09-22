@@ -10,6 +10,7 @@ import (
 
 	"github.com/modelcontextprotocol/go-sdk/auth"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
+	coresauth "github.com/nbt4/cores-mcp/internal/authn"
 	"github.com/nbt4/cores-mcp/internal/store"
 )
 
@@ -79,47 +80,121 @@ func addTool[In any](server *mcp.Server, name, title, description string, fn que
 func addCreateTool[In any](server *mcp.Server, name, title, description string, fn queryFn[In]) {
 	closed, additive := false, false
 	mcp.AddTool(server, &mcp.Tool{
-		Name: name, Title: title, Description: description,
-		Annotations: &mcp.ToolAnnotations{ReadOnlyHint: false, DestructiveHint: &additive, IdempotentHint: false, OpenWorldHint: &closed},
+		Name: name, Title: title, Description: mutationToolDescription(description),
+		Annotations: &mcp.ToolAnnotations{ReadOnlyHint: false, DestructiveHint: &additive, IdempotentHint: true, OpenWorldHint: &closed},
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, input In) (*mcp.CallToolResult, Output, error) {
-		if info := auth.TokenInfoFromContext(ctx); info == nil || !containsString(info.Scopes, "cores:write") {
-			message := name + " requires the cores:write scope. Reconnect the Cores MCP connector and grant create access."
-			return &mcp.CallToolResult{IsError: true, Content: []mcp.Content{&mcp.TextContent{Text: message}}}, Output{
-				AsOf: time.Now().UTC().Format(time.RFC3339), Summary: message, Warnings: []string{"No data was changed."},
-			}, nil
-		}
-		data, sources, warnings, err := fn(ctx, input)
-		if err != nil {
-			message := fmt.Sprintf("%s failed: %v", name, err)
-			return &mcp.CallToolResult{IsError: true, Content: []mcp.Content{&mcp.TextContent{Text: message}}}, Output{
-				AsOf: time.Now().UTC().Format(time.RFC3339), Summary: message, Warnings: append(warnings, "No further data was changed."),
-			}, nil
-		}
-		return nil, Output{AsOf: time.Now().UTC().Format(time.RFC3339), Summary: summarize(data), Data: data, Sources: sources, Warnings: warnings}, nil
+		return executeMutationTool(ctx, name, "create", input, fn)
 	})
 }
 
 func addUpdateTool[In any](server *mcp.Server, name, title, description string, fn queryFn[In]) {
 	closed, destructive := false, true
 	mcp.AddTool(server, &mcp.Tool{
-		Name: name, Title: title, Description: description,
-		Annotations: &mcp.ToolAnnotations{ReadOnlyHint: false, DestructiveHint: &destructive, IdempotentHint: false, OpenWorldHint: &closed},
+		Name: name, Title: title, Description: mutationToolDescription(description),
+		Annotations: &mcp.ToolAnnotations{ReadOnlyHint: false, DestructiveHint: &destructive, IdempotentHint: true, OpenWorldHint: &closed},
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, input In) (*mcp.CallToolResult, Output, error) {
-		if info := auth.TokenInfoFromContext(ctx); info == nil || !containsString(info.Scopes, "cores:write") {
-			message := name + " requires the cores:write scope. Reconnect the Cores MCP connector and grant write access."
-			return &mcp.CallToolResult{IsError: true, Content: []mcp.Content{&mcp.TextContent{Text: message}}}, Output{
-				AsOf: time.Now().UTC().Format(time.RFC3339), Summary: message, Warnings: []string{"No data was changed."},
-			}, nil
-		}
-		data, sources, warnings, err := fn(ctx, input)
-		if err != nil {
-			message := fmt.Sprintf("%s failed: %v", name, err)
-			return &mcp.CallToolResult{IsError: true, Content: []mcp.Content{&mcp.TextContent{Text: message}}}, Output{
-				AsOf: time.Now().UTC().Format(time.RFC3339), Summary: message, Warnings: append(warnings, "No further data was changed."),
-			}, nil
-		}
-		return nil, Output{AsOf: time.Now().UTC().Format(time.RFC3339), Summary: summarize(data), Data: data, Sources: sources, Warnings: warnings}, nil
+		return executeMutationTool(ctx, name, "write", input, fn)
 	})
+}
+
+func mutationToolDescription(description string) string {
+	return description + " Confirmed execution requires a unique idempotency_key. Set dry_run=true to validate and preview without changing data."
+}
+
+func executeMutationTool[In any](ctx context.Context, name, permissionLabel string, input In, fn queryFn[In]) (*mcp.CallToolResult, Output, error) {
+	now := func() string { return time.Now().UTC().Format(time.RFC3339) }
+	var permissionErr error
+	ctx, permissionErr = authorizeMutation(ctx, name)
+	if permissionErr != nil {
+		message := name + " requires " + requiredMutationScope(name) + " (or legacy cores:write). Reconnect the Cores MCP connector and grant " + permissionLabel + " access."
+		return &mcp.CallToolResult{IsError: true, Content: []mcp.Content{&mcp.TextContent{Text: message}}}, Output{
+			AsOf: now(), Summary: message, Warnings: []string{"No data was changed."},
+		}, nil
+	}
+
+	invocation, err := prepareWriteInvocation(ctx, name, input)
+	if err != nil {
+		message := fmt.Sprintf("%s rejected: %v", name, err)
+		return &mcp.CallToolResult{IsError: true, Content: []mcp.Content{&mcp.TextContent{Text: message}}}, Output{
+			AsOf: now(), Summary: message, Warnings: []string{"No data was changed."},
+		}, nil
+	}
+
+	var replay *writeReplay
+	if invocation.Confirmed {
+		var owner bool
+		replay, owner, err = mutationReplays.begin(ctx, invocation.ReplayKey, invocation.Fingerprint)
+		if err != nil {
+			message := fmt.Sprintf("%s rejected: %v", name, err)
+			return &mcp.CallToolResult{IsError: true, Content: []mcp.Content{&mcp.TextContent{Text: message}}}, Output{
+				AsOf: now(), Summary: message, Warnings: []string{"No data was changed."},
+			}, nil
+		}
+		if !owner {
+			warnings := append(append([]string(nil), replay.warnings...), "Idempotent replay: no additional mutation was executed.")
+			if replay.err != nil {
+				message := fmt.Sprintf("%s failed: %v", name, replay.err)
+				return &mcp.CallToolResult{IsError: true, Content: []mcp.Content{&mcp.TextContent{Text: message}}}, Output{
+					AsOf: now(), Summary: message, Warnings: warnings,
+				}, nil
+			}
+			return nil, Output{AsOf: now(), Summary: summarize(replay.data), Data: replay.data, Sources: replay.sources, Warnings: warnings}, nil
+		}
+		ctx = withMutationIdempotency(ctx, mutationControlsKey(input))
+	}
+
+	data, sources, warnings, err := fn(ctx, invocation.Input)
+	if invocation.Confirmed {
+		mutationReplays.finish(invocation.ReplayKey, replay, data, sources, warnings, err)
+	}
+	if err != nil {
+		message := fmt.Sprintf("%s failed: %v", name, err)
+		return &mcp.CallToolResult{IsError: true, Content: []mcp.Content{&mcp.TextContent{Text: message}}}, Output{
+			AsOf: now(), Summary: message, Warnings: append(warnings, "No further data was changed."),
+		}, nil
+	}
+	if invocation.DryRun {
+		data = map[string]any{"dry_run": true, "would_execute": data}
+		warnings = append(warnings, "Dry-run only: no data was changed.")
+	}
+	return nil, Output{AsOf: now(), Summary: summarize(data), Data: data, Sources: sources, Warnings: warnings}, nil
+}
+
+func mutationControlsKey(input any) string {
+	_, key := mutationControls(input)
+	return strings.TrimSpace(key)
+}
+
+func authorizeMutation(ctx context.Context, tool string) (context.Context, error) {
+	info := auth.TokenInfoFromContext(ctx)
+	required := requiredMutationScope(tool)
+	if info == nil || (!containsString(info.Scopes, coresauth.WriteScope()) && !containsString(info.Scopes, required)) {
+		return ctx, errorsNew("mutation scope is required")
+	}
+	return withMutationPermission(ctx, required), nil
+}
+
+func requiredMutationScope(tool string) string {
+	switch tool {
+	case "rental.jobs.create", "rental.requirements.create":
+		return coresauth.ServiceWriteScope("rental", "create")
+	case "rental.jobs.assign_device", "rental.jobs.update", "rental.requirements.update":
+		return coresauth.ServiceWriteScope("rental", "update")
+	case "warehouse.tasks.create", "warehouse.products.create":
+		return coresauth.ServiceWriteScope("warehouse", "create")
+	case "warehouse.movements.create", "warehouse.devices.update_status":
+		return coresauth.ServiceWriteScope("warehouse", "update")
+	case "planner.plans.create", "planner.tasks.create":
+		return coresauth.ServiceWriteScope("planner", "create")
+	case "procurement.products.create", "procurement.orders.create":
+		return coresauth.ServiceWriteScope("procurement", "create")
+	default:
+		return coresauth.WriteScope()
+	}
+}
+
+func executionToolForPreparation(name string) string {
+	return strings.Replace(name, ".prepare_", ".", 1)
 }
 
 func addWritePreparationTool[In any](server *mcp.Server, name, title, description string, fn queryFn[In]) {
@@ -128,8 +203,11 @@ func addWritePreparationTool[In any](server *mcp.Server, name, title, descriptio
 		Name: name, Title: title, Description: description,
 		Annotations: &mcp.ToolAnnotations{ReadOnlyHint: true, IdempotentHint: true, OpenWorldHint: &closed},
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, input In) (*mcp.CallToolResult, Output, error) {
-		if info := auth.TokenInfoFromContext(ctx); info == nil || !containsString(info.Scopes, "cores:write") {
-			message := name + " requires the cores:write scope. Reconnect the Cores MCP connector and grant create access."
+		executionTool := executionToolForPreparation(name)
+		var permissionErr error
+		ctx, permissionErr = authorizeMutation(ctx, executionTool)
+		if permissionErr != nil {
+			message := name + " requires " + requiredMutationScope(executionTool) + " (or legacy cores:write). Reconnect the Cores MCP connector and grant write access."
 			return &mcp.CallToolResult{IsError: true, Content: []mcp.Content{&mcp.TextContent{Text: message}}}, Output{AsOf: time.Now().UTC().Format(time.RFC3339), Summary: message}, nil
 		}
 		data, sources, warnings, err := fn(ctx, input)

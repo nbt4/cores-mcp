@@ -117,11 +117,14 @@ func dataDictionary(enableWrites bool) map[string]any {
 		"procurement": map[string]any{"entities": []string{"products", "offers", "suppliers", "requisitions", "orders", "receipts", "price history", "warehouse links"}, "money": "integer cents unless a field explicitly says otherwise"},
 		"excluded":    []string{"password hashes", "session and API tokens", "2FA secrets", "bank details", "document bodies", "employee private addresses", "unnecessary customer contact details", "arbitrary SQL"},
 		"guided_writes": map[string]any{
-			"enabled":   enableWrites,
-			"creates":   []string{"ProcurementCore product with optional offer", "RentalCore job and requirement", "PlannerCore plan and task", "WarehouseCore warehouse task", "WarehouseCore product with atomically resolved master data", "ProcurementCore purchase order"},
-			"workflows": []string{"RentalCore device assignment", "RentalCore job/status update", "RentalCore requirement quantity update", "WarehouseCore physical movement", "WarehouseCore device status update"},
-			"contract":  "call the matching prepare tool, ask every returned question, show current and final state plus risks, obtain explicit confirmation, then execute",
-			"excluded":  []string{"deletes", "approvals", "receipts", "user administration", "arbitrary mutation"},
+			"enabled":       enableWrites,
+			"creates":       []string{"ProcurementCore product with optional offer", "RentalCore job and requirement", "PlannerCore plan and task", "WarehouseCore warehouse task", "WarehouseCore product with atomically resolved master data", "ProcurementCore purchase order"},
+			"workflows":     []string{"RentalCore device assignment", "RentalCore job/status update", "RentalCore requirement quantity update", "WarehouseCore physical movement", "WarehouseCore device status update"},
+			"contract":      "call the matching prepare tool, ask every returned question, show current and final state plus risks, obtain explicit confirmation, then execute with a unique idempotency_key",
+			"dry_run":       "set dry_run=true on any execution tool to validate without changing data; confirmation is suppressed server-side",
+			"idempotency":   "confirmed execution requires an 8-128 character idempotency_key; exact retries are coalesced and payload conflicts are rejected",
+			"authorization": "requires cores:write or the matching cores:<service>:create|update scope plus the unchanged target-Core user permissions",
+			"excluded":      []string{"deletes", "approvals", "receipts", "user administration", "arbitrary mutation"},
 		},
 	}
 }

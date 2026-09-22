@@ -13,6 +13,7 @@ import (
 )
 
 type WarehouseProductCreateInput struct {
+	MutationControl
 	Name                      string         `json:"name,omitempty" jsonschema:"Required unique human-readable product name."`
 	Description               string         `json:"description,omitempty" jsonschema:"Recommended description of purpose and use."`
 	ProductType               string         `json:"product_type,omitempty" jsonschema:"One of equipment, accessory, or consumable; defaults to equipment."`

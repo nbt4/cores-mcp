@@ -18,6 +18,7 @@ import (
 )
 
 type ProductCreateInput struct {
+	MutationControl
 	ProductURL         string         `json:"product_url,omitempty" jsonschema:"HTTP(S) product page to analyze. Scraped values only fill fields that were not explicitly supplied."`
 	SKU                string         `json:"sku,omitempty" jsonschema:"Internal or manufacturer SKU. Required before creation."`
 	Name               string         `json:"name,omitempty" jsonschema:"Clear human-readable product name. Required before creation."`
@@ -43,6 +44,7 @@ type ProductCreateInput struct {
 }
 
 type JobCreateInput struct {
+	MutationControl
 	Description      string  `json:"description,omitempty" jsonschema:"Human-readable job title or description."`
 	CustomerID       int64   `json:"customer_id,omitempty" jsonschema:"Exact existing RentalCore customer ID."`
 	CustomerQuery    string  `json:"customer_query,omitempty" jsonschema:"Customer name to resolve when customer_id is unknown."`
@@ -60,6 +62,7 @@ type JobCreateInput struct {
 }
 
 type RequirementCreateInput struct {
+	MutationControl
 	JobID           int64  `json:"job_id,omitempty" jsonschema:"Exact existing RentalCore job ID."`
 	JobQuery        string `json:"job_query,omitempty" jsonschema:"Job code or description to resolve when job_id is unknown."`
 	ProductID       int64  `json:"product_id,omitempty" jsonschema:"Exact active WarehouseCore product ID."`

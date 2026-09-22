@@ -161,15 +161,32 @@ func TestWriteToolsExposeSafeAnnotationsAndSchemas(t *testing.T) {
 	}
 	for _, name := range []string{"procurement.products.create", "rental.jobs.create", "rental.requirements.create", "planner.plans.create", "planner.tasks.create", "warehouse.tasks.create", "warehouse.products.create", "rental.jobs.assign_device", "procurement.orders.create"} {
 		tool := tools[name]
-		if tool == nil || tool.Annotations == nil || tool.Annotations.ReadOnlyHint || tool.Annotations.DestructiveHint == nil || *tool.Annotations.DestructiveHint {
+		if tool == nil || tool.Annotations == nil || tool.Annotations.ReadOnlyHint || !tool.Annotations.IdempotentHint || tool.Annotations.DestructiveHint == nil || *tool.Annotations.DestructiveHint {
 			t.Fatalf("%s is not marked as an additive write", name)
 		}
+		assertMutationControlSchema(t, tool)
 	}
 	for _, name := range []string{"rental.jobs.update", "rental.requirements.update", "warehouse.movements.create", "warehouse.devices.update_status"} {
 		tool := tools[name]
-		if tool == nil || tool.Annotations == nil || tool.Annotations.ReadOnlyHint || tool.Annotations.DestructiveHint == nil || !*tool.Annotations.DestructiveHint {
+		if tool == nil || tool.Annotations == nil || tool.Annotations.ReadOnlyHint || !tool.Annotations.IdempotentHint || tool.Annotations.DestructiveHint == nil || !*tool.Annotations.DestructiveHint {
 			t.Fatalf("%s is not marked as a state-changing write", name)
 		}
+		assertMutationControlSchema(t, tool)
+	}
+}
+
+func assertMutationControlSchema(t *testing.T, tool *mcp.Tool) {
+	t.Helper()
+	if !strings.Contains(tool.Description, "idempotency_key") || !strings.Contains(tool.Description, "dry_run=true") {
+		t.Fatalf("%s description lacks mutation controls: %s", tool.Name, tool.Description)
+	}
+	schema, err := json.Marshal(tool.InputSchema)
+	if err != nil {
+		t.Fatalf("marshal %s schema: %v", tool.Name, err)
+	}
+	encoded := string(schema)
+	if !strings.Contains(encoded, `"dry_run"`) || !strings.Contains(encoded, `"idempotency_key"`) {
+		t.Fatalf("%s schema lacks mutation controls: %s", tool.Name, encoded)
 	}
 }
 

@@ -30,6 +30,15 @@ const (
 	writeScope = "cores:write"
 )
 
+var granularWriteScopes = []string{
+	"cores:rental:create",
+	"cores:rental:update",
+	"cores:warehouse:create",
+	"cores:warehouse:update",
+	"cores:planner:create",
+	"cores:procurement:create",
+}
+
 type User struct {
 	ID       uint
 	Username string
@@ -287,7 +296,7 @@ func (s *OAuthServer) authorize(w http.ResponseWriter, r *http.Request) {
 			"User":   user.Username,
 			"Params": authorizationFields(params),
 			"CSRF":   csrf,
-			"Writes": contains(requestedScopes(params.Get("scope"), s.enableWrites), writeScope),
+			"Writes": containsWriteScope(requestedScopes(params.Get("scope"), s.enableWrites)),
 		})
 		return
 	}
@@ -338,7 +347,7 @@ func (s *OAuthServer) validateAuthorizationRequest(values url.Values) (oauthClie
 		return oauthClient{}, errors.New("invalid resource")
 	}
 	for _, scope := range strings.Fields(values.Get("scope")) {
-		if scope != readScope && (!s.enableWrites || scope != writeScope) {
+		if scope != readScope && (!s.enableWrites || !isWriteScope(scope)) {
 			return oauthClient{}, errors.New("unsupported scope")
 		}
 	}
@@ -439,7 +448,7 @@ func (s *OAuthServer) writeTokens(w http.ResponseWriter, user User, clientID str
 }
 
 func (s *OAuthServer) supportedScopes() []string {
-	return requestedScopes("", s.enableWrites)
+	return SupportedScopes(s.enableWrites)
 }
 
 func requestedScopes(raw string, enableWrites bool) []string {
@@ -451,10 +460,43 @@ func requestedScopes(raw string, enableWrites bool) []string {
 		}
 	}
 	result := []string{readScope}
-	if enableWrites && contains(requested, writeScope) {
-		result = append(result, writeScope)
+	if enableWrites {
+		for _, scope := range requested {
+			if isWriteScope(scope) && !contains(result, scope) {
+				result = append(result, scope)
+			}
+		}
 	}
 	return result
+}
+
+func SupportedScopes(enableWrites bool) []string {
+	result := []string{readScope}
+	if !enableWrites {
+		return result
+	}
+	result = append(result, writeScope)
+	return append(result, granularWriteScopes...)
+}
+
+func ServiceWriteScope(service, action string) string {
+	return "cores:" + service + ":" + action
+}
+
+func isWriteScope(scope string) bool {
+	if scope == writeScope {
+		return true
+	}
+	return contains(granularWriteScopes, scope)
+}
+
+func containsWriteScope(scopes []string) bool {
+	for _, scope := range scopes {
+		if isWriteScope(scope) {
+			return true
+		}
+	}
+	return false
 }
 
 func (s *OAuthServer) sessionUser(r *http.Request) (User, bool) {

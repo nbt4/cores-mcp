@@ -1,5 +1,24 @@
 # Cores MCP
 
+## Schreibschutz-Grundlage ab 1.4.1
+
+Alle dreizehn Ausführungstools unterstützen `dry_run` und
+`idempotency_key`. Ein Dry-Run unterdrückt selbst bei versehentlich gesetztem
+`confirm_*` jede Ausführung und liefert ausschließlich die validierte Vorschau.
+Jeder bestätigte Schreibaufruf benötigt einen Schlüssel mit 8–128 sicheren
+Zeichen. Wiederholungen mit identischem Benutzer, Tool, Schlüssel und Payload
+liefern für 24 Stunden das erste Ergebnis; derselbe Schlüssel mit abweichender
+Payload wird blockiert. Parallele Wiederholungen werden zusammengeführt. Der
+Schlüssel wird zusätzlich als `Idempotency-Key` an den verantwortlichen Core
+weitergereicht und im MCP-Audit nur als gekürzter Hash protokolliert.
+
+Neben dem kompatiblen Sammel-Scope `cores:write` können Clients nun gezielt
+`cores:<service>:create` oder `cores:<service>:update` anfordern. Der
+MCP-Endpunkt selbst verlangt nur `cores:read`; dadurch funktioniert ein bewusst
+read-only ausgestelltes Token auch dann, wenn Schreibtools serverseitig
+aktiviert sind. Das Ausführungstool prüft anschließend seinen konkreten Scope,
+und die Rollenprüfung des Ziel-Cores bleibt unverändert wirksam.
+
 ## Atomare Warehouse-Produktanlage ab 1.4.0
 
 `warehouse.products.prepare_create` liefert jetzt das vollständige Feldschema,
@@ -47,11 +66,11 @@ nicht überschrieben.
 
 ## Verlässliche Schreibfreigabe ab 1.2.3
 
-Wenn `MCP_ENABLE_WRITES=true` gesetzt ist, fordert die OAuth-Challenge jetzt
-verbindlich `cores:read` und `cores:write` an. MCP-Clients erhalten dadurch beim
-Verbinden tatsächlich den im Consent bestätigten Anlagezugriff, statt trotz
-aktivierter Schreibtools unbemerkt bei einem alten Read-only-Token zu bleiben.
-Bestehende Lesetokens werden zur erneuten Autorisierung aufgefordert.
+Diese Version führte den getrennten Scope `cores:write` ein. Seit 1.4.1 verlangt
+der MCP-Endpunkt als gemeinsame Mindestberechtigung nur noch `cores:read`, damit
+bewusst read-only ausgestellte Tokens gültig bleiben. Schreibzugriffe benötigen
+am jeweiligen Tool entweder `cores:write` oder den passenden granularen
+Service-/Aktions-Scope.
 
 ## Geführte Schreibzugriffe ab 1.2.2
 
@@ -150,7 +169,7 @@ Die öffentliche MCP-URL ist:
 https://<cores-domain>/mcp
 ```
 
-In ChatGPT wird sie als benutzerdefinierte MCP-App/Plugin, in Claude als Custom Connector eingetragen. Beim ersten Verbinden registriert sich der Client dynamisch. Fehlt die Cores-Sitzung, führt der Flow durch das zentrale Cores-Login und automatisch zurück in den OAuth-Dialog. Die dortige, im Suite-Design dargestellte Freigabe zeigt `cores:read` und bei aktivierter Anlagefunktion zusätzlich `cores:write` verständlich an. Bereits verbundene Clients müssen neu verbunden werden, damit sie den neuen Scope erhalten. Ihre Content Security Policy erlaubt den POST an die konfigurierte öffentliche MCP-Origin und den anschließenden Redirect ausschließlich an die bereits validierte, registrierte Callback-Origin des Clients. Der Nutzer muss ein aktives Cores-Konto besitzen.
+In ChatGPT wird sie als benutzerdefinierte MCP-App/Plugin, in Claude als Custom Connector eingetragen. Beim ersten Verbinden registriert sich der Client dynamisch. Fehlt die Cores-Sitzung, führt der Flow durch das zentrale Cores-Login und automatisch zurück in den OAuth-Dialog. Die dortige, im Suite-Design dargestellte Freigabe zeigt `cores:read` und angeforderte Schreibrechte verständlich an. Ohne Schreibscope bleibt dieselbe Verbindung vollständig read-only. Bereits verbundene Clients müssen für neu benötigte Scopes neu autorisiert werden. Ihre Content Security Policy erlaubt den POST an die konfigurierte öffentliche MCP-Origin und den anschließenden Redirect ausschließlich an die bereits validierte, registrierte Callback-Origin des Clients. Der Nutzer muss ein aktives Cores-Konto besitzen.
 
 Für CI-Agents kann alternativ `MCP_AUTH_MODE=bearer` oder zusätzlich `MCP_STATIC_TOKENS=agent-name:secret` genutzt werden. Secrets niemals in Git einchecken.
 
@@ -208,7 +227,7 @@ Die vollständige Vorlage steht in [.env.example](.env.example).
 
 ## Sicherheitsmodell
 
-- Die 61 Abfragetools und dreizehn Vorbereitungstools sind `readOnlyHint=true`; Ausführungstools sind nicht-idempotent und Zustandsänderungen zusätzlich als destruktiv annotiert.
+- Die 61 Abfragetools und dreizehn Vorbereitungstools sind `readOnlyHint=true`; Ausführungstools erzwingen einen Idempotenzschlüssel und sind `idempotentHint=true`. Zustandsänderungen sind zusätzlich als destruktiv annotiert.
 - Jede DB-Abfrage läuft in einer PostgreSQL-Transaktion mit `READ ONLY`, Timeout und Zeilenlimit.
 - Produktion verwendet zusätzlich die Rolle `cores_mcp` mit ausschließlich `SELECT`-Rechten.
 - Schreibtools verwenden ausschließlich validierte Endpunkte des jeweils verantwortlichen Core und ein zweiminütiges, auf den OAuth-Benutzer delegiertes Suite-Token. Rollenänderungen und Kontosperren werden dort live geprüft.
@@ -227,7 +246,7 @@ Markdown-, Text-, CSV- und JSON-Dateien unter `MCP_KNOWLEDGE_DIRS` werden als MC
 
 ```bash
 make check
-docker build -t nobentie/cores-mcp:1.4.0 -t nobentie/cores-mcp:latest .
+docker build -t nobentie/cores-mcp:1.4.1 -t nobentie/cores-mcp:latest .
 ```
 
 Die Umbrella-Compose-Datei der Cores Suite bindet den Dienst intern ein. Der Cores-Dashboard-Reverse-Proxy veröffentlicht MCP und OAuth auf derselben Domain, damit der bestehende Suite-Login genutzt werden kann.

@@ -47,6 +47,22 @@ func TestRequestedScopesDefaultToEnabledCapabilities(t *testing.T) {
 	if got := strings.Join(requestedScopes(readScope+" "+writeScope, false), " "); got != readScope {
 		t.Fatalf("disabled write scope survived: %q", got)
 	}
+	granular := ServiceWriteScope("rental", "update")
+	if got := strings.Join(requestedScopes(readScope+" "+granular, true), " "); got != readScope+" "+granular {
+		t.Fatalf("granular scope = %q", got)
+	}
+}
+
+func TestSupportedScopesIncludeLegacyAndGranularWrites(t *testing.T) {
+	got := SupportedScopes(true)
+	for _, expected := range []string{readScope, writeScope, ServiceWriteScope("rental", "create"), ServiceWriteScope("warehouse", "update")} {
+		if !contains(got, expected) {
+			t.Fatalf("supported scopes %v lack %q", got, expected)
+		}
+	}
+	if got := SupportedScopes(false); len(got) != 1 || got[0] != readScope {
+		t.Fatalf("read-only scopes = %v", got)
+	}
 }
 
 func TestOAuthAuthorizationCodeFlow(t *testing.T) {

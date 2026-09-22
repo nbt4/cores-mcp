@@ -9,9 +9,22 @@ Toolnamen und Eingabeschemas bleiben unverändert.
 
 Die 61 Abfragetools sind read-only und idempotent. Bei `MCP_ENABLE_WRITES=true` werden zusätzlich dreizehn vorbereitende und dreizehn bestätigte Schreibtools für alle vier Core-Services registriert. Suchtools akzeptieren üblicherweise `query`, `limit` und `offset`; Zeitfenster `from`, `to` und `limit`; Detailtools `id`. Datumswerte sind `YYYY-MM-DD` oder RFC3339.
 
-Bei aktivierten Schreibtools fordert die OAuth-Challenge `cores:read` und
-`cores:write` gemeinsam an. Dadurch kann der Client die vorbereitenden Tools
-nicht mehr mit einem unbemerkt weiterverwendeten Read-only-Token aufrufen.
+Der MCP-Endpunkt verlangt immer `cores:read`. Für ein Vorbereitung- oder
+Ausführungstool ist zusätzlich entweder der kompatible Sammel-Scope
+`cores:write` oder der passende granulare Scope erforderlich:
+
+| Scope | Freigegebene Operationen |
+|---|---|
+| `cores:rental:create` | Jobs und Requirements anlegen |
+| `cores:rental:update` | Job/Requirement ändern und Gerät zuweisen |
+| `cores:warehouse:create` | Tasks und Produkte anlegen |
+| `cores:warehouse:update` | Bewegungen und Gerätezustände buchen |
+| `cores:planner:create` | Pläne und Tasks anlegen |
+| `cores:procurement:create` | Produkte und Bestellungen anlegen |
+
+Ohne Schreibscope bleibt das Token read-only, auch wenn
+`MCP_ENABLE_WRITES=true` gesetzt ist. Die Rechte des interaktiven Cores-Nutzers
+im Zielservice gelten zusätzlich und werden nicht erweitert.
 
 ## Suiteweit, flexible Abfragen und Wissen (12)
 
@@ -160,6 +173,23 @@ Alle Query-Namen und Felder stammen aus einer festen Registry. Nutzwerte werden 
 ### Schreibvertrag
 
 Vor jeder Schreiboperation wird das zugehörige `prepare_*`-Tool aufgerufen. Es liefert einen strukturierten Entwurf, aktuelle Werte, `required_missing_fields`, `questions_for_user`, Risiken und `ready_to_execute` beziehungsweise bei älteren Create-Tools `ready_to_create`. Der Client fragt offene Angaben ab, zeigt den finalen Entwurf und setzt das passende `confirm_*` erst nach ausdrücklicher Zustimmung. Empfohlene Produktlücken dürfen nur mit `accept_incomplete=true` und ausdrücklicher Nutzerentscheidung offen bleiben. Duplikate, ungültige IDs, fremde Planner-Pläne, unzulässige Zustände und mehrdeutige Referenzen blockieren die Ausführung.
+
+Jedes Ausführungstool akzeptiert zusätzlich:
+
+- `dry_run=true`: Bestätigung wird serverseitig unterdrückt; zurückgegeben wird
+  die exakte validierte Vorschau unter `data.would_execute`. Es werden keine
+  Daten geändert.
+- `idempotency_key`: Für jeden Aufruf mit aktivem `confirm_*` verpflichtend.
+  Zulässig sind 8–128 Zeichen aus Buchstaben, Ziffern, `.`, `_`, `:` und `-`.
+  Der Client verwendet pro fachlichem Vorgang einen stabilen, neuen Schlüssel.
+
+Identische Wiederholungen desselben Benutzers werden pro MCP-Instanz 24 Stunden
+lang ohne zweite Mutation beantwortet; parallele Aufrufe werden
+zusammengeführt. Eine abweichende Payload mit demselben Schlüssel wird
+abgewiesen. Der Schlüssel wird als `Idempotency-Key` an den Ziel-Core
+weitergegeben. Nach einem MCP-Neustart oder über mehrere Replikate hinweg ist
+die dauerhafte Deduplizierung erst garantiert, sobald auch der jeweilige
+Ziel-Core diesen Header persistent verarbeitet.
 
 ## Cross-Core-Entscheidungen (4)
 

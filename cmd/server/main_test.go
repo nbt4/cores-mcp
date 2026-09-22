@@ -13,14 +13,14 @@ import (
 	"github.com/nbt4/cores-mcp/internal/config"
 )
 
-func TestBearerOptionsRequireEnabledWriteScope(t *testing.T) {
+func TestBearerOptionsAlwaysRequireOnlyReadScope(t *testing.T) {
 	tests := []struct {
 		name         string
 		enableWrites bool
 		want         []string
 	}{
 		{name: "read only", want: []string{authn.ReadScope()}},
-		{name: "guided writes", enableWrites: true, want: []string{authn.ReadScope(), authn.WriteScope()}},
+		{name: "guided writes", enableWrites: true, want: []string{authn.ReadScope()}},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -35,7 +35,7 @@ func TestBearerOptionsRequireEnabledWriteScope(t *testing.T) {
 	}
 }
 
-func TestWriteEnabledChallengeAdvertisesRequiredScopes(t *testing.T) {
+func TestWriteEnabledChallengeRequiresOnlyReadScope(t *testing.T) {
 	options := bearerOptions(config.Config{PublicURL: "https://cores.example.com", EnableWrites: true})
 	verifier := func(context.Context, string, *http.Request) (*auth.TokenInfo, error) {
 		return nil, auth.ErrInvalidToken
@@ -48,7 +48,21 @@ func TestWriteEnabledChallengeAdvertisesRequiredScopes(t *testing.T) {
 		t.Fatalf("status = %d, want %d", recorder.Code, http.StatusUnauthorized)
 	}
 	challenge := recorder.Header().Get("WWW-Authenticate")
-	if !strings.Contains(challenge, `scope="cores:read cores:write"`) {
+	if !strings.Contains(challenge, `scope="cores:read"`) || strings.Contains(challenge, authn.WriteScope()) {
 		t.Fatalf("WWW-Authenticate = %q", challenge)
+	}
+}
+
+func TestWriteEnabledMetadataAdvertisesGranularScopes(t *testing.T) {
+	scopes := supportedScopes(config.Config{EnableWrites: true})
+	for _, required := range []string{
+		authn.ReadScope(),
+		authn.WriteScope(),
+		authn.ServiceWriteScope("rental", "create"),
+		authn.ServiceWriteScope("warehouse", "update"),
+	} {
+		if !slices.Contains(scopes, required) {
+			t.Fatalf("supported scopes %v lack %q", scopes, required)
+		}
 	}
 }

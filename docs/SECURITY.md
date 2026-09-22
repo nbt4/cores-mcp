@@ -6,10 +6,13 @@ Der MCP-Server liest operative Daten aus der gemeinsamen Cores-PostgreSQL-Datenb
 
 ## Zugriffsschutz
 
-- OAuth 2.0 Authorization Code mit PKCE S256, Dynamic Client Registration und Scope `cores:read`; bei aktivierten Anlage-Tools kommt die getrennte Zustimmung zu `cores:write` hinzu.
-- Bei aktivierten Anlage-Tools verlangt der MCP-Endpunkt beide Scopes bereits in
-  der OAuth-Challenge. Alte Lesetokens können damit keine Tool-Sitzung fortsetzen,
-  sondern müssen den sichtbaren Consent für den Schreibzugriff erneut durchlaufen.
+- OAuth 2.0 Authorization Code mit PKCE S256, Dynamic Client Registration und
+  Mindest-Scope `cores:read`. Schreibtools verlangen zusätzlich entweder den
+  kompatiblen Sammel-Scope `cores:write` oder einen granularen Scope je Service
+  und Aktionsklasse (`cores:<service>:create|update`).
+- Ein bewusst read-only ausgestelltes Token bleibt auch bei serverseitig
+  aktivierten Schreibtools nutzbar. Neu benötigte Schreibscopes erfordern einen
+  sichtbaren OAuth-Consent.
 - Autorisierung nur mit gültigem Cores-Suite-Cookie und aktivem Benutzer in der Datenbank.
 - Exakte Redirect-URI-Prüfung, HTTPS-Pflicht außer localhost, State/CSRF-Schutz und kurzlebige einmalige Codes.
 - Signierte Access-Tokens: 1 Stunde; Refresh-Tokens: 30 Tage.
@@ -30,9 +33,18 @@ Der MCP-Server liest operative Daten aus der gemeinsamen Cores-PostgreSQL-Datenb
 
 Optionale Schreibtools schreiben niemals über die Datenbankrolle. Sie rufen ausschließlich fest verdrahtete fachliche Endpunkte des verantwortlichen Core mit einem zweiminütigen, aus dem interaktiven OAuth-Benutzer abgeleiteten Suite-Token auf. Dazu zählen additive Anlagen sowie die einzeln definierten P0/P1-Operationen Gerätezuweisung, Job-/Requirement-Änderung, Bestellung, Lagerbewegung und Gerätezustand. Rollen- und Mitgliedschaftsregeln des Zielservices bleiben wirksam; Warehouse-Produkte samt ausdrücklich freigegebenen neuen Stammdaten benötigen Warehouse-Administratorrechte und werden in einer Zielservice-Transaktion angelegt, Bestellungen benötigen Procurement-Administratorrechte und Planner-Tasks werden bereits in der Vorschau auf die persönliche Planmitgliedschaft begrenzt. Statische Maschinentokens können keine Schreibtools nutzen.
 
-Vor jeder Operation liefert ein eigenes Vorbereitungstool Pflichtlücken, Referenzkandidaten, aktuelle Werte, Risiken und mögliche Duplikate. Das Ausführungstool schreibt erst nach finaler Vorschau und dem operationsspezifischen `confirm_*`; unvollständige empfohlene Produktdaten benötigen zusätzlich `accept_incomplete=true`. Es gibt absichtlich kein universelles SQL-, HTTP-, Datei- oder Shell-Werkzeug und keine Tools für Löschungen, Freigaben, Benutzerverwaltung oder beliebige Mutation.
+Vor jeder Operation liefert ein eigenes Vorbereitungstool Pflichtlücken, Referenzkandidaten, aktuelle Werte, Risiken und mögliche Duplikate. Das Ausführungstool schreibt erst nach finaler Vorschau, dem operationsspezifischen `confirm_*` und einem gültigen `idempotency_key`; unvollständige empfohlene Produktdaten benötigen zusätzlich `accept_incomplete=true`. `dry_run=true` entfernt die Bestätigung serverseitig und führt nur die Validierung/Vorschau aus. Gleiche bestätigte Aufrufe werden je MCP-Prozess 24 Stunden dedupliziert, gleichzeitige Wiederholungen zusammengeführt und abweichende Payloads unter demselben Schlüssel blockiert. Der Header wird an den Ziel-Core weitergereicht; dauerhafte Deduplizierung über Neustarts und Replikate erfordert zusätzlich dessen persistente Verarbeitung. Es gibt absichtlich kein universelles SQL-, HTTP-, Datei- oder Shell-Werkzeug und keine Tools für Löschungen, Freigaben, Benutzerverwaltung oder beliebige Mutation.
 
-Schreibaufrufe werden im MCP-Prozess mit Benutzer und Toolnamen protokolliert. Die Ziel-Cores führen zusätzlich ihre fachlichen Audit-Trails: RentalCore Job-Historie, WarehouseCore Gerätehistorie und Bewegungen sowie ProcurementCore Aktivitäten. Ein universelles kaskadierendes Undo existiert bewusst nicht. Berechtigte Menschen nehmen Änderungen über eine erneut validierte Gegenoperation zurück, beispielsweise durch Rücksetzen von Job/Requirement/Gerätezustand oder eine inverse Lagerbewegung.
+Schreibaufrufe werden im MCP-Prozess mit Herkunft `MCP/AI`, Benutzer,
+Toolnamen, Dry-Run-/Bestätigungsstatus, Ergebnisstatus und einem nicht
+umkehrbaren Kurz-Hash des Idempotenzschlüssels protokolliert; fachliche
+Payloads oder Schlüssel gelangen nicht ins zentrale Log. Die Ziel-Cores führen
+zusätzlich ihre fachlichen Audit-Trails: RentalCore Job-Historie,
+WarehouseCore Gerätehistorie und Bewegungen sowie ProcurementCore Aktivitäten.
+Ein universelles kaskadierendes Undo existiert bewusst nicht. Berechtigte
+Menschen nehmen Änderungen über eine erneut validierte Gegenoperation zurück,
+beispielsweise durch Rücksetzen von Job/Requirement/Gerätezustand oder eine
+inverse Lagerbewegung.
 
 ## Datenminimierung
 

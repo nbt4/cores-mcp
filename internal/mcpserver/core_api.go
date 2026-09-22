@@ -61,6 +61,9 @@ func (c *coreAPIClient) doJSON(ctx context.Context, baseURL, path, method string
 	}
 	request.Header.Set("Accept", "application/json")
 	request.Header.Set("Content-Type", "application/json")
+	if idempotencyKey := mutationIdempotencyFromContext(ctx); idempotencyKey != "" {
+		request.Header.Set("Idempotency-Key", idempotencyKey)
+	}
 	request.AddCookie(&http.Cookie{Name: "cores_token", Value: token})
 	response, err := c.client.Do(request)
 	if err != nil {
@@ -90,8 +93,8 @@ func (c *coreAPIClient) doJSON(ctx context.Context, baseURL, path, method string
 
 func (c *coreAPIClient) suiteToken(ctx context.Context) (string, error) {
 	info := auth.TokenInfoFromContext(ctx)
-	if info == nil || !containsString(info.Scopes, "cores:write") {
-		return "", errorsNew("cores:write permission is required; reconnect the MCP connector and grant create access")
+	if info == nil || (!containsString(info.Scopes, "cores:write") && mutationPermissionFromContext(ctx) == "") {
+		return "", errorsNew("a matching Cores mutation scope is required; reconnect the MCP connector and grant write access")
 	}
 	parsed, err := strconv.ParseUint(strings.TrimSpace(info.UserID), 10, 32)
 	if err != nil || parsed == 0 {

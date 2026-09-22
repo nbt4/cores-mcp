@@ -123,16 +123,12 @@ func main() {
 }
 
 func supportedScopes(cfg config.Config) []string {
-	scopes := []string{authn.ReadScope()}
-	if cfg.EnableWrites {
-		scopes = append(scopes, authn.WriteScope())
-	}
-	return scopes
+	return authn.SupportedScopes(cfg.EnableWrites)
 }
 
 func bearerOptions(cfg config.Config) *auth.RequireBearerTokenOptions {
 	return &auth.RequireBearerTokenOptions{
-		Scopes:              supportedScopes(cfg),
+		Scopes:              []string{authn.ReadScope()},
 		ResourceMetadataURL: cfg.PublicURL + "/.well-known/oauth-protected-resource/mcp",
 		ClockSkew:           30 * time.Second,
 	}

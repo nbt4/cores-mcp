@@ -14,6 +14,7 @@ import (
 )
 
 type JobDeviceAssignInput struct {
+	MutationControl
 	JobID             int64   `json:"job_id,omitempty" jsonschema:"Exact existing RentalCore job ID."`
 	JobQuery          string  `json:"job_query,omitempty" jsonschema:"Job code or description to resolve when job_id is unknown."`
 	DeviceID          string  `json:"device_id,omitempty" jsonschema:"Exact active device ID, barcode, QR code, or serial number."`
@@ -22,6 +23,7 @@ type JobDeviceAssignInput struct {
 }
 
 type JobUpdateInput struct {
+	MutationControl
 	JobID         int64    `json:"job_id,omitempty" jsonschema:"Exact existing RentalCore job ID."`
 	JobQuery      string   `json:"job_query,omitempty" jsonschema:"Job code or description to resolve when job_id is unknown."`
 	Description   string   `json:"description,omitempty"`
@@ -36,6 +38,7 @@ type JobUpdateInput struct {
 }
 
 type RequirementUpdateInput struct {
+	MutationControl
 	RequirementID int64 `json:"requirement_id,omitempty" jsonschema:"Exact RentalCore job requirement ID."`
 	Quantity      int   `json:"quantity,omitempty" jsonschema:"Required new positive quantity."`
 	ConfirmUpdate bool  `json:"confirm_update,omitempty" jsonschema:"Set true only after showing the old and new quantity and receiving explicit confirmation."`
@@ -51,6 +54,7 @@ type PurchaseOrderLineInput struct {
 }
 
 type PurchaseOrderCreateInput struct {
+	MutationControl
 	SupplierID          int64                    `json:"supplier_id,omitempty" jsonschema:"Exact active ProcurementCore supplier ID."`
 	SupplierQuery       string                   `json:"supplier_query,omitempty" jsonschema:"Supplier name or code to resolve when supplier_id is unknown."`
 	SupplierOrderNumber string                   `json:"supplier_order_number,omitempty"`
@@ -64,6 +68,7 @@ type PurchaseOrderCreateInput struct {
 }
 
 type WarehouseMovementCreateInput struct {
+	MutationControl
 	ScanCode        string   `json:"scan_code,omitempty" jsonschema:"Exact device ID, barcode, QR code, or quantity-item barcode."`
 	Action          string   `json:"action,omitempty" jsonschema:"One of intake, outtake, or transfer."`
 	JobID           *int64   `json:"job_id,omitempty" jsonschema:"Required for outtake."`
@@ -74,6 +79,7 @@ type WarehouseMovementCreateInput struct {
 }
 
 type DeviceStatusUpdateInput struct {
+	MutationControl
 	DeviceID        string `json:"device_id,omitempty" jsonschema:"Exact active WarehouseCore device ID."`
 	Status          string `json:"status,omitempty" jsonschema:"Optional physical status: in_storage or location_unknown. Physical job movement states must use warehouse.movements.create."`
 	ConditionStatus string `json:"condition_status,omitempty" jsonschema:"Optional condition: available, blocked, defective, maintenance, or retired."`
