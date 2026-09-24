@@ -7,7 +7,7 @@ OAuth-Benutzers beschränkt. Das gilt auch für `cores.search`,
 berechtigt nicht zum Lesen fremder Pläne. Maschinentokens liefern keine Planner-Daten.
 Toolnamen und Eingabeschemas bleiben unverändert.
 
-Die 62 Abfragetools sind read-only und idempotent. Bei `MCP_ENABLE_WRITES=true` werden zusätzlich sechzehn vorbereitende und sechzehn bestätigte Schreibtools für alle vier Core-Services registriert. Suchtools akzeptieren üblicherweise `query`, `limit` und `offset`; Zeitfenster `from`, `to` und `limit`; Detailtools `id`. Datumswerte sind `YYYY-MM-DD` oder RFC3339.
+Die 62 Abfragetools sind read-only und idempotent. Bei `MCP_ENABLE_WRITES=true` werden zusätzlich siebzehn vorbereitende und siebzehn bestätigte Schreibtools für alle vier Core-Services registriert. Suchtools akzeptieren üblicherweise `query`, `limit` und `offset`; Zeitfenster `from`, `to` und `limit`; Detailtools `id`. Datumswerte sind `YYYY-MM-DD` oder RFC3339.
 
 Der MCP-Endpunkt verlangt immer `cores:read`. Für ein Vorbereitung- oder
 Ausführungstool ist zusätzlich entweder der kompatible Sammel-Scope
@@ -21,6 +21,7 @@ Ausführungstool ist zusätzlich entweder der kompatible Sammel-Scope
 | `cores:warehouse:update` | Bewegungen und Gerätezustände buchen |
 | `cores:planner:create` | Pläne und Tasks anlegen |
 | `cores:procurement:create` | Produkte, Lieferanten und Bestellungen anlegen |
+| `cores:procurement:update` | Lieferantenfelder ändern sowie Lieferanten deaktivieren oder reaktivieren |
 | `cores:procurement:approve` | Eingereichte Bedarfe im Vier-Augen-Prinzip entscheiden |
 | `cores:procurement:receive` | Bestätigten Wareneingang mit Lagerwirkung buchen |
 
@@ -157,7 +158,7 @@ Alle Query-Namen und Felder stammen aus einer festen Registry. Nutzwerte werden 
 | `planner.tasks.prepare_create` | Planmitgliedschaft, Bucket-Zugehörigkeit, Titel und Duplikate prüfen |
 | `planner.tasks.create` | Eine bestätigte Aufgabe im freigegebenen Plan anlegen |
 
-## ProcurementCore (11 + 10 geführte Schreibtools)
+## ProcurementCore (11 + 12 geführte Schreibtools)
 
 | Tool | Zweck |
 |---|---|
@@ -176,6 +177,8 @@ Alle Query-Namen und Felder stammen aus einer festen Registry. Nutzwerte werden 
 | `procurement.products.create` | Bestätigtes Produkt und optional eine Bezugsquelle über die ProcurementCore-API anlegen |
 | `procurement.suppliers.prepare_create` | Alle Lieferantenfelder, eindeutigen Code und ähnliche Bestandsnamen prüfen; vollständigen Entwurf und Rückfragen liefern |
 | `procurement.suppliers.create` | Lieferanten nach finaler Bestätigung über die ProcurementCore-API atomar und auditiert anlegen |
+| `procurement.suppliers.prepare_update` | Administratorrechte, alle Feldänderungen, ähnliche Namen und exakte Version prüfen; Ist/Soll-Diff zeigen |
+| `procurement.suppliers.update` | Bestätigte Änderung oder Deaktivierung mit Versionsprüfung und transaktionalem Audit speichern |
 | `procurement.orders.prepare_create` | Lieferant, Positionen, Termine, Währung, Duplikate und Gesamtwert prüfen |
 | `procurement.orders.create` | Bestätigte Bestellung mit Procurement-Administratorrechten anlegen |
 | `procurement.requisitions.prepare_decide` | Eingereichten Bedarf, Version und Vier-Augen-Trennung für Genehmigung, Ablehnung oder Rückgabe prüfen |

@@ -87,19 +87,28 @@ type DeviceStatusUpdateInput struct {
 }
 
 type preparedMutation struct {
-	Draft     map[string]any   `json:"draft"`
-	Current   map[string]any   `json:"current,omitempty"`
-	Missing   []string         `json:"required_missing_fields"`
-	Questions []map[string]any `json:"questions_for_user"`
-	Warnings  []string         `json:"risk_warnings,omitempty"`
-	Ready     bool             `json:"ready_to_execute"`
+	Draft          map[string]any            `json:"draft"`
+	Current        map[string]any            `json:"current,omitempty"`
+	Diff           map[string]map[string]any `json:"diff,omitempty"`
+	RelatedRecords []map[string]any          `json:"related_records,omitempty"`
+	Missing        []string                  `json:"required_missing_fields"`
+	Questions      []map[string]any          `json:"questions_for_user"`
+	Warnings       []string                  `json:"risk_warnings,omitempty"`
+	Ready          bool                      `json:"ready_to_execute"`
 }
 
 func (p preparedMutation) response(status string) map[string]any {
-	return map[string]any{
+	result := map[string]any{
 		"operation_status": status, "ready_to_execute": p.Ready, "draft": p.Draft, "current": p.Current,
 		"required_missing_fields": p.Missing, "questions_for_user": p.Questions, "risk_warnings": p.Warnings,
 	}
+	if len(p.Diff) > 0 {
+		result["diff"] = p.Diff
+	}
+	if len(p.RelatedRecords) > 0 {
+		result["related_records"] = p.RelatedRecords
+	}
+	return result
 }
 
 func (p *preparedMutation) require(field, prompt string, options any) {
