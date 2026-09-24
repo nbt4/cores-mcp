@@ -1,5 +1,14 @@
 # Cores MCP
 
+## Geführte Lieferantenanlage ab 1.5.2
+
+`procurement.suppliers.prepare_create` prüft sämtliche Lieferantenfelder,
+Lieferantencode und ähnliche Namen gegen den aktuellen Bestand und liefert
+einen vollständigen Entwurf mit konkreten Rückfragen.
+`procurement.suppliers.create` verlangt anschließend `confirm_creation=true`
+und einen Idempotenzschlüssel. Die Anlage erfolgt über die ProcurementCore-API
+mit Administratorprüfung, Audit-Herkunft `MCP/AI` und dauerhafter Deduplizierung.
+
 ## Stammdatenauflösung ab 1.5.1
 
 `cores.master_data.resolve` sucht vorhandene Warehouse-Stammdaten sowie
@@ -134,12 +143,13 @@ entfernt ausschließlich sein eigenes Schema.
 
 Cores MCP bindet die gesamte Cores Suite als sicheren MCP-Server an ChatGPT, Claude, Codex und andere MCP-fähige Agents an. Der Chat bleibt beim jeweiligen KI-Anbieter; Cores stellt nur kontrollierte Werkzeuge und Kontext bereit.
 
-Der Server bietet 62 lesende fachliche Tools, fünf wiederverwendbare Analyse-Prompts und dokumentierbare Knowledge-Ressourcen für RentalCore, WarehouseCore, PlannerCore und ProcurementCore. Bei `MCP_ENABLE_WRITES=true` kommen fünfzehn vorbereitende und fünfzehn bestätigte, eng begrenzte Schreibtools für alle vier Core-Services hinzu. Beliebiges SQL, generische HTTP-Aufrufe und Hard-Deletes bleiben ausgeschlossen.
+Der Server bietet 62 lesende fachliche Tools, fünf wiederverwendbare Analyse-Prompts und dokumentierbare Knowledge-Ressourcen für RentalCore, WarehouseCore, PlannerCore und ProcurementCore. Bei `MCP_ENABLE_WRITES=true` kommen sechzehn vorbereitende und sechzehn bestätigte, eng begrenzte Schreibtools für alle vier Core-Services hinzu. Beliebiges SQL, generische HTTP-Aufrufe und Hard-Deletes bleiben ausgeschlossen.
 
 ## Geführte Schreibzugriffe mit Rückfragen
 
 - `procurement.products.prepare_create` analysiert optional einen Produktlink, führt erkannte und explizit genannte Werte zusammen, prüft Duplikate, schlägt Kategorien/Lieferanten vor und liefert `questions_for_user` für alle fehlenden Angaben.
 - `procurement.products.create` legt erst an, wenn Pflichtfelder eindeutig sind, empfohlene Lücken ausgefüllt oder ausdrücklich akzeptiert wurden und `confirm_creation=true` nach einer finalen Vorschau gesetzt ist.
+- `procurement.suppliers.prepare_create` und `procurement.suppliers.create` prüfen Code, ähnliche Namen und alle Stammdaten vor der bestätigten Anlage.
 - `rental.jobs.prepare_create` löst Kunden, Status, Jobkategorie und Location gegen die Live-Daten auf. Mehrdeutige Namen werden nie geraten, sondern als Auswahl zurückgegeben.
 - `rental.jobs.create` verlangt vollständige Kerndaten und dieselbe ausdrückliche Bestätigung.
 - `rental.requirements.prepare_create` und `rental.requirements.create` lösen Job und Produkt eindeutig auf, prüfen die Menge und verweigern das Überschreiben eines vorhandenen Bedarfs.
@@ -257,12 +267,12 @@ Die vollständige Vorlage steht in [.env.example](.env.example).
 
 ## Sicherheitsmodell
 
-- Die 62 Abfragetools und fünfzehn Vorbereitungstools sind `readOnlyHint=true`; Ausführungstools erzwingen einen Idempotenzschlüssel und sind `idempotentHint=true`. Zustandsänderungen sind zusätzlich als destruktiv annotiert.
+- Die 62 Abfragetools und sechzehn Vorbereitungstools sind `readOnlyHint=true`; Ausführungstools erzwingen einen Idempotenzschlüssel und sind `idempotentHint=true`. Zustandsänderungen sind zusätzlich als destruktiv annotiert.
 - Jede DB-Abfrage läuft in einer PostgreSQL-Transaktion mit `READ ONLY`, Timeout und Zeilenlimit.
 - Produktion verwendet zusätzlich die Rolle `cores_mcp` mit ausschließlich `SELECT`-Rechten.
 - Schreibtools verwenden ausschließlich validierte Endpunkte des jeweils verantwortlichen Core und ein zweiminütiges, auf den OAuth-Benutzer delegiertes Suite-Token. Rollenänderungen und Kontosperren werden dort live geprüft.
 - Es existieren keine Tools für beliebiges SQL, Dateien, Shell, E-Mail, generische Änderungen oder Hard-Deletes. Zulässige Änderungen, Statuswechsel, Bewegungen, Bestellungen, Procurement-Freigaben und Wareneingänge sind einzelne fachliche Capabilities mit Live-Validierung, Ziel-Core-Berechtigung, finaler Vorschau und ausdrücklicher Bestätigung.
-- Kontaktinformationen, Secrets und interne private Notizen werden nicht absichtlich ausgegeben.
+- Lesende Tools geben keine unnötigen Kontaktinformationen, Secrets oder internen privaten Notizen aus. Geführte Anlagen zeigen die vom Benutzer eingegebenen Felder im Entwurf und im Ergebnis.
 - Nutzertexte aus Beschreibungen/Notizen gelten als nicht vertrauenswürdige Daten, niemals als Agent-Anweisung.
 - Toolantworten enthalten Zeitstempel, Quellen und fachliche Warnungen.
 
@@ -276,7 +286,7 @@ Markdown-, Text-, CSV- und JSON-Dateien unter `MCP_KNOWLEDGE_DIRS` werden als MC
 
 ```bash
 make check
-docker build -t nobentie/cores-mcp:1.5.1 -t nobentie/cores-mcp:latest .
+docker build -t nobentie/cores-mcp:1.5.2 -t nobentie/cores-mcp:latest .
 ```
 
 Die Umbrella-Compose-Datei der Cores Suite bindet den Dienst intern ein. Der Cores-Dashboard-Reverse-Proxy veröffentlicht MCP und OAuth auf derselben Domain, damit der bestehende Suite-Login genutzt werden kann.

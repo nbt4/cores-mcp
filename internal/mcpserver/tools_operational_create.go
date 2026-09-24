@@ -46,20 +46,26 @@ type WarehouseTaskCreateInput struct {
 }
 
 type preparedOperationalCreate struct {
-	Draft     map[string]any   `json:"draft"`
-	Missing   []string         `json:"required_missing_fields"`
-	Questions []map[string]any `json:"questions_for_user"`
-	Ready     bool             `json:"ready_to_create"`
+	Draft          map[string]any   `json:"draft"`
+	Missing        []string         `json:"required_missing_fields"`
+	Questions      []map[string]any `json:"questions_for_user"`
+	RelatedRecords []map[string]any `json:"related_records,omitempty"`
+	Sources        []Source         `json:"-"`
+	Ready          bool             `json:"ready_to_create"`
 }
 
 func (p preparedOperationalCreate) response(status string) map[string]any {
-	return map[string]any{
+	result := map[string]any{
 		"creation_status":         status,
 		"ready_to_create":         p.Ready,
 		"draft":                   p.Draft,
 		"required_missing_fields": p.Missing,
 		"questions_for_user":      p.Questions,
 	}
+	if len(p.RelatedRecords) > 0 {
+		result["related_records"] = p.RelatedRecords
+	}
+	return result
 }
 
 func registerOperationalCreateTools(server *mcp.Server, cfg config.Config, db *store.Store) {
