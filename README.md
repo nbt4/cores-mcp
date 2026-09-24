@@ -1,5 +1,12 @@
 # Cores MCP
 
+## OAuth-Scope für Lieferantenänderungen ab 1.5.4
+
+`cores:procurement:update` ist jetzt im OAuth-Katalog auswählbar. Ein Token
+mit diesem Scope kann das geführte Lieferanten-Update aufrufen, während
+`cores:procurement:create` allein dafür nicht ausreicht. Bestehende
+Verbindungen müssen den neuen Scope bei Bedarf erneut freigeben.
+
 ## Lieferantenänderung und Deaktivierung ab 1.5.3
 
 `procurement.suppliers.prepare_update` lädt den Lieferanten nur für
@@ -298,7 +305,7 @@ Markdown-, Text-, CSV- und JSON-Dateien unter `MCP_KNOWLEDGE_DIRS` werden als MC
 
 ```bash
 make check
-docker build -t nobentie/cores-mcp:1.5.3 -t nobentie/cores-mcp:latest .
+docker build -t nobentie/cores-mcp:1.5.4 -t nobentie/cores-mcp:latest .
 ```
 
 Die Umbrella-Compose-Datei der Cores Suite bindet den Dienst intern ein. Der Cores-Dashboard-Reverse-Proxy veröffentlicht MCP und OAuth auf derselben Domain, damit der bestehende Suite-Login genutzt werden kann.

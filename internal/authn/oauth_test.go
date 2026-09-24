@@ -55,7 +55,7 @@ func TestRequestedScopesDefaultToEnabledCapabilities(t *testing.T) {
 
 func TestSupportedScopesIncludeLegacyAndGranularWrites(t *testing.T) {
 	got := SupportedScopes(true)
-	for _, expected := range []string{readScope, writeScope, ServiceWriteScope("rental", "create"), ServiceWriteScope("warehouse", "update"), ServiceWriteScope("procurement", "approve"), ServiceWriteScope("procurement", "receive")} {
+	for _, expected := range []string{readScope, writeScope, ServiceWriteScope("rental", "create"), ServiceWriteScope("warehouse", "update"), ServiceWriteScope("procurement", "update"), ServiceWriteScope("procurement", "approve"), ServiceWriteScope("procurement", "receive")} {
 		if !contains(got, expected) {
 			t.Fatalf("supported scopes %v lack %q", got, expected)
 		}

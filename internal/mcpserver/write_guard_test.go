@@ -192,6 +192,17 @@ func TestAuthorizeMutationEnforcesServiceAndActionScope(t *testing.T) {
 	if _, err := authorizeMutation(procurementApprove, "procurement.orders.receive"); err == nil {
 		t.Fatal("procurement approval scope authorized goods receipt")
 	}
+	procurementCreate := writeScopeContextWithScopes(t, coresauth.ReadScope(), coresauth.ServiceWriteScope("procurement", "create"))
+	if _, err := authorizeMutation(procurementCreate, "procurement.suppliers.update"); err == nil {
+		t.Fatal("procurement create scope authorized supplier update")
+	}
+	procurementUpdate := writeScopeContextWithScopes(t, coresauth.ReadScope(), coresauth.ServiceWriteScope("procurement", "update"))
+	if _, err := authorizeMutation(procurementUpdate, "procurement.suppliers.update"); err != nil {
+		t.Fatalf("procurement supplier update was rejected: %v", err)
+	}
+	if _, err := authorizeMutation(procurementUpdate, "procurement.suppliers.create"); err == nil {
+		t.Fatal("procurement update scope authorized supplier creation")
+	}
 }
 
 func TestCoreAPIForwardsIdempotencyKey(t *testing.T) {

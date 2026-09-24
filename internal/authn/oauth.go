@@ -37,6 +37,7 @@ var granularWriteScopes = []string{
 	"cores:warehouse:update",
 	"cores:planner:create",
 	"cores:procurement:create",
+	"cores:procurement:update",
 	"cores:procurement:approve",
 	"cores:procurement:receive",
 }
