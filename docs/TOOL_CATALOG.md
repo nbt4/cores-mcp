@@ -7,7 +7,7 @@ OAuth-Benutzers beschränkt. Das gilt auch für `cores.search`,
 berechtigt nicht zum Lesen fremder Pläne. Maschinentokens liefern keine Planner-Daten.
 Toolnamen und Eingabeschemas bleiben unverändert.
 
-Die 61 Abfragetools sind read-only und idempotent. Bei `MCP_ENABLE_WRITES=true` werden zusätzlich fünfzehn vorbereitende und fünfzehn bestätigte Schreibtools für alle vier Core-Services registriert. Suchtools akzeptieren üblicherweise `query`, `limit` und `offset`; Zeitfenster `from`, `to` und `limit`; Detailtools `id`. Datumswerte sind `YYYY-MM-DD` oder RFC3339.
+Die 62 Abfragetools sind read-only und idempotent. Bei `MCP_ENABLE_WRITES=true` werden zusätzlich fünfzehn vorbereitende und fünfzehn bestätigte Schreibtools für alle vier Core-Services registriert. Suchtools akzeptieren üblicherweise `query`, `limit` und `offset`; Zeitfenster `from`, `to` und `limit`; Detailtools `id`. Datumswerte sind `YYYY-MM-DD` oder RFC3339.
 
 Der MCP-Endpunkt verlangt immer `cores:read`. Für ein Vorbereitung- oder
 Ausführungstool ist zusätzlich entweder der kompatible Sammel-Scope
@@ -28,7 +28,7 @@ Ohne Schreibscope bleibt das Token read-only, auch wenn
 `MCP_ENABLE_WRITES=true` gesetzt ist. Die Rechte des interaktiven Cores-Nutzers
 im Zielservice gelten zusätzlich und werden nicht erweitert.
 
-## Suiteweit, flexible Abfragen und Wissen (12)
+## Suiteweit, flexible Abfragen und Wissen (13)
 
 | Tool | Zweck |
 |---|---|
@@ -38,12 +38,17 @@ im Zielservice gelten zusätzlich und werden nicht erweitert.
 | `cores.services.health` | Live-Healthchecks aller Suite-Dienste |
 | `cores.data.dictionary` | Tabellen- und Spalteninventar der freigegebenen Cores-Daten |
 | `cores.entities.schema` | Pflegbare Felder, Typen, Validierungen und geführte Operationen pro Schreibentität |
+| `cores.master_data.resolve` | Hersteller, Marken, Kategorien, Zonen, Procurement-Lieferanten und Rental-Kunden/Orte fuzzy und lesend auflösen |
 | `cores.data.quality` | Entscheidungsrelevante Erfassungs- und Verknüpfungslücken |
 | `cores.query.catalog` | Freigegebene Entitäten, Felder, Typen, Operatoren und Cross-Core-Beziehungen |
 | `cores.query.records` | Bis zu acht gefilterte Entitätsabfragen ausführen und Ergebnisse sicher verknüpfen |
 | `cores.query.aggregate` | Eine freigegebene Entität gruppieren und mit Count, Summe, Durchschnitt, Min oder Max aggregieren |
 | `knowledge.documents.list` | Verfügbare Strategie- und Referenzdokumente |
 | `knowledge.documents.search` | Volltextsuche in freigegebenen Knowledge-Dokumenten |
+
+Bei `cores.entities.schema` kennzeichnet `required_one_of` alternative
+Pflichtangaben wie `manufacturer_id` oder `manufacturer_name`; die einzelnen
+Felder sind dabei nicht jeweils für sich erforderlich.
 
 ### Flexible Query-Syntax
 

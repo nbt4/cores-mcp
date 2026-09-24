@@ -151,8 +151,11 @@ func TestWriteToolsExposeSafeAnnotationsAndSchemas(t *testing.T) {
 	for _, tool := range listed.Tools {
 		tools[tool.Name] = tool
 	}
-	if len(tools) != 91 {
-		t.Fatalf("tool count = %d, want 91", len(tools))
+	if len(tools) != 92 {
+		t.Fatalf("tool count = %d, want 92", len(tools))
+	}
+	if tool := tools["cores.master_data.resolve"]; tool == nil || tool.Annotations == nil || !tool.Annotations.ReadOnlyHint {
+		t.Fatal("cross-core master-data resolver must be read-only")
 	}
 	for _, name := range []string{"procurement.products.prepare_create", "rental.jobs.prepare_create", "rental.requirements.prepare_create", "planner.plans.prepare_create", "planner.tasks.prepare_create", "warehouse.tasks.prepare_create", "warehouse.products.prepare_create", "rental.jobs.prepare_assign_device", "rental.jobs.prepare_update", "rental.requirements.prepare_update", "procurement.orders.prepare_create", "warehouse.movements.prepare_create", "warehouse.devices.prepare_update_status", "procurement.requisitions.prepare_decide", "procurement.orders.prepare_receive"} {
 		if tools[name] == nil || tools[name].Annotations == nil || !tools[name].Annotations.ReadOnlyHint {
@@ -227,4 +230,23 @@ func TestEntitySchemaExposesWarehouseProductFields(t *testing.T) {
 	if !foundCreateManufacturer {
 		t.Fatalf("warehouse product schema lacks create_manufacturer: %#v", fields)
 	}
+}
+
+func TestEntitySchemaMarksAlternativeRequiredFields(t *testing.T) {
+	schema := renderWritableEntitySchema(writableEntitySchemas()["warehouse.products"])
+	fields := schema["fields"].([]map[string]any)
+	for _, field := range fields {
+		if field["name"] != "manufacturer_name" {
+			continue
+		}
+		group, ok := field["required_one_of"].([]string)
+		if !ok || len(group) != 2 || group[0] != "manufacturer_id" || group[1] != "manufacturer_name" {
+			t.Fatalf("manufacturer alternative requirement missing: %#v", field)
+		}
+		if field["required"] != false {
+			t.Fatalf("alternative field incorrectly marked individually required: %#v", field)
+		}
+		return
+	}
+	t.Fatal("manufacturer_name field missing")
 }

@@ -62,8 +62,15 @@ func writableEntitySchemas() map[string]writableEntitySchema {
 
 func renderWritableEntitySchema(schema writableEntitySchema) map[string]any {
 	required := map[string]bool{}
+	requiredGroups := map[string]string{}
 	for _, field := range schema.Required {
-		required[field] = true
+		if strings.Contains(field, "|") {
+			for _, alternative := range strings.Split(field, "|") {
+				requiredGroups[alternative] = field
+			}
+		} else {
+			required[field] = true
+		}
 	}
 	typeOf := reflect.TypeOf(schema.Input)
 	fields := make([]map[string]any, 0, typeOf.NumField())
@@ -74,6 +81,9 @@ func renderWritableEntitySchema(schema writableEntitySchema) map[string]any {
 			continue
 		}
 		entry := map[string]any{"name": name, "type": jsonTypeName(field.Type), "required": required[name]}
+		if group := requiredGroups[name]; group != "" {
+			entry["required_one_of"] = strings.Split(group, "|")
+		}
 		if description := field.Tag.Get("jsonschema"); description != "" {
 			entry["validation"] = description
 		}
