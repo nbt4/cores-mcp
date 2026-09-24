@@ -14,12 +14,13 @@ type EntitySchemaInput struct {
 }
 
 type writableEntitySchema struct {
-	Entity     string
-	Service    string
-	Input      any
-	Required   []string
-	Operations []string
-	Notes      []string
+	Entity      string
+	Service     string
+	Input       any
+	UpdateInput any
+	Required    []string
+	Operations  []string
+	Notes       []string
 }
 
 func registerSchemaTools(server *mcp.Server) {
@@ -46,7 +47,7 @@ func writableEntitySchemas() map[string]writableEntitySchema {
 		"rental.jobs":               {Entity: "rental.jobs", Service: "rentalcore", Input: JobCreateInput{}, Required: []string{"description", "customer_id|customer_query", "start_date", "end_date"}, Operations: []string{"prepare_create", "create", "prepare_update", "update"}},
 		"rental.requirements":       {Entity: "rental.requirements", Service: "rentalcore", Input: RequirementCreateInput{}, Required: []string{"job_id|job_query", "product_id|product_query", "quantity"}, Operations: []string{"prepare_create", "create", "prepare_update", "update"}},
 		"rental.device_assignments": {Entity: "rental.device_assignments", Service: "rentalcore", Input: JobDeviceAssignInput{}, Required: []string{"job_id|job_query", "device_id"}, Operations: []string{"prepare_assign", "assign"}},
-		"warehouse.products":        {Entity: "warehouse.products", Service: "warehousecore", Input: WarehouseProductCreateInput{}, Required: []string{"name", "category_id|category_name", "manufacturer_id|manufacturer_name"}, Operations: []string{"prepare_create", "create"}, Notes: []string{"Missing master data is created only when its create_* flag is explicitly true.", "Manufacturer, brand, category hierarchy, product, initial stock and initial devices are committed atomically."}},
+		"warehouse.products":        {Entity: "warehouse.products", Service: "warehousecore", Input: WarehouseProductCreateInput{}, UpdateInput: WarehouseProductUpdateInput{}, Required: []string{"name", "category_id|category_name", "manufacturer_id|manufacturer_name"}, Operations: []string{"prepare_create", "create", "prepare_update", "update"}, Notes: []string{"Missing master data is created only when its create_* flag is explicitly true.", "Manufacturer, brand, category hierarchy, product, initial stock and initial devices are committed atomically.", "prepare_update and update accept WarehouseProductUpdateInput; call prepare_update to see its full diff and exact expected_updated_at."}},
 		"warehouse.manufacturers":   {Entity: "warehouse.manufacturers", Service: "warehousecore", Input: WarehouseMasterResolveInput{}, Required: []string{"query"}, Operations: []string{"resolve", "resolve_or_create_via_product"}},
 		"warehouse.brands":          {Entity: "warehouse.brands", Service: "warehousecore", Input: WarehouseMasterResolveInput{}, Required: []string{"query"}, Operations: []string{"resolve", "resolve_or_create_via_product"}},
 		"warehouse.categories":      {Entity: "warehouse.categories", Service: "warehousecore", Input: WarehouseMasterResolveInput{}, Required: []string{"query"}, Operations: []string{"resolve", "resolve_or_create_via_product"}},
@@ -54,8 +55,8 @@ func writableEntitySchemas() map[string]writableEntitySchema {
 		"warehouse.movements":       {Entity: "warehouse.movements", Service: "warehousecore", Input: WarehouseMovementCreateInput{}, Required: []string{"scan_code", "action"}, Operations: []string{"prepare_create", "create"}},
 		"warehouse.device_status":   {Entity: "warehouse.device_status", Service: "warehousecore", Input: DeviceStatusUpdateInput{}, Required: []string{"device_id", "status|condition_status"}, Operations: []string{"prepare_update", "update"}},
 		"procurement.products":      {Entity: "procurement.products", Service: "procurementcore", Input: ProductCreateInput{}, Required: []string{"sku", "name", "category_id"}, Operations: []string{"prepare_create", "create"}},
-		"procurement.suppliers":     {Entity: "procurement.suppliers", Service: "procurementcore", Input: SupplierCreateInput{}, Required: []string{"name", "code"}, Operations: []string{"prepare_create", "create", "prepare_update", "update"}, Notes: []string{"Update fields are optional and shown as a complete before/after diff; confirmed updates require the exact expected_updated_at from prepare_update.", "Set active=false to deactivate without deleting supplier history."}},
-		"procurement.categories":    {Entity: "procurement.categories", Service: "procurementcore", Input: CategoryCreateInput{}, Required: []string{"name"}, Operations: []string{"prepare_create", "create", "prepare_update", "update"}, Notes: []string{"Parameter definitions contain a key, label, type, optional unit, and select options.", "Updates replace the entire parameter schema and require a full diff, exact expected_updated_at, and confirmation."}},
+		"procurement.suppliers":     {Entity: "procurement.suppliers", Service: "procurementcore", Input: SupplierCreateInput{}, UpdateInput: SupplierUpdateInput{}, Required: []string{"name", "code"}, Operations: []string{"prepare_create", "create", "prepare_update", "update"}, Notes: []string{"Update fields are optional and shown as a complete before/after diff; confirmed updates require the exact expected_updated_at from prepare_update.", "Set active=false to deactivate without deleting supplier history."}},
+		"procurement.categories":    {Entity: "procurement.categories", Service: "procurementcore", Input: CategoryCreateInput{}, UpdateInput: CategoryUpdateInput{}, Required: []string{"name"}, Operations: []string{"prepare_create", "create", "prepare_update", "update"}, Notes: []string{"Parameter definitions contain a key, label, type, optional unit, and select options.", "Updates replace the entire parameter schema and require a full diff, exact expected_updated_at, and confirmation."}},
 		"procurement.orders":        {Entity: "procurement.orders", Service: "procurementcore", Input: PurchaseOrderCreateInput{}, Required: []string{"supplier_id|supplier_query", "lines"}, Operations: []string{"prepare_create", "create"}},
 		"planner.plans":             {Entity: "planner.plans", Service: "plannercore", Input: PlannerPlanCreateInput{}, Required: []string{"name"}, Operations: []string{"prepare_create", "create"}},
 		"planner.tasks":             {Entity: "planner.tasks", Service: "plannercore", Input: PlannerTaskCreateInput{}, Required: []string{"plan_id", "title"}, Operations: []string{"prepare_create", "create"}},
@@ -63,9 +64,17 @@ func writableEntitySchemas() map[string]writableEntitySchema {
 }
 
 func renderWritableEntitySchema(schema writableEntitySchema) map[string]any {
+	result := map[string]any{"entity": schema.Entity, "service": schema.Service, "operations": schema.Operations, "required": schema.Required, "fields": renderWritableFields(schema.Input, schema.Required), "notes": schema.Notes}
+	if schema.UpdateInput != nil {
+		result["update_fields"] = renderWritableFields(schema.UpdateInput, nil)
+	}
+	return result
+}
+
+func renderWritableFields(input any, requiredFields []string) []map[string]any {
 	required := map[string]bool{}
 	requiredGroups := map[string]string{}
-	for _, field := range schema.Required {
+	for _, field := range requiredFields {
 		if strings.Contains(field, "|") {
 			for _, alternative := range strings.Split(field, "|") {
 				requiredGroups[alternative] = field
@@ -74,7 +83,7 @@ func renderWritableEntitySchema(schema writableEntitySchema) map[string]any {
 			required[field] = true
 		}
 	}
-	typeOf := reflect.TypeOf(schema.Input)
+	typeOf := reflect.TypeOf(input)
 	fields := make([]map[string]any, 0, typeOf.NumField())
 	for index := 0; index < typeOf.NumField(); index++ {
 		field := typeOf.Field(index)
@@ -91,7 +100,7 @@ func renderWritableEntitySchema(schema writableEntitySchema) map[string]any {
 		}
 		fields = append(fields, entry)
 	}
-	return map[string]any{"entity": schema.Entity, "service": schema.Service, "operations": schema.Operations, "required": schema.Required, "fields": fields, "notes": schema.Notes}
+	return fields
 }
 
 func jsonTypeName(value reflect.Type) string {

@@ -151,13 +151,13 @@ func TestWriteToolsExposeSafeAnnotationsAndSchemas(t *testing.T) {
 	for _, tool := range listed.Tools {
 		tools[tool.Name] = tool
 	}
-	if len(tools) != 100 {
-		t.Fatalf("tool count = %d, want 100", len(tools))
+	if len(tools) != 102 {
+		t.Fatalf("tool count = %d, want 102", len(tools))
 	}
 	if tool := tools["cores.master_data.resolve"]; tool == nil || tool.Annotations == nil || !tool.Annotations.ReadOnlyHint {
 		t.Fatal("cross-core master-data resolver must be read-only")
 	}
-	for _, name := range []string{"procurement.products.prepare_create", "procurement.suppliers.prepare_create", "procurement.suppliers.prepare_update", "procurement.categories.prepare_create", "procurement.categories.prepare_update", "rental.jobs.prepare_create", "rental.requirements.prepare_create", "planner.plans.prepare_create", "planner.tasks.prepare_create", "warehouse.tasks.prepare_create", "warehouse.products.prepare_create", "rental.jobs.prepare_assign_device", "rental.jobs.prepare_update", "rental.requirements.prepare_update", "procurement.orders.prepare_create", "warehouse.movements.prepare_create", "warehouse.devices.prepare_update_status", "procurement.requisitions.prepare_decide", "procurement.orders.prepare_receive"} {
+	for _, name := range []string{"procurement.products.prepare_create", "procurement.suppliers.prepare_create", "procurement.suppliers.prepare_update", "procurement.categories.prepare_create", "procurement.categories.prepare_update", "rental.jobs.prepare_create", "rental.requirements.prepare_create", "planner.plans.prepare_create", "planner.tasks.prepare_create", "warehouse.tasks.prepare_create", "warehouse.products.prepare_create", "warehouse.products.prepare_update", "rental.jobs.prepare_assign_device", "rental.jobs.prepare_update", "rental.requirements.prepare_update", "procurement.orders.prepare_create", "warehouse.movements.prepare_create", "warehouse.devices.prepare_update_status", "procurement.requisitions.prepare_decide", "procurement.orders.prepare_receive"} {
 		if tools[name] == nil || tools[name].Annotations == nil || !tools[name].Annotations.ReadOnlyHint {
 			t.Fatalf("%s is missing read-only preparation annotation", name)
 		}
@@ -169,7 +169,7 @@ func TestWriteToolsExposeSafeAnnotationsAndSchemas(t *testing.T) {
 		}
 		assertMutationControlSchema(t, tool)
 	}
-	for _, name := range []string{"rental.jobs.update", "rental.requirements.update", "warehouse.movements.create", "warehouse.devices.update_status", "procurement.suppliers.update", "procurement.categories.update", "procurement.requisitions.decide", "procurement.orders.receive"} {
+	for _, name := range []string{"rental.jobs.update", "rental.requirements.update", "warehouse.movements.create", "warehouse.devices.update_status", "warehouse.products.update", "procurement.suppliers.update", "procurement.categories.update", "procurement.requisitions.decide", "procurement.orders.receive"} {
 		tool := tools[name]
 		if tool == nil || tool.Annotations == nil || tool.Annotations.ReadOnlyHint || !tool.Annotations.IdempotentHint || tool.Annotations.DestructiveHint == nil || !*tool.Annotations.DestructiveHint {
 			t.Fatalf("%s is not marked as a state-changing write", name)
@@ -229,6 +229,19 @@ func TestEntitySchemaExposesWarehouseProductFields(t *testing.T) {
 	}
 	if !foundCreateManufacturer {
 		t.Fatalf("warehouse product schema lacks create_manufacturer: %#v", fields)
+	}
+	updateFields, ok := schema["update_fields"].([]map[string]any)
+	if !ok {
+		t.Fatalf("warehouse product schema lacks update fields: %#v", schema)
+	}
+	found := map[string]bool{}
+	for _, field := range updateFields {
+		found[field["name"].(string)] = true
+	}
+	for _, name := range []string{"product_id", "attributes", "clear_fields", "expected_updated_at", "confirm_update"} {
+		if !found[name] {
+			t.Fatalf("warehouse update schema lacks %s", name)
+		}
 	}
 }
 
