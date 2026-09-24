@@ -1,5 +1,15 @@
 # Cores MCP
 
+## Kategorienpflege ab 1.5.5
+
+`procurement.categories.prepare_create` und `.create` prüfen Name,
+Parameterdefinitionen sowie doppelte und ähnliche Kategorien vor einer
+bestätigten Anlage. `prepare_update` und `update` zeigen den vollständigen
+Ist/Soll-Diff und verlangen die exakte `expected_updated_at`-Version sowie
+ausdrückliche Bestätigung. Das Parameter-Schema wird als vollständige Liste
+ersetzt. Beide Ausführungen laufen über die ProcurementCore-API mit deren
+Administratorprüfung, Audit und dauerhafter Idempotenz.
+
 ## OAuth-Scope für Lieferantenänderungen ab 1.5.4
 
 `cores:procurement:update` ist jetzt im OAuth-Katalog auswählbar. Ein Token
@@ -161,7 +171,7 @@ entfernt ausschließlich sein eigenes Schema.
 
 Cores MCP bindet die gesamte Cores Suite als sicheren MCP-Server an ChatGPT, Claude, Codex und andere MCP-fähige Agents an. Der Chat bleibt beim jeweiligen KI-Anbieter; Cores stellt nur kontrollierte Werkzeuge und Kontext bereit.
 
-Der Server bietet 62 lesende fachliche Tools, fünf wiederverwendbare Analyse-Prompts und dokumentierbare Knowledge-Ressourcen für RentalCore, WarehouseCore, PlannerCore und ProcurementCore. Bei `MCP_ENABLE_WRITES=true` kommen siebzehn vorbereitende und siebzehn bestätigte, eng begrenzte Schreibtools für alle vier Core-Services hinzu. Beliebiges SQL, generische HTTP-Aufrufe und Hard-Deletes bleiben ausgeschlossen.
+Der Server bietet 62 lesende fachliche Tools, fünf wiederverwendbare Analyse-Prompts und dokumentierbare Knowledge-Ressourcen für RentalCore, WarehouseCore, PlannerCore und ProcurementCore. Bei `MCP_ENABLE_WRITES=true` kommen neunzehn vorbereitende und neunzehn bestätigte, eng begrenzte Schreibtools für alle vier Core-Services hinzu. Beliebiges SQL, generische HTTP-Aufrufe und Hard-Deletes bleiben ausgeschlossen.
 
 ## Geführte Schreibzugriffe mit Rückfragen
 
@@ -169,6 +179,7 @@ Der Server bietet 62 lesende fachliche Tools, fünf wiederverwendbare Analyse-Pr
 - `procurement.products.create` legt erst an, wenn Pflichtfelder eindeutig sind, empfohlene Lücken ausgefüllt oder ausdrücklich akzeptiert wurden und `confirm_creation=true` nach einer finalen Vorschau gesetzt ist.
 - `procurement.suppliers.prepare_create` und `procurement.suppliers.create` prüfen Code, ähnliche Namen und alle Stammdaten vor der bestätigten Anlage.
 - `procurement.suppliers.prepare_update` und `procurement.suppliers.update` zeigen jede Lieferantenänderung samt Diff und Version vor der Bestätigung; `active=false` deaktiviert den Datensatz.
+- `procurement.categories.prepare_create`/`.create` und `prepare_update`/`.update` pflegen Kategorien und ihre Parameterdefinitionen nach Duplikatprüfung, Vorschau und Bestätigung.
 - `rental.jobs.prepare_create` löst Kunden, Status, Jobkategorie und Location gegen die Live-Daten auf. Mehrdeutige Namen werden nie geraten, sondern als Auswahl zurückgegeben.
 - `rental.jobs.create` verlangt vollständige Kerndaten und dieselbe ausdrückliche Bestätigung.
 - `rental.requirements.prepare_create` und `rental.requirements.create` lösen Job und Produkt eindeutig auf, prüfen die Menge und verweigern das Überschreiben eines vorhandenen Bedarfs.
@@ -286,7 +297,7 @@ Die vollständige Vorlage steht in [.env.example](.env.example).
 
 ## Sicherheitsmodell
 
-- Die 62 Abfragetools und siebzehn Vorbereitungstools sind `readOnlyHint=true`; Ausführungstools erzwingen einen Idempotenzschlüssel und sind `idempotentHint=true`. Zustandsänderungen sind zusätzlich als destruktiv annotiert.
+- Die 62 Abfragetools und neunzehn Vorbereitungstools sind `readOnlyHint=true`; Ausführungstools erzwingen einen Idempotenzschlüssel und sind `idempotentHint=true`. Zustandsänderungen sind zusätzlich als destruktiv annotiert.
 - Jede DB-Abfrage läuft in einer PostgreSQL-Transaktion mit `READ ONLY`, Timeout und Zeilenlimit.
 - Produktion verwendet zusätzlich die Rolle `cores_mcp` mit ausschließlich `SELECT`-Rechten.
 - Schreibtools verwenden ausschließlich validierte Endpunkte des jeweils verantwortlichen Core und ein zweiminütiges, auf den OAuth-Benutzer delegiertes Suite-Token. Rollenänderungen und Kontosperren werden dort live geprüft.
@@ -305,7 +316,7 @@ Markdown-, Text-, CSV- und JSON-Dateien unter `MCP_KNOWLEDGE_DIRS` werden als MC
 
 ```bash
 make check
-docker build -t nobentie/cores-mcp:1.5.4 -t nobentie/cores-mcp:latest .
+docker build -t nobentie/cores-mcp:1.5.5 -t nobentie/cores-mcp:latest .
 ```
 
 Die Umbrella-Compose-Datei der Cores Suite bindet den Dienst intern ein. Der Cores-Dashboard-Reverse-Proxy veröffentlicht MCP und OAuth auf derselben Domain, damit der bestehende Suite-Login genutzt werden kann.
