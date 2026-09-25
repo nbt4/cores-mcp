@@ -1,5 +1,19 @@
 # Cores MCP
 
+## Bedarfsanforderungen ab 1.5.9
+
+`procurement.requisitions.prepare_create`/`.create`, `prepare_update`/`.update`
+und `prepare_submit`/`.submit` führen durch Anlage, Bearbeitung und Einreichung
+eines Bedarfs. Vorschauen zeigen alle Positionen, gültige Produkt- und
+Lieferantenreferenzen, geschätzten Wert, bei Änderungen den vollständigen Diff
+und die aktuelle Version. Nur die anfordernde Person oder Procurement-Admins
+können einen Entwurf bearbeiten oder einreichen. Die Ausführung verlangt
+ausdrückliche Bestätigung und einen Idempotenzschlüssel; Bearbeitung und
+Einreichung benötigen die exakte `expected_updated_at`-Version. Einreichung
+verlangt zusätzlich `cores:procurement:submit` oder `cores:write` und die
+datensatzgebundene Phrase aus der Vorschau. ProcurementCore 1.0.50 sperrt den
+Entwurf bei Änderungen und schreibt Ergebnis, Aktivität und Audit atomar.
+
 ## Beschaffungsangebote ab 1.5.8
 
 `procurement.offers.prepare_create`/`.create` und `prepare_update`/`.update`
@@ -204,7 +218,7 @@ entfernt ausschließlich sein eigenes Schema.
 
 Cores MCP bindet die gesamte Cores Suite als sicheren MCP-Server an ChatGPT, Claude, Codex und andere MCP-fähige Agents an. Der Chat bleibt beim jeweiligen KI-Anbieter; Cores stellt nur kontrollierte Werkzeuge und Kontext bereit.
 
-Der Server bietet 62 lesende fachliche Tools, fünf wiederverwendbare Analyse-Prompts und dokumentierbare Knowledge-Ressourcen für RentalCore, WarehouseCore, PlannerCore und ProcurementCore. Bei `MCP_ENABLE_WRITES=true` kommen 23 vorbereitende und 23 bestätigte, eng begrenzte Schreibtools für alle vier Core-Services hinzu. Beliebiges SQL, generische HTTP-Aufrufe und Hard-Deletes bleiben ausgeschlossen.
+Der Server bietet 62 lesende fachliche Tools, fünf wiederverwendbare Analyse-Prompts und dokumentierbare Knowledge-Ressourcen für RentalCore, WarehouseCore, PlannerCore und ProcurementCore. Bei `MCP_ENABLE_WRITES=true` kommen 26 vorbereitende und 26 bestätigte, eng begrenzte Schreibtools für alle vier Core-Services hinzu. Beliebiges SQL, generische HTTP-Aufrufe und Hard-Deletes bleiben ausgeschlossen.
 
 ## Geführte Schreibzugriffe mit Rückfragen
 
@@ -223,6 +237,7 @@ Der Server bietet 62 lesende fachliche Tools, fünf wiederverwendbare Analyse-Pr
 - `rental.requirements.prepare_update` und `rental.requirements.update` ändern nur die Menge einer einzelnen Bedarfszeile.
 - `procurement.orders.prepare_create` und `procurement.orders.create` validieren Lieferant, Positionen, Währung, Termine, Duplikate und Gesamtwert; die Ausführung bleibt auf Procurement-Administratoren begrenzt.
 - `procurement.requisitions.prepare_decide` und `procurement.requisitions.decide` prüfen Status, Version und Vier-Augen-Trennung und verlangen eine ID-gebundene Bestätigungsphrase.
+- `procurement.requisitions.prepare_create`/`.create`, `prepare_update`/`.update` und `prepare_submit`/`.submit` führen durch den Bedarfsentwurf bis zur Einreichung mit vollständiger Positionsvorschau, Versionsprüfung und Audit.
 - `procurement.orders.prepare_receive` und `procurement.orders.receive` prüfen offene Menge, Produktverknüpfung, Seriennummern und Zielzone; die atomare Buchung erzeugt Bestand, Geräte und Putaway-Task.
 - `warehouse.movements.prepare_create` und `warehouse.movements.create` buchen bestätigte Einlagerung, Ausgabe oder Transfer über den auditierten Scannerprozess.
 - `warehouse.devices.prepare_update_status` und `warehouse.devices.update_status` trennen physischen Lagerstatus und Betriebszustand; Jobbewegungen können nicht umgangen werden.
@@ -352,7 +367,7 @@ Markdown-, Text-, CSV- und JSON-Dateien unter `MCP_KNOWLEDGE_DIRS` werden als MC
 
 ```bash
 make check
-docker build -t nobentie/cores-mcp:1.5.8 -t nobentie/cores-mcp:latest .
+docker build -t nobentie/cores-mcp:1.5.9 -t nobentie/cores-mcp:latest .
 ```
 
 Die Umbrella-Compose-Datei der Cores Suite bindet den Dienst intern ein. Der Cores-Dashboard-Reverse-Proxy veröffentlicht MCP und OAuth auf derselben Domain, damit der bestehende Suite-Login genutzt werden kann.

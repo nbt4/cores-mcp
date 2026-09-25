@@ -23,6 +23,7 @@ Ausführungstool ist zusätzlich entweder der kompatible Sammel-Scope
 | `cores:procurement:create` | Produkte, Angebote, Lieferanten, Kategorien und Bestellungen anlegen |
 | `cores:procurement:update` | Produkte, Angebote, Lieferanten und Kategorien ändern oder deaktivieren |
 | `cores:procurement:approve` | Eingereichte Bedarfe im Vier-Augen-Prinzip entscheiden |
+| `cores:procurement:submit` | Eigenen Bedarfsentwurf zur Entscheidung einreichen |
 | `cores:procurement:receive` | Bestätigten Wareneingang mit Lagerwirkung buchen |
 
 Ohne Schreibscope bleibt das Token read-only, auch wenn
@@ -193,6 +194,12 @@ Alle Query-Namen und Felder stammen aus einer festen Registry. Nutzwerte werden 
 | `procurement.categories.update` | Bestätigte Kategorieänderung mit Versionsprüfung und transaktionalem Audit speichern |
 | `procurement.orders.prepare_create` | Lieferant, Positionen, Termine, Währung, Duplikate und Gesamtwert prüfen |
 | `procurement.orders.create` | Bestätigte Bestellung mit Procurement-Administratorrechten anlegen |
+| `procurement.requisitions.prepare_create` | Bedarfstitel, Datum, Positionen und aktive Produkt-/Lieferantenreferenzen prüfen; vollständigen Entwurf zeigen |
+| `procurement.requisitions.create` | Bestätigten Bedarfsentwurf mit transaktionalem Audit und Idempotenz anlegen |
+| `procurement.requisitions.prepare_update` | Eigenen Entwurf mit allen Positionen, Ist/Soll-Diff und exakter Version laden |
+| `procurement.requisitions.update` | Bestätigte Änderung eines eigenen Entwurfs mit Version, Audit und Idempotenz speichern |
+| `procurement.requisitions.prepare_submit` | Eigenen Entwurf samt Positionen, Wert, Version und Bestätigungsphrase vor Einreichung prüfen |
+| `procurement.requisitions.submit` | Bedarf mit eigenem Submit-Scope, Versionsprüfung und Bestätigungsphrase einreichen |
 | `procurement.requisitions.prepare_decide` | Eingereichten Bedarf, Version und Vier-Augen-Trennung für Genehmigung, Ablehnung oder Rückgabe prüfen |
 | `procurement.requisitions.decide` | Bedarf mit eigenem Approval-Scope, Versionsprüfung und datensatzgebundener Bestätigungsphrase entscheiden |
 | `procurement.orders.prepare_receive` | Offene Bestellmenge, Überlieferung, Produktlink, Seriennummern und Zielzone prüfen |

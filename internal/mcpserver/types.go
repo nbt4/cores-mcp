@@ -186,12 +186,14 @@ func requiredMutationScope(tool string) string {
 		return coresauth.ServiceWriteScope("warehouse", "update")
 	case "planner.plans.create", "planner.tasks.create":
 		return coresauth.ServiceWriteScope("planner", "create")
-	case "procurement.products.create", "procurement.offers.create", "procurement.orders.create", "procurement.suppliers.create", "procurement.categories.create":
+	case "procurement.products.create", "procurement.offers.create", "procurement.orders.create", "procurement.suppliers.create", "procurement.categories.create", "procurement.requisitions.create":
 		return coresauth.ServiceWriteScope("procurement", "create")
-	case "procurement.suppliers.update", "procurement.categories.update", "procurement.products.update", "procurement.offers.update":
+	case "procurement.suppliers.update", "procurement.categories.update", "procurement.products.update", "procurement.offers.update", "procurement.requisitions.update":
 		return coresauth.ServiceWriteScope("procurement", "update")
 	case "procurement.requisitions.decide":
 		return coresauth.ServiceWriteScope("procurement", "approve")
+	case "procurement.requisitions.submit":
+		return coresauth.ServiceWriteScope("procurement", "submit")
 	case "procurement.orders.receive":
 		return coresauth.ServiceWriteScope("procurement", "receive")
 	default:
