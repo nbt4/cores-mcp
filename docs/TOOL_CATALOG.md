@@ -7,7 +7,7 @@ OAuth-Benutzers beschränkt. Das gilt auch für `cores.search`,
 berechtigt nicht zum Lesen fremder Pläne. Maschinentokens liefern keine Planner-Daten.
 Toolnamen und Eingabeschemas bleiben unverändert.
 
-Die 62 Abfragetools sind read-only und idempotent. Bei `MCP_ENABLE_WRITES=true` werden zusätzlich 23 vorbereitende und 23 bestätigte Schreibtools für alle vier Core-Services registriert. Suchtools akzeptieren üblicherweise `query`, `limit` und `offset`; Zeitfenster `from`, `to` und `limit`; Detailtools `id`. Datumswerte sind `YYYY-MM-DD` oder RFC3339.
+Die 63 Abfragetools sind read-only und idempotent. Bei `MCP_ENABLE_WRITES=true` werden zusätzlich 29 vorbereitende und 29 bestätigte Schreibtools für alle vier Core-Services registriert. Suchtools akzeptieren üblicherweise `query`, `limit` und `offset`; Zeitfenster `from`, `to` und `limit`; Detailtools `id`. Datumswerte sind `YYYY-MM-DD` oder RFC3339.
 
 Der MCP-Endpunkt verlangt immer `cores:read`. Für ein Vorbereitung- oder
 Ausführungstool ist zusätzlich entweder der kompatible Sammel-Scope
@@ -21,7 +21,7 @@ Ausführungstool ist zusätzlich entweder der kompatible Sammel-Scope
 | `cores:warehouse:update` | Bewegungen und Gerätezustände buchen sowie Produkte ändern |
 | `cores:planner:create` | Pläne und Tasks anlegen |
 | `cores:procurement:create` | Produkte, Angebote, Lieferanten, Kategorien und Bestellungen anlegen |
-| `cores:procurement:update` | Produkte, Angebote, Lieferanten und Kategorien ändern oder deaktivieren |
+| `cores:procurement:update` | Produkte, Angebote, Lieferanten, Kategorien, Bedarfs- und Bestellentwürfe ändern sowie Produkte verknüpfen |
 | `cores:procurement:approve` | Eingereichte Bedarfe im Vier-Augen-Prinzip entscheiden und Bestellstatus mit erhöhter Bestätigung ändern |
 | `cores:procurement:submit` | Eigenen Bedarfsentwurf zur Entscheidung einreichen |
 | `cores:procurement:receive` | Bestätigten Wareneingang mit Lagerwirkung buchen |
@@ -161,7 +161,7 @@ Alle Query-Namen und Felder stammen aus einer festen Registry. Nutzwerte werden 
 | `planner.tasks.prepare_create` | Planmitgliedschaft, Bucket-Zugehörigkeit, Titel und Duplikate prüfen |
 | `planner.tasks.create` | Eine bestätigte Aufgabe im freigegebenen Plan anlegen |
 
-## ProcurementCore (11 + 22 geführte Schreibtools)
+## ProcurementCore (12 + 34 geführte Schreibtools)
 
 | Tool | Zweck |
 |---|---|
@@ -197,6 +197,8 @@ Alle Query-Namen und Felder stammen aus einer festen Registry. Nutzwerte werden 
 | `procurement.categories.update` | Bestätigte Kategorieänderung mit Versionsprüfung und transaktionalem Audit speichern |
 | `procurement.orders.prepare_create` | Lieferant, Positionen, Termine, Währung, Duplikate und Gesamtwert prüfen |
 | `procurement.orders.create` | Bestätigte Bestellung mit Procurement-Administratorrechten anlegen |
+| `procurement.orders.prepare_update` | Entwurf, alle Positionen, aktive Referenzen, Gesamtwert, Ist/Soll-Diff und exakte Version prüfen |
+| `procurement.orders.update` | Bestätigten Bestellentwurf samt Positionen versionsgesichert und auditiert ersetzen |
 | `procurement.orders.prepare_transition` | Erlaubten Statuswechsel, Positionen, Diff, Version und Bestätigungsphrase für eine Bestellung zeigen |
 | `procurement.orders.transition` | Bestellung als gesendet oder bestätigt markieren oder mit Grund stornieren; keine externe Bestellung verschicken |
 | `procurement.requisitions.prepare_create` | Bedarfstitel, Datum, Positionen und aktive Produkt-/Lieferantenreferenzen prüfen; vollständigen Entwurf zeigen |

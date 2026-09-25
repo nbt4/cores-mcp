@@ -151,13 +151,13 @@ func TestWriteToolsExposeSafeAnnotationsAndSchemas(t *testing.T) {
 	for _, tool := range listed.Tools {
 		tools[tool.Name] = tool
 	}
-	if len(tools) != 119 {
-		t.Fatalf("tool count = %d, want 119", len(tools))
+	if len(tools) != 121 {
+		t.Fatalf("tool count = %d, want 121", len(tools))
 	}
 	if tool := tools["cores.master_data.resolve"]; tool == nil || tool.Annotations == nil || !tool.Annotations.ReadOnlyHint {
 		t.Fatal("cross-core master-data resolver must be read-only")
 	}
-	for _, name := range []string{"procurement.products.prepare_create", "procurement.products.prepare_update", "procurement.product_links.prepare_link", "procurement.offers.prepare_create", "procurement.offers.prepare_update", "procurement.requisitions.prepare_create", "procurement.requisitions.prepare_update", "procurement.requisitions.prepare_submit", "procurement.suppliers.prepare_create", "procurement.suppliers.prepare_update", "procurement.categories.prepare_create", "procurement.categories.prepare_update", "rental.jobs.prepare_create", "rental.requirements.prepare_create", "planner.plans.prepare_create", "planner.tasks.prepare_create", "warehouse.tasks.prepare_create", "warehouse.products.prepare_create", "warehouse.products.prepare_update", "rental.jobs.prepare_assign_device", "rental.jobs.prepare_update", "rental.requirements.prepare_update", "procurement.orders.prepare_create", "procurement.orders.prepare_transition", "warehouse.movements.prepare_create", "warehouse.devices.prepare_update_status", "procurement.requisitions.prepare_decide", "procurement.orders.prepare_receive"} {
+	for _, name := range []string{"procurement.products.prepare_create", "procurement.products.prepare_update", "procurement.product_links.prepare_link", "procurement.offers.prepare_create", "procurement.offers.prepare_update", "procurement.requisitions.prepare_create", "procurement.requisitions.prepare_update", "procurement.requisitions.prepare_submit", "procurement.suppliers.prepare_create", "procurement.suppliers.prepare_update", "procurement.categories.prepare_create", "procurement.categories.prepare_update", "rental.jobs.prepare_create", "rental.requirements.prepare_create", "planner.plans.prepare_create", "planner.tasks.prepare_create", "warehouse.tasks.prepare_create", "warehouse.products.prepare_create", "warehouse.products.prepare_update", "rental.jobs.prepare_assign_device", "rental.jobs.prepare_update", "rental.requirements.prepare_update", "procurement.orders.prepare_create", "procurement.orders.prepare_update", "procurement.orders.prepare_transition", "warehouse.movements.prepare_create", "warehouse.devices.prepare_update_status", "procurement.requisitions.prepare_decide", "procurement.orders.prepare_receive"} {
 		if tools[name] == nil || tools[name].Annotations == nil || !tools[name].Annotations.ReadOnlyHint {
 			t.Fatalf("%s is missing read-only preparation annotation", name)
 		}
@@ -169,7 +169,7 @@ func TestWriteToolsExposeSafeAnnotationsAndSchemas(t *testing.T) {
 		}
 		assertMutationControlSchema(t, tool)
 	}
-	for _, name := range []string{"rental.jobs.update", "rental.requirements.update", "warehouse.movements.create", "warehouse.devices.update_status", "warehouse.products.update", "procurement.products.update", "procurement.product_links.link", "procurement.offers.update", "procurement.requisitions.update", "procurement.requisitions.submit", "procurement.suppliers.update", "procurement.categories.update", "procurement.requisitions.decide", "procurement.orders.transition", "procurement.orders.receive"} {
+	for _, name := range []string{"rental.jobs.update", "rental.requirements.update", "warehouse.movements.create", "warehouse.devices.update_status", "warehouse.products.update", "procurement.products.update", "procurement.product_links.link", "procurement.offers.update", "procurement.requisitions.update", "procurement.requisitions.submit", "procurement.suppliers.update", "procurement.categories.update", "procurement.requisitions.decide", "procurement.orders.update", "procurement.orders.transition", "procurement.orders.receive"} {
 		tool := tools[name]
 		if tool == nil || tool.Annotations == nil || tool.Annotations.ReadOnlyHint || !tool.Annotations.IdempotentHint || tool.Annotations.DestructiveHint == nil || !*tool.Annotations.DestructiveHint {
 			t.Fatalf("%s is not marked as a state-changing write", name)
