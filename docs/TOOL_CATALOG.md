@@ -185,6 +185,8 @@ Alle Query-Namen und Felder stammen aus einer festen Registry. Nutzwerte werden 
 | `procurement.risks.list` | Lieferanten-, Angebots-, Preis- und Lieferrisiken |
 | `procurement.products.prepare_create` | Produktlink analysieren, Daten zusammenführen, Duplikate prüfen und konkrete Rückfragen liefern |
 | `procurement.products.create` | Bestätigtes Produkt und optional eine Bezugsquelle über die ProcurementCore-API anlegen |
+| `procurement.product_links.prepare_link` | Aktive Procurement- und Warehouse-Produkte, vorhandene Links, Namensabweichung und offene Referenzen prüfen |
+| `procurement.product_links.link` | Eindeutige Produktverknüpfung mit Versionsprüfung, Audit und erhöhter Bestätigung anlegen oder ändern |
 | `procurement.suppliers.prepare_create` | Alle Lieferantenfelder, eindeutigen Code und ähnliche Bestandsnamen prüfen; vollständigen Entwurf und Rückfragen liefern |
 | `procurement.suppliers.create` | Lieferanten nach finaler Bestätigung über die ProcurementCore-API atomar und auditiert anlegen |
 | `procurement.suppliers.prepare_update` | Administratorrechte, alle Feldänderungen, ähnliche Namen und exakte Version prüfen; Ist/Soll-Diff zeigen |

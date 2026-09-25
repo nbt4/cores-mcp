@@ -216,6 +216,9 @@ func TestAuthorizeMutationEnforcesServiceAndActionScope(t *testing.T) {
 	if _, err := authorizeMutation(procurementUpdate, "procurement.suppliers.update"); err != nil {
 		t.Fatalf("procurement supplier update was rejected: %v", err)
 	}
+	if _, err := authorizeMutation(procurementUpdate, "procurement.product_links.link"); err != nil {
+		t.Fatalf("procurement product link was rejected: %v", err)
+	}
 	if _, err := authorizeMutation(procurementUpdate, "procurement.suppliers.create"); err == nil {
 		t.Fatal("procurement update scope authorized supplier creation")
 	}

@@ -1,5 +1,18 @@
 # Cores MCP
 
+## Produktverknüpfung ab 1.5.12
+
+`procurement.product_links.prepare_link`/`.link` verbinden ein aktives
+Beschaffungsprodukt mit genau einem aktiven Warehouse-Produkt. Die Vorschau
+zeigt beide Identitäten, vorhandene Zuordnungen, Namensabweichungen,
+Abhängigkeiten, den vollständigen Link-Diff und die exakte Version. Bei
+verschiedenen Namen muss die Zuordnung ausdrücklich als gleicher physischer
+Artikel bestätigt werden. Neuverknüpfungen mit Wareneingängen oder offenen
+Bestellungen werden blockiert. Die Ausführung benötigt Procurement-Adminrechte,
+`cores:procurement:update` oder `cores:write`, einen Idempotenzschlüssel sowie
+die datensatzgebundene Bestätigungsphrase. ProcurementCore 1.0.53 prüft alle
+Referenzen unter Sperre und speichert Link und Audit atomar.
+
 ## Procurement-Auditverlauf ab 1.5.11
 
 `procurement.audit.history` zeigt für eine Bedarfsanforderung oder Bestellung
@@ -240,13 +253,14 @@ entfernt ausschließlich sein eigenes Schema.
 
 Cores MCP bindet die gesamte Cores Suite als sicheren MCP-Server an ChatGPT, Claude, Codex und andere MCP-fähige Agents an. Der Chat bleibt beim jeweiligen KI-Anbieter; Cores stellt nur kontrollierte Werkzeuge und Kontext bereit.
 
-Der Server bietet 63 lesende fachliche Tools, fünf wiederverwendbare Analyse-Prompts und dokumentierbare Knowledge-Ressourcen für RentalCore, WarehouseCore, PlannerCore und ProcurementCore. Bei `MCP_ENABLE_WRITES=true` kommen 27 vorbereitende und 27 bestätigte, eng begrenzte Schreibtools für alle vier Core-Services hinzu. Beliebiges SQL, generische HTTP-Aufrufe und Hard-Deletes bleiben ausgeschlossen.
+Der Server bietet 63 lesende fachliche Tools, fünf wiederverwendbare Analyse-Prompts und dokumentierbare Knowledge-Ressourcen für RentalCore, WarehouseCore, PlannerCore und ProcurementCore. Bei `MCP_ENABLE_WRITES=true` kommen 28 vorbereitende und 28 bestätigte, eng begrenzte Schreibtools für alle vier Core-Services hinzu. Beliebiges SQL, generische HTTP-Aufrufe und Hard-Deletes bleiben ausgeschlossen.
 
 ## Geführte Schreibzugriffe mit Rückfragen
 
 - `procurement.products.prepare_create` analysiert optional einen Produktlink, führt erkannte und explizit genannte Werte zusammen, prüft Duplikate, schlägt Kategorien/Lieferanten vor und liefert `questions_for_user` für alle fehlenden Angaben.
 - `procurement.products.create` legt erst an, wenn Pflichtfelder eindeutig sind, empfohlene Lücken ausgefüllt oder ausdrücklich akzeptiert wurden und `confirm_creation=true` nach einer finalen Vorschau gesetzt ist.
 - `procurement.products.prepare_update` und `procurement.products.update` zeigen Änderungen mit Diff und Version; `active=false` archiviert ohne offene Referenzen, `active=true` stellt wieder her.
+- `procurement.product_links.prepare_link` und `procurement.product_links.link` verbinden Procurement- und Warehouse-Produkte nach Identitäts-, Versions- und Abhängigkeitsprüfung.
 - `procurement.offers.prepare_create`/`.create` und `prepare_update`/`.update` pflegen Produkt-Lieferant-Angebote mit Live-Prüfung, Version und Archivierung.
 - `procurement.suppliers.prepare_create` und `procurement.suppliers.create` prüfen Code, ähnliche Namen und alle Stammdaten vor der bestätigten Anlage.
 - `procurement.suppliers.prepare_update` und `procurement.suppliers.update` zeigen jede Lieferantenänderung samt Diff und Version vor der Bestätigung; `active=false` deaktiviert den Datensatz.
@@ -390,7 +404,7 @@ Markdown-, Text-, CSV- und JSON-Dateien unter `MCP_KNOWLEDGE_DIRS` werden als MC
 
 ```bash
 make check
-docker build -t nobentie/cores-mcp:1.5.11 -t nobentie/cores-mcp:latest .
+docker build -t nobentie/cores-mcp:1.5.12 -t nobentie/cores-mcp:latest .
 ```
 
 Die Umbrella-Compose-Datei der Cores Suite bindet den Dienst intern ein. Der Cores-Dashboard-Reverse-Proxy veröffentlicht MCP und OAuth auf derselben Domain, damit der bestehende Suite-Login genutzt werden kann.
