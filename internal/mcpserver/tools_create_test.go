@@ -151,8 +151,8 @@ func TestWriteToolsExposeSafeAnnotationsAndSchemas(t *testing.T) {
 	for _, tool := range listed.Tools {
 		tools[tool.Name] = tool
 	}
-	if len(tools) != 116 {
-		t.Fatalf("tool count = %d, want 116", len(tools))
+	if len(tools) != 117 {
+		t.Fatalf("tool count = %d, want 117", len(tools))
 	}
 	if tool := tools["cores.master_data.resolve"]; tool == nil || tool.Annotations == nil || !tool.Annotations.ReadOnlyHint {
 		t.Fatal("cross-core master-data resolver must be read-only")
