@@ -1,5 +1,14 @@
 # Cores MCP
 
+## Erweiterter Procurement-Auditverlauf ab 1.5.14
+
+`procurement.audit.history` zeigt Administratoren nun auch den Verlauf von
+Produkten, Produktlinks, Lieferanten, Kategorien und Angeboten. Die Ausgabe
+enthält Aktion, Nutzer, Zeit, Herkunft und ausgewählte Vorher-/Nachher-Felder
+wie Name, Aktivstatus, Angebotspreis und Warehouse-Verknüpfung. Private Notizen,
+IP-Adressen und rohe Audit-Daten bleiben ausgeschlossen. Nicht-Administratoren
+sehen weiterhin nur den Verlauf eigener Bedarfsanforderungen.
+
 ## Bestellentwürfe ab 1.5.13
 
 `procurement.orders.prepare_update`/`.update` bearbeiten Lieferant,
@@ -415,7 +424,7 @@ Markdown-, Text-, CSV- und JSON-Dateien unter `MCP_KNOWLEDGE_DIRS` werden als MC
 
 ```bash
 make check
-docker build -t nobentie/cores-mcp:1.5.13 -t nobentie/cores-mcp:latest .
+docker build -t nobentie/cores-mcp:1.5.14 -t nobentie/cores-mcp:latest .
 ```
 
 Die Umbrella-Compose-Datei der Cores Suite bindet den Dienst intern ein. Der Cores-Dashboard-Reverse-Proxy veröffentlicht MCP und OAuth auf derselben Domain, damit der bestehende Suite-Login genutzt werden kann.

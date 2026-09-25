@@ -11,21 +11,23 @@ import (
 )
 
 type ProcurementAuditInput struct {
-	Entity string `json:"entity" jsonschema:"Exact entity: requisition or purchase_order."`
+	Entity string `json:"entity" jsonschema:"Exact entity: requisition, purchase_order, product, product_link, supplier, category, or offer."`
 	ID     int64  `json:"id" jsonschema:"Exact ProcurementCore record ID."`
 	Limit  int    `json:"limit,omitempty" jsonschema:"Maximum events, capped at 100."`
 }
 
 func registerProcurementAuditTool(server *mcp.Server, db *store.Store) {
-	addTool(server, "procurement.audit.history", "Review procurement changes", "Return the audit trail for one requisition or purchase order. Shows actor, time, action, status, total, and receipt quantity while excluding notes, document contents, IP addresses and full raw audit JSON.", func(ctx context.Context, input ProcurementAuditInput) (any, []Source, []string, error) {
+	addTool(server, "procurement.audit.history", "Review procurement changes", "Return the redacted audit trail for one requisition, purchase order, product, product link, supplier, category, or offer. Shows actor, time, action and selected business fields while excluding notes, document contents, IP addresses and full raw audit JSON.", func(ctx context.Context, input ProcurementAuditInput) (any, []Source, []string, error) {
 		return procurementAuditHistory(ctx, db, input)
 	})
 }
 
 func procurementAuditHistory(ctx context.Context, db *store.Store, input ProcurementAuditInput) (any, []Source, []string, error) {
 	entity := strings.ToLower(strings.TrimSpace(input.Entity))
-	if entity != "requisition" && entity != "purchase_order" {
-		return nil, nil, nil, fmt.Errorf("entity must be requisition or purchase_order")
+	tableEntities := map[string]string{"requisition": "procurement_requisition", "purchase_order": "procurement_order", "product": "procurement_product", "product_link": "procurement_product_link", "supplier": "procurement_supplier", "category": "procurement_category", "offer": "procurement_offer"}
+	tableEntity, supported := tableEntities[entity]
+	if !supported {
+		return nil, nil, nil, fmt.Errorf("entity must be requisition, purchase_order, product, product_link, supplier, category, or offer")
 	}
 	if input.ID <= 0 {
 		return nil, nil, nil, fmt.Errorf("a positive record ID is required")
@@ -36,7 +38,7 @@ func procurementAuditHistory(ctx context.Context, db *store.Store, input Procure
 	}
 	if info.Extra["is_admin"] != true {
 		if entity != "requisition" {
-			return nil, nil, nil, fmt.Errorf("Procurement administrator permission is required for purchase order history")
+			return nil, nil, nil, fmt.Errorf("Procurement administrator permission is required for this entity's history")
 		}
 		owner, err := db.Query(ctx, `SELECT requester_id FROM proc_requisitions WHERE id=$1`, input.ID)
 		if err != nil {
@@ -45,10 +47,6 @@ func procurementAuditHistory(ctx context.Context, db *store.Store, input Procure
 		if len(owner) != 1 || info.UserID != fmt.Sprint(owner[0]["requester_id"]) {
 			return nil, nil, nil, fmt.Errorf("only the requester or a procurement administrator may read requisition history")
 		}
-	}
-	tableEntity := "procurement_requisition"
-	if entity == "purchase_order" {
-		tableEntity = "procurement_order"
 	}
 	limit := input.Limit
 	if limit <= 0 {
@@ -63,7 +61,15 @@ func procurementAuditHistory(ctx context.Context, db *store.Store, input Procure
 			COALESCE(new_values#>>'{requisition,status}',new_values#>>'{purchase_order,status}',new_values#>>'{order,status}') AS status_after,
 			COALESCE(old_values->>'estimatedTotalCents',old_values->>'totalCents',old_values#>>'{order,totalCents}') AS total_cents_before,
 			COALESCE(new_values#>>'{requisition,estimatedTotalCents}',new_values#>>'{purchase_order,totalCents}',new_values#>>'{order,totalCents}') AS total_cents_after,
-			new_values#>>'{receipt,quantity}' AS receipt_quantity
+			new_values#>>'{receipt,quantity}' AS receipt_quantity,
+			COALESCE(old_values->>'name',old_values#>>'{before,name}') AS name_before,
+			COALESCE(new_values#>>'{after,name}',new_values#>>'{link,name}') AS name_after,
+			COALESCE(old_values->>'active',old_values#>>'{before,active}') AS active_before,
+			new_values#>>'{after,active}' AS active_after,
+			COALESCE(old_values->>'priceCents',old_values#>>'{before,priceCents}') AS price_cents_before,
+			new_values#>>'{after,priceCents}' AS price_cents_after,
+			COALESCE(old_values->>'warehouseProductId',old_values#>>'{before,warehouseProductId}') AS warehouse_product_id_before,
+			new_values#>>'{link,warehouseProductId}' AS warehouse_product_id_after
 			FROM audit_log WHERE entity_type=$1 AND entity_id=$2 ORDER BY timestamp DESC,id DESC LIMIT $3`, tableEntity, fmt.Sprint(input.ID), limit)
 	if err != nil {
 		return nil, nil, nil, err

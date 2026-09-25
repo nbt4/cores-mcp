@@ -176,7 +176,7 @@ Alle Query-Namen und Felder stammen aus einer festen Registry. Nutzwerte werden 
 | `procurement.offers.compare` | Angebote normalisiert nach Stückpreis, Packung, Mindestmenge und Lieferzeit |
 | `procurement.suppliers.search` | Lieferantenleistung, Risiko, Angebote und Bestellvolumen |
 | `procurement.requisitions.list` | Bedarfsanforderungen, Status, Begründung und Wert |
-| `procurement.audit.history` | Redigierte Audit-Historie eines eigenen Bedarfs oder als Admin einer Bestellung, ohne private Notizen und Rohdaten |
+| `procurement.audit.history` | Redigierte Historie eines eigenen Bedarfs oder als Admin von Bestellungen, Produkten, Produktlinks, Lieferanten, Kategorien und Angeboten |
 | `procurement.orders.list` | Bestellungen und Wareneingangsfortschritt |
 | `procurement.deliveries.expected` | Offene Lieferpositionen im Zeitfenster |
 | `procurement.prices.history` | Preisverlauf und Änderung zum vorherigen Wert |

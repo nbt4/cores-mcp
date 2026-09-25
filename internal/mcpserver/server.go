@@ -14,7 +14,7 @@ import (
 	"github.com/nbt4/cores-mcp/internal/store"
 )
 
-const Version = "1.5.13"
+const Version = "1.5.14"
 
 func New(cfg config.Config, db *store.Store, logger *slog.Logger) *mcp.Server {
 	description := "Read-only operational context and safe cross-core queries for RentalCore, WarehouseCore, PlannerCore and ProcurementCore."
