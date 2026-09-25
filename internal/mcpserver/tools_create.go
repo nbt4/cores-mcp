@@ -418,21 +418,15 @@ func prepareProductCreate(ctx context.Context, db *store.Store, api *coreAPIClie
 }
 
 func createProduct(ctx context.Context, api *coreAPIClient, cfg config.Config, prepared preparedProduct) (map[string]any, []string, error) {
+	payload := cloneMap(prepared.Draft)
+	if len(prepared.Offer) > 0 && prepared.Offer["supplierId"] != nil {
+		payload["initialOffer"] = prepared.Offer
+	}
 	var created map[string]any
-	if err := api.doJSON(ctx, cfg.ProcurementURL, "/api/v1/products", http.MethodPost, prepared.Draft, &created); err != nil {
+	if err := api.doJSON(ctx, cfg.ProcurementURL, "/api/v1/products", http.MethodPost, payload, &created); err != nil {
 		return nil, nil, err
 	}
-	warnings := []string{}
-	if len(prepared.Offer) > 0 && prepared.Offer["supplierId"] != nil {
-		path := "/api/v1/products/" + fmt.Sprint(created["id"]) + "/offers"
-		var offer map[string]any
-		if err := api.doJSON(ctx, cfg.ProcurementURL, path, http.MethodPost, prepared.Offer, &offer); err != nil {
-			warnings = append(warnings, "The product was created, but its supplier offer failed: "+err.Error())
-		} else {
-			created["createdOffer"] = offer
-		}
-	}
-	return created, warnings, nil
+	return created, nil, nil
 }
 
 type preparedJob struct {
