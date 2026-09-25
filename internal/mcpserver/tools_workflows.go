@@ -3,6 +3,7 @@ package mcpserver
 import (
 	"context"
 	"fmt"
+	"math"
 	"net/http"
 	"net/url"
 	"strings"
@@ -58,7 +59,7 @@ type PurchaseOrderCreateInput struct {
 	SupplierID          int64                    `json:"supplier_id,omitempty" jsonschema:"Exact active ProcurementCore supplier ID."`
 	SupplierQuery       string                   `json:"supplier_query,omitempty" jsonschema:"Supplier name or code to resolve when supplier_id is unknown."`
 	SupplierOrderNumber string                   `json:"supplier_order_number,omitempty"`
-	Status              string                   `json:"status,omitempty" jsonschema:"One of draft, sent, or confirmed; defaults to draft."`
+	Status              string                   `json:"status,omitempty" jsonschema:"MCP creation is draft only; defaults to draft. Use procurement.orders.prepare_transition for later status changes."`
 	Currency            string                   `json:"currency,omitempty" jsonschema:"One of EUR, CHF, USD, or GBP; defaults to EUR."`
 	OrderDate           string                   `json:"order_date,omitempty" jsonschema:"Optional date in YYYY-MM-DD."`
 	ExpectedDelivery    string                   `json:"expected_delivery,omitempty" jsonschema:"Optional date in YYYY-MM-DD."`
@@ -203,7 +204,9 @@ func registerWorkflowTools(server *mcp.Server, cfg config.Config, db *store.Stor
 			return prepared.response("confirmation_required"), mutationSources(prepared, "procurementcore", "purchase_order_draft"), append(prepared.Warnings, "No data was changed."), nil
 		}
 		var created map[string]any
-		if err := api.doJSON(ctx, cfg.ProcurementURL, "/api/v1/orders", http.MethodPost, prepared.Draft, &created); err != nil {
+		payload := cloneMap(prepared.Draft)
+		delete(payload, "supplier")
+		if err := api.doJSON(ctx, cfg.ProcurementURL, "/api/v1/orders", http.MethodPost, payload, &created); err != nil {
 			return nil, nil, prepared.Warnings, err
 		}
 		return map[string]any{"operation_status": "created", "purchase_order": created}, []Source{{Service: "procurementcore", Entity: "purchase_order", ID: fmt.Sprint(created["id"])}}, prepared.Warnings, nil
@@ -447,8 +450,8 @@ func preparePurchaseOrderCreate(ctx context.Context, db *store.Store, input Purc
 	if status == "" {
 		status = "draft"
 	}
-	if !containsString([]string{"draft", "sent", "confirmed"}, status) {
-		p.require("status", "Welcher initiale Status soll verwendet werden: draft, sent oder confirmed?", nil)
+	if status != "draft" {
+		p.require("status", "MCP/KI legt Bestellungen als Entwurf an. Versand und Bestätigung erfolgen getrennt.", "draft")
 	}
 	currency := strings.ToUpper(strings.TrimSpace(input.Currency))
 	if currency == "" {
@@ -496,10 +499,10 @@ func preparePurchaseOrderCreate(ctx context.Context, db *store.Store, input Purc
 		if description == "" {
 			p.require(field+".description", "Wie lautet die eindeutige Beschreibung dieser Bestellposition?", nil)
 		}
-		if line.Quantity <= 0 {
+		if line.Quantity <= 0 || math.IsNaN(line.Quantity) || math.IsInf(line.Quantity, 0) || line.Quantity > 1e9 {
 			p.require(field+".quantity", "Welche positive Menge soll bestellt werden?", nil)
 		}
-		if line.UnitPriceCents < 0 {
+		if line.UnitPriceCents < 0 || line.UnitPriceCents > 1e9 {
 			p.require(field+".unit_price_cents", "Welcher nicht-negative Stückpreis in Cent gilt?", nil)
 		}
 		unit := strings.TrimSpace(line.Unit)

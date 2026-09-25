@@ -22,7 +22,7 @@ Ausführungstool ist zusätzlich entweder der kompatible Sammel-Scope
 | `cores:planner:create` | Pläne und Tasks anlegen |
 | `cores:procurement:create` | Produkte, Angebote, Lieferanten, Kategorien und Bestellungen anlegen |
 | `cores:procurement:update` | Produkte, Angebote, Lieferanten und Kategorien ändern oder deaktivieren |
-| `cores:procurement:approve` | Eingereichte Bedarfe im Vier-Augen-Prinzip entscheiden |
+| `cores:procurement:approve` | Eingereichte Bedarfe im Vier-Augen-Prinzip entscheiden und Bestellstatus mit erhöhter Bestätigung ändern |
 | `cores:procurement:submit` | Eigenen Bedarfsentwurf zur Entscheidung einreichen |
 | `cores:procurement:receive` | Bestätigten Wareneingang mit Lagerwirkung buchen |
 
@@ -194,6 +194,8 @@ Alle Query-Namen und Felder stammen aus einer festen Registry. Nutzwerte werden 
 | `procurement.categories.update` | Bestätigte Kategorieänderung mit Versionsprüfung und transaktionalem Audit speichern |
 | `procurement.orders.prepare_create` | Lieferant, Positionen, Termine, Währung, Duplikate und Gesamtwert prüfen |
 | `procurement.orders.create` | Bestätigte Bestellung mit Procurement-Administratorrechten anlegen |
+| `procurement.orders.prepare_transition` | Erlaubten Statuswechsel, Positionen, Diff, Version und Bestätigungsphrase für eine Bestellung zeigen |
+| `procurement.orders.transition` | Bestellung als gesendet oder bestätigt markieren oder mit Grund stornieren; keine externe Bestellung verschicken |
 | `procurement.requisitions.prepare_create` | Bedarfstitel, Datum, Positionen und aktive Produkt-/Lieferantenreferenzen prüfen; vollständigen Entwurf zeigen |
 | `procurement.requisitions.create` | Bestätigten Bedarfsentwurf mit transaktionalem Audit und Idempotenz anlegen |
 | `procurement.requisitions.prepare_update` | Eigenen Entwurf mit allen Positionen, Ist/Soll-Diff und exakter Version laden |

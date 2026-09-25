@@ -189,6 +189,9 @@ func TestAuthorizeMutationEnforcesServiceAndActionScope(t *testing.T) {
 	if _, err := authorizeMutation(procurementApprove, "procurement.requisitions.decide"); err != nil {
 		t.Fatalf("procurement approval was rejected: %v", err)
 	}
+	if _, err := authorizeMutation(procurementApprove, "procurement.orders.transition"); err != nil {
+		t.Fatalf("procurement order approval was rejected: %v", err)
+	}
 	if _, err := authorizeMutation(procurementApprove, "procurement.orders.receive"); err == nil {
 		t.Fatal("procurement approval scope authorized goods receipt")
 	}
@@ -201,6 +204,9 @@ func TestAuthorizeMutationEnforcesServiceAndActionScope(t *testing.T) {
 	}
 	if _, err := authorizeMutation(procurementSubmit, "procurement.requisitions.decide"); err == nil {
 		t.Fatal("procurement submit scope authorized a decision")
+	}
+	if _, err := authorizeMutation(procurementSubmit, "procurement.orders.transition"); err == nil {
+		t.Fatal("procurement submit scope authorized an order transition")
 	}
 	procurementCreate := writeScopeContextWithScopes(t, coresauth.ReadScope(), coresauth.ServiceWriteScope("procurement", "create"))
 	if _, err := authorizeMutation(procurementCreate, "procurement.suppliers.update"); err == nil {
