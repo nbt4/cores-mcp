@@ -7,7 +7,7 @@ OAuth-Benutzers beschränkt. Das gilt auch für `cores.search`,
 berechtigt nicht zum Lesen fremder Pläne. Maschinentokens liefern keine Planner-Daten.
 Toolnamen und Eingabeschemas bleiben unverändert.
 
-Die 62 Abfragetools sind read-only und idempotent. Bei `MCP_ENABLE_WRITES=true` werden zusätzlich 21 vorbereitende und 21 bestätigte Schreibtools für alle vier Core-Services registriert. Suchtools akzeptieren üblicherweise `query`, `limit` und `offset`; Zeitfenster `from`, `to` und `limit`; Detailtools `id`. Datumswerte sind `YYYY-MM-DD` oder RFC3339.
+Die 62 Abfragetools sind read-only und idempotent. Bei `MCP_ENABLE_WRITES=true` werden zusätzlich 23 vorbereitende und 23 bestätigte Schreibtools für alle vier Core-Services registriert. Suchtools akzeptieren üblicherweise `query`, `limit` und `offset`; Zeitfenster `from`, `to` und `limit`; Detailtools `id`. Datumswerte sind `YYYY-MM-DD` oder RFC3339.
 
 Der MCP-Endpunkt verlangt immer `cores:read`. Für ein Vorbereitung- oder
 Ausführungstool ist zusätzlich entweder der kompatible Sammel-Scope
@@ -20,8 +20,8 @@ Ausführungstool ist zusätzlich entweder der kompatible Sammel-Scope
 | `cores:warehouse:create` | Tasks und Produkte anlegen |
 | `cores:warehouse:update` | Bewegungen und Gerätezustände buchen sowie Produkte ändern |
 | `cores:planner:create` | Pläne und Tasks anlegen |
-| `cores:procurement:create` | Produkte, Lieferanten, Kategorien und Bestellungen anlegen |
-| `cores:procurement:update` | Produkte, Lieferanten und Kategorien ändern; Produkte und Lieferanten deaktivieren oder reaktivieren |
+| `cores:procurement:create` | Produkte, Angebote, Lieferanten, Kategorien und Bestellungen anlegen |
+| `cores:procurement:update` | Produkte, Angebote, Lieferanten und Kategorien ändern oder deaktivieren |
 | `cores:procurement:approve` | Eingereichte Bedarfe im Vier-Augen-Prinzip entscheiden |
 | `cores:procurement:receive` | Bestätigten Wareneingang mit Lagerwirkung buchen |
 
@@ -160,7 +160,7 @@ Alle Query-Namen und Felder stammen aus einer festen Registry. Nutzwerte werden 
 | `planner.tasks.prepare_create` | Planmitgliedschaft, Bucket-Zugehörigkeit, Titel und Duplikate prüfen |
 | `planner.tasks.create` | Eine bestätigte Aufgabe im freigegebenen Plan anlegen |
 
-## ProcurementCore (11 + 18 geführte Schreibtools)
+## ProcurementCore (11 + 22 geführte Schreibtools)
 
 | Tool | Zweck |
 |---|---|
@@ -168,6 +168,10 @@ Alle Query-Namen und Felder stammen aus einer festen Registry. Nutzwerte werden 
 | `procurement.products.get` | Produkt mit Angeboten, Historie, Bedarf, Orders und Lagerlink |
 | `procurement.products.prepare_update` | Produktfelder, Kategorie, Duplikate, offene Referenzen und exakte Version prüfen; vollständigen Diff zeigen |
 | `procurement.products.update` | Bestätigte Produktänderung oder Archivierung mit Versionsprüfung, Audit und dauerhafter Idempotenz speichern |
+| `procurement.offers.prepare_create` | Produkt, Lieferant, Preis, Packung, Währung, Ablaufdatum und vorhandene Angebote prüfen |
+| `procurement.offers.create` | Bestätigtes Lieferantenangebot mit Preishistorie, Audit und Idempotenz anlegen |
+| `procurement.offers.prepare_update` | Aktuelles Angebot, vollständigen Ist/Soll-Diff und exakte Version zeigen |
+| `procurement.offers.update` | Bestätigte Angebotsänderung oder Archivierung mit Versionsprüfung und Audit speichern |
 | `procurement.offers.compare` | Angebote normalisiert nach Stückpreis, Packung, Mindestmenge und Lieferzeit |
 | `procurement.suppliers.search` | Lieferantenleistung, Risiko, Angebote und Bestellvolumen |
 | `procurement.requisitions.list` | Bedarfsanforderungen, Status, Begründung und Wert |
@@ -221,7 +225,7 @@ abgewiesen. Der Schlüssel wird als `Idempotency-Key` an den Ziel-Core
 weitergegeben. Nach einem MCP-Neustart oder über mehrere Replikate hinweg ist
 die dauerhafte Deduplizierung erst garantiert, sobald auch der jeweilige
 Ziel-Core diesen Header persistent verarbeitet. ProcurementCore verarbeitet
-ihn für Produkt-, Lieferanten- und Kategorieanlagen und -änderungen sowie
+ihn für Produkt-, Angebots-, Lieferanten- und Kategorieanlagen und -änderungen sowie
 Bedarfsentscheidungen und Wareneingänge transaktional und speichert das
 Ergebnis zusammen mit der Fachmutation.
 
