@@ -1,5 +1,15 @@
 # Cores MCP
 
+## Warehouse-Produktlebenszyklus ab 1.5.16
+
+`warehouse.products.prepare_archive` und `.prepare_restore` zeigen Status,
+Produktversion, betroffene Geräte und bei Archivierung offene Jobanforderungen
+sowie gepackte oder ausgegebene Geräte. `.archive` und `.restore` benötigen
+Warehouse-Administratorrechte, `cores:warehouse:archive` (oder `cores:write`),
+die unveränderte Version, einen Idempotenzschlüssel und die produktgebundene
+Bestätigungsphrase. WarehouseCore 5.9.85 prüft aktive Verwendungen erneut unter
+Sperre und speichert Änderung, Audit und Wiederholungsbeleg atomar.
+
 ## Warehouse-Produktverlauf ab 1.5.15
 
 `warehouse.audit.history` liefert Warehouse-Administratoren den redigierten

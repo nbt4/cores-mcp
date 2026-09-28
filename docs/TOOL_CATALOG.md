@@ -19,6 +19,7 @@ Ausführungstool ist zusätzlich entweder der kompatible Sammel-Scope
 | `cores:rental:update` | Job/Requirement ändern und Gerät zuweisen |
 | `cores:warehouse:create` | Tasks und Produkte anlegen |
 | `cores:warehouse:update` | Bewegungen und Gerätezustände buchen sowie Produkte ändern |
+| `cores:warehouse:archive` | Produkte und mitarchivierte Geräte nach Abhängigkeitsprüfung archivieren oder wiederherstellen |
 | `cores:planner:create` | Pläne und Tasks anlegen |
 | `cores:procurement:create` | Produkte, Angebote, Lieferanten, Kategorien und Bestellungen anlegen |
 | `cores:procurement:update` | Produkte, Angebote, Lieferanten, Kategorien, Bedarfs- und Bestellentwürfe ändern sowie Produkte verknüpfen |
@@ -140,6 +141,10 @@ Alle Query-Namen und Felder stammen aus einer festen Registry. Nutzwerte werden 
 | `warehouse.products.create` | Bestätigte Stammdaten, Produkt, Anfangsbestand und Devices atomar über WarehouseCore anlegen |
 | `warehouse.products.prepare_update` | Alle bearbeitbaren Produktfelder, Beziehungen, Duplikate und Version prüfen; vollständigen Ist/Soll-Diff zeigen |
 | `warehouse.products.update` | Bestätigte Produktänderung mit Versionsprüfung, Audit und dauerhaftem Idempotenzbeleg speichern |
+| `warehouse.products.prepare_archive` | Produktversion, betroffene Geräte und aktive Jobverwendungen vor der Archivierung prüfen |
+| `warehouse.products.archive` | Produkt und Geräte nach Abhängigkeitsprüfung mit erhöht bestätigtem, idempotentem API-Aufruf archivieren |
+| `warehouse.products.prepare_restore` | Archiviertes Produkt, Version und wiederherstellbare Geräte prüfen |
+| `warehouse.products.restore` | Produkt und zuvor mitarchivierte Geräte mit erhöht bestätigtem, idempotentem API-Aufruf wiederherstellen |
 | `warehouse.movements.prepare_create` | Gerät/Mengenartikel sowie Einlagerung, Ausgabe oder Transfer mit Ziel prüfen |
 | `warehouse.movements.create` | Bestätigte physische Bewegung über den auditierten Scannerprozess buchen |
 | `warehouse.devices.prepare_update_status` | Aktuellen physischen und betrieblichen Gerätezustand samt Prozessgrenzen prüfen |
