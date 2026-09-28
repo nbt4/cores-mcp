@@ -151,8 +151,11 @@ func TestWriteToolsExposeSafeAnnotationsAndSchemas(t *testing.T) {
 	for _, tool := range listed.Tools {
 		tools[tool.Name] = tool
 	}
-	if len(tools) != 121 {
-		t.Fatalf("tool count = %d, want 121", len(tools))
+	if len(tools) != 122 {
+		t.Fatalf("tool count = %d, want 122", len(tools))
+	}
+	if tool := tools["warehouse.audit.history"]; tool == nil || tool.Annotations == nil || !tool.Annotations.ReadOnlyHint {
+		t.Fatal("warehouse audit history must be read-only")
 	}
 	if tool := tools["cores.master_data.resolve"]; tool == nil || tool.Annotations == nil || !tool.Annotations.ReadOnlyHint {
 		t.Fatal("cross-core master-data resolver must be read-only")
