@@ -7,7 +7,7 @@ OAuth-Benutzers beschränkt. Das gilt auch für `cores.search`,
 berechtigt nicht zum Lesen fremder Pläne. Maschinentokens liefern keine Planner-Daten.
 Toolnamen und Eingabeschemas bleiben unverändert.
 
-Die 64 Abfragetools sind read-only und idempotent. Bei `MCP_ENABLE_WRITES=true` werden zusätzlich 29 vorbereitende und 29 bestätigte Schreibtools für alle vier Core-Services registriert. Suchtools akzeptieren üblicherweise `query`, `limit` und `offset`; Zeitfenster `from`, `to` und `limit`; Detailtools `id`. Datumswerte sind `YYYY-MM-DD` oder RFC3339.
+Die 64 Abfragetools sind read-only und idempotent. Bei `MCP_ENABLE_WRITES=true` werden zusätzlich 34 vorbereitende und 34 bestätigte Schreibtools für alle vier Core-Services registriert. Suchtools akzeptieren üblicherweise `query`, `limit` und `offset`; Zeitfenster `from`, `to` und `limit`; Detailtools `id`. Datumswerte sind `YYYY-MM-DD` oder RFC3339.
 
 Der MCP-Endpunkt verlangt immer `cores:read`. Für ein Vorbereitung- oder
 Ausführungstool ist zusätzlich entweder der kompatible Sammel-Scope
@@ -17,8 +17,8 @@ Ausführungstool ist zusätzlich entweder der kompatible Sammel-Scope
 |---|---|
 | `cores:rental:create` | Jobs und Requirements anlegen |
 | `cores:rental:update` | Job/Requirement ändern und Gerät zuweisen |
-| `cores:warehouse:create` | Tasks und Produkte anlegen |
-| `cores:warehouse:update` | Bewegungen und Gerätezustände buchen sowie Produkte ändern |
+| `cores:warehouse:create` | Tasks, Produkte, Hersteller und Marken anlegen |
+| `cores:warehouse:update` | Bewegungen und Gerätezustände buchen sowie Produkte und ihre Beziehungen ändern |
 | `cores:warehouse:archive` | Produkte und mitarchivierte Geräte nach Abhängigkeitsprüfung archivieren oder wiederherstellen |
 | `cores:planner:create` | Pläne und Tasks anlegen |
 | `cores:procurement:create` | Produkte, Angebote, Lieferanten, Kategorien und Bestellungen anlegen |
@@ -113,7 +113,7 @@ Alle Query-Namen und Felder stammen aus einer festen Registry. Nutzwerte werden 
 | `rental.requirements.prepare_update` | Vorhandene Bedarfszeile und neue positive Menge prüfen |
 | `rental.requirements.update` | Ausschließlich die bestätigte Menge einer Bedarfszeile ändern |
 
-## WarehouseCore (18 + 10 geführte Schreibtools)
+## WarehouseCore (18 + 20 geführte Schreibtools)
 
 | Tool | Zweck |
 |---|---|
@@ -122,6 +122,10 @@ Alle Query-Namen und Felder stammen aus einer festen Registry. Nutzwerte werden 
 | `warehouse.audit.history` | Redigierte Produkt-Historie für Warehouse-Administratoren mit Aktion, Herkunft und ausgewählten Vorher-/Nachher-Feldern |
 | `warehouse.products.relations` | Alternativen, Zubehör und Abhängigkeiten |
 | `warehouse.master_data.resolve` | Hersteller, Marken, Kategorien, Einheiten und Lagerplätze fuzzy auflösen und Trefferart klassifizieren |
+| `warehouse.manufacturers.prepare_create` | Herstellername, Website, identische und ähnliche Stammdaten prüfen |
+| `warehouse.manufacturers.create` | Hersteller eigenständig mit Audit und Idempotenz anlegen; ID für ein bestehendes Produkt zurückgeben |
+| `warehouse.brands.prepare_create` | Marke, vorhandenen Hersteller, identische und ähnliche Namen prüfen |
+| `warehouse.brands.create` | Marke eigenständig mit Audit und Idempotenz anlegen; ID für ein bestehendes Produkt zurückgeben |
 | `warehouse.devices.search` | Geräte nach ID, Seriennummer, Barcode, Produkt oder Zustand suchen |
 | `warehouse.devices.get` | Gerätehistorie, Jobs, Bewegungen, Defekte und Wartung |
 | `warehouse.stock.shortages` | Mindestbestands- und Verfügbarkeitsengpässe |
@@ -145,6 +149,8 @@ Alle Query-Namen und Felder stammen aus einer festen Registry. Nutzwerte werden 
 | `warehouse.products.archive` | Produkt und Geräte nach Abhängigkeitsprüfung mit erhöht bestätigtem, idempotentem API-Aufruf archivieren |
 | `warehouse.products.prepare_restore` | Archiviertes Produkt, Version und wiederherstellbare Geräte prüfen |
 | `warehouse.products.restore` | Produkt und zuvor mitarchivierte Geräte mit erhöht bestätigtem, idempotentem API-Aufruf wiederherstellen |
+| `warehouse.products.prepare_link_relation` | Zwei aktive Produkte, bestehende Beziehung, vollständigen Diff und genaue Version prüfen |
+| `warehouse.products.link_relation` | Typisierte Produktbeziehung nach Bestätigung versionsgesichert und auditiert anlegen oder ändern |
 | `warehouse.movements.prepare_create` | Gerät/Mengenartikel sowie Einlagerung, Ausgabe oder Transfer mit Ziel prüfen |
 | `warehouse.movements.create` | Bestätigte physische Bewegung über den auditierten Scannerprozess buchen |
 | `warehouse.devices.prepare_update_status` | Aktuellen physischen und betrieblichen Gerätezustand samt Prozessgrenzen prüfen |

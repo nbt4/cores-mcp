@@ -45,16 +45,16 @@ func TestPrepareWarehouseProductUpdateDiffVersionAndDuplicates(t *testing.T) {
 	for _, statement := range []string{
 		`CREATE TABLE products (
 			productid SERIAL PRIMARY KEY, name TEXT NOT NULL, categoryid INT, subcategoryid TEXT, subbiercategoryid TEXT,
-			manufacturerid INT, brandid INT, description TEXT, maintenanceinterval INT, itemcostperday FLOAT8,
+			manufacturerid INT, brandid INT, description TEXT, maintenanceinterval INT, itemcostperday NUMERIC(10,2),
 			weight FLOAT8, height FLOAT8, width FLOAT8, depth FLOAT8, powerconsumption FLOAT8, pos_in_category INT,
-			count_type_id INT, stock_quantity FLOAT8, min_stock_level FLOAT8, generic_barcode TEXT, price_per_unit FLOAT8,
+			count_type_id INT, stock_quantity NUMERIC(10,2), min_stock_level NUMERIC(10,2), generic_barcode TEXT, price_per_unit NUMERIC(10,2),
 			product_type TEXT, tracking_mode TEXT, lifecycle_status TEXT, product_code TEXT, product_kind TEXT,
 			model_number TEXT, manufacturer_part_number TEXT, ean TEXT, attributes JSONB, updated_at TIMESTAMP)`,
 		`CREATE TABLE devices (deviceid TEXT PRIMARY KEY, productid INT)`,
 		`CREATE TABLE product_locations (product_id INT, quantity FLOAT8)`,
-		`INSERT INTO products(name,description,manufacturerid,generic_barcode,product_type,tracking_mode,lifecycle_status,product_code,product_kind,attributes,updated_at) VALUES
-			('Stage Mixer','Four-channel mixer',7,'MIX-001','equipment','individual','active','PRD-000001','standard','{"ports":4}','2026-09-24T08:15:00.123456'),
-			('Stage Mixer Pro','Another product',7,'MIX-002','equipment','individual','active','PRD-000002','standard','{}','2026-09-24T08:15:00')`,
+		`INSERT INTO products(name,description,manufacturerid,generic_barcode,product_type,tracking_mode,lifecycle_status,product_code,product_kind,attributes,itemcostperday,price_per_unit,updated_at) VALUES
+			('Stage Mixer','Four-channel mixer',7,'MIX-001','equipment','individual','active','PRD-000001','standard','{"ports":4}',120.00,15.50,'2026-09-24T08:15:00.123456'),
+			('Stage Mixer Pro','Another product',7,'MIX-002','equipment','individual','active','PRD-000002','standard','{}',NULL,NULL,'2026-09-24T08:15:00')`,
 		`INSERT INTO devices(deviceid,productid) VALUES ('DEV-001',1)`,
 	} {
 		if _, err := database.Exec(statement); err != nil {
@@ -87,7 +87,7 @@ func TestPrepareWarehouseProductUpdateDiffVersionAndDuplicates(t *testing.T) {
 	}
 	input.AllowSimilarProduct = true
 	prepared, err = run(true, input)
-	if err != nil || !prepared.Ready || prepared.Draft["expectedUpdatedAt"] != "2026-09-24T08:15:00.123456Z" || prepared.Draft["generic_barcode"] != "MIX-001" {
+	if err != nil || !prepared.Ready || prepared.Draft["expectedUpdatedAt"] != "2026-09-24T08:15:00.123456Z" || prepared.Draft["generic_barcode"] != "MIX-001" || prepared.Draft["item_cost_per_day"] != float64(120) || prepared.Draft["price_per_unit"] != float64(15.5) {
 		t.Fatalf("complete product draft: %#v, %v", prepared, err)
 	}
 	input.ConfirmUpdate = true

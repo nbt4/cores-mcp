@@ -6,6 +6,7 @@ import (
 	"math"
 	"net/http"
 	"reflect"
+	"strconv"
 	"strings"
 
 	"github.com/modelcontextprotocol/go-sdk/auth"
@@ -129,6 +130,18 @@ func prepareWarehouseProductUpdate(ctx context.Context, db *store.Store, input W
 	version := fmt.Sprint(p.Current["updated_at"])
 	for _, field := range warehouseProductUpdateFields {
 		p.Draft[field] = p.Current[field]
+	}
+	// PostgreSQL NUMERIC values arrive as decimal strings through pgx/database/sql.
+	// Preserve their numeric JSON shape when replaying unchanged product fields to
+	// WarehouseCore; its Product decoder expects float64 for these fields.
+	for _, field := range []string{"item_cost_per_day", "weight", "height", "width", "depth", "power_consumption", "stock_quantity", "min_stock_level", "price_per_unit"} {
+		if value, ok := p.Draft[field].(string); ok {
+			parsed, err := strconv.ParseFloat(value, 64)
+			if err != nil {
+				return p, fmt.Errorf("invalid stored numeric product field %s: %w", field, err)
+			}
+			p.Draft[field] = parsed
+		}
 	}
 	p.Draft["expectedUpdatedAt"] = version
 	before := cloneMap(p.Draft)

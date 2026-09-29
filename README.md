@@ -1,5 +1,25 @@
 # Cores MCP
 
+## Warehouse-Stammdaten und Produktbeziehungen ab 1.5.17
+
+`warehouse.manufacturers.prepare_create`/`.create` legen Hersteller unabhängig
+von Produkten an; `warehouse.brands.prepare_create`/`.create` legen eine Marke
+für eine vorhandene Hersteller-ID an. Beide Vorschauen prüfen identische und
+ähnliche Namen. Danach lassen sich die zurückgegebenen IDs mit
+`warehouse.products.prepare_update`/`.update` einem bestehenden Produkt
+zuordnen. Für `PRD-01000038` wurde zudem der Schreib-Body geprüft: numerische
+PostgreSQL-Bestandswerte wie `item_cost_per_day` werden jetzt als JSON-Zahlen
+statt Text an WarehouseCore übergeben.
+
+`warehouse.products.prepare_link_relation` zeigt beide Produktidentitäten,
+die vorhandene Beziehung, alle Feldänderungen und die exakte Quellversion.
+`warehouse.products.link_relation` legt eine erforderliche, empfohlene,
+kompatible, alternative, enthaltene oder verbrauchte Beziehung mit Menge,
+Zuordnungsebene und Notiz an oder ändert sie. Ausführung erfordert
+Warehouse-Administratorrechte, `cores:warehouse:update` oder `cores:write`,
+Version, Idempotenzschlüssel und die produktgebundene Bestätigungsphrase.
+WarehouseCore 5.9.86 speichert Beziehung, Audit und Wiederholungsbeleg atomar.
+
 ## Warehouse-Produktlebenszyklus ab 1.5.16
 
 `warehouse.products.prepare_archive` und `.prepare_restore` zeigen Status,
@@ -444,7 +464,7 @@ Markdown-, Text-, CSV- und JSON-Dateien unter `MCP_KNOWLEDGE_DIRS` werden als MC
 
 ```bash
 make check
-docker build -t nobentie/cores-mcp:1.5.15 -t nobentie/cores-mcp:latest .
+docker build -t nobentie/cores-mcp:1.5.17 -t nobentie/cores-mcp:latest .
 ```
 
 Die Umbrella-Compose-Datei der Cores Suite bindet den Dienst intern ein. Der Cores-Dashboard-Reverse-Proxy veröffentlicht MCP und OAuth auf derselben Domain, damit der bestehende Suite-Login genutzt werden kann.

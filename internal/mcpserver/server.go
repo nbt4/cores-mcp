@@ -14,7 +14,7 @@ import (
 	"github.com/nbt4/cores-mcp/internal/store"
 )
 
-const Version = "1.5.16"
+const Version = "1.5.17"
 
 func New(cfg config.Config, db *store.Store, logger *slog.Logger) *mcp.Server {
 	description := "Read-only operational context and safe cross-core queries for RentalCore, WarehouseCore, PlannerCore and ProcurementCore."
@@ -53,6 +53,8 @@ func New(cfg config.Config, db *store.Store, logger *slog.Logger) *mcp.Server {
 		registerWarehouseProductCreateTools(server, cfg, db)
 		registerWarehouseProductUpdateTools(server, cfg, db)
 		registerWarehouseProductLifecycleTools(server, cfg, db)
+		registerWarehouseProductRelationTools(server, cfg, db)
+		registerWarehouseMasterCreateTools(server, cfg, db)
 		registerOperationalCreateTools(server, cfg, db)
 		registerWorkflowTools(server, cfg, db)
 		registerProcurementLifecycleTools(server, cfg, db)
@@ -92,37 +94,40 @@ func auditMiddleware(logger *slog.Logger) mcp.Middleware {
 }
 
 var mutationTools = map[string]struct{}{
-	"planner.plans.create":            {},
-	"planner.tasks.create":            {},
-	"procurement.orders.create":       {},
-	"procurement.products.create":     {},
-	"procurement.products.update":     {},
-	"procurement.offers.create":       {},
-	"procurement.offers.update":       {},
-	"procurement.suppliers.create":    {},
-	"procurement.suppliers.update":    {},
-	"procurement.categories.create":   {},
-	"procurement.categories.update":   {},
-	"procurement.requisitions.decide": {},
-	"procurement.requisitions.create": {},
-	"procurement.requisitions.update": {},
-	"procurement.requisitions.submit": {},
-	"procurement.orders.receive":      {},
-	"procurement.orders.transition":   {},
-	"procurement.orders.update":       {},
-	"procurement.product_links.link":  {},
-	"rental.jobs.assign_device":       {},
-	"rental.jobs.create":              {},
-	"rental.jobs.update":              {},
-	"rental.requirements.create":      {},
-	"rental.requirements.update":      {},
-	"warehouse.devices.update_status": {},
-	"warehouse.movements.create":      {},
-	"warehouse.products.create":       {},
-	"warehouse.products.update":       {},
-	"warehouse.products.archive":      {},
-	"warehouse.products.restore":      {},
-	"warehouse.tasks.create":          {},
+	"planner.plans.create":             {},
+	"planner.tasks.create":             {},
+	"procurement.orders.create":        {},
+	"procurement.products.create":      {},
+	"procurement.products.update":      {},
+	"procurement.offers.create":        {},
+	"procurement.offers.update":        {},
+	"procurement.suppliers.create":     {},
+	"procurement.suppliers.update":     {},
+	"procurement.categories.create":    {},
+	"procurement.categories.update":    {},
+	"procurement.requisitions.decide":  {},
+	"procurement.requisitions.create":  {},
+	"procurement.requisitions.update":  {},
+	"procurement.requisitions.submit":  {},
+	"procurement.orders.receive":       {},
+	"procurement.orders.transition":    {},
+	"procurement.orders.update":        {},
+	"procurement.product_links.link":   {},
+	"rental.jobs.assign_device":        {},
+	"rental.jobs.create":               {},
+	"rental.jobs.update":               {},
+	"rental.requirements.create":       {},
+	"rental.requirements.update":       {},
+	"warehouse.devices.update_status":  {},
+	"warehouse.movements.create":       {},
+	"warehouse.products.create":        {},
+	"warehouse.products.update":        {},
+	"warehouse.products.archive":       {},
+	"warehouse.products.restore":       {},
+	"warehouse.products.link_relation": {},
+	"warehouse.manufacturers.create":   {},
+	"warehouse.brands.create":          {},
+	"warehouse.tasks.create":           {},
 }
 
 func isMutationTool(name string) bool {
