@@ -45,8 +45,14 @@ func TestWarehouseStandaloneMasterPreparations(t *testing.T) {
 	for _, statement := range []string{
 		`CREATE TABLE manufacturer(manufacturerid SERIAL PRIMARY KEY,name TEXT,website TEXT)`,
 		`CREATE TABLE brands(brandid SERIAL PRIMARY KEY,name TEXT,manufacturerid INT)`,
+		`CREATE TABLE categories(categoryid SERIAL PRIMARY KEY,name TEXT,abbreviation TEXT)`,
+		`CREATE TABLE subcategories(subcategoryid TEXT PRIMARY KEY,name TEXT,abbreviation TEXT,categoryid INT)`,
+		`CREATE TABLE subbiercategories(subbiercategoryid TEXT PRIMARY KEY,name TEXT,abbreviation TEXT,subcategoryid TEXT)`,
 		`INSERT INTO manufacturer(name,website) VALUES('MA Lighting','https://www.malighting.com'),('Robe Lighting',NULL)`,
 		`INSERT INTO brands(name,manufacturerid) VALUES('grandMA3',1)`,
+		`INSERT INTO categories(name,abbreviation) VALUES('Lighting','LT')`,
+		`INSERT INTO subcategories VALUES('sub-1','Control','CTRL',1)`,
+		`INSERT INTO subbiercategories VALUES('third-1','Network','NET','sub-1')`,
 	} {
 		if _, err := database.Exec(statement); err != nil {
 			t.Fatal(err)
@@ -94,5 +100,23 @@ func TestWarehouseStandaloneMasterPreparations(t *testing.T) {
 	})
 	if err != nil || !p.Ready || p.Draft["manufacturer_id"] != int64(1) {
 		t.Fatalf("standalone brand draft: %#v %v", p, err)
+	}
+	p, err = run(func(ctx context.Context) (preparedMutation, error) {
+		return prepareWarehouseCategoryCreate(ctx, db, "category", "lighting", "LT", nil, false)
+	})
+	if err != nil || p.Ready || !containsString(p.Missing, "duplicate_category") {
+		t.Fatalf("category duplicate: %#v %v", p, err)
+	}
+	p, err = run(func(ctx context.Context) (preparedMutation, error) {
+		return prepareWarehouseCategoryCreate(ctx, db, "subcategory", "Control", "", int64(1), false)
+	})
+	if err != nil || p.Ready || !containsString(p.Missing, "duplicate_category") {
+		t.Fatalf("subcategory duplicate: %#v %v", p, err)
+	}
+	p, err = run(func(ctx context.Context) (preparedMutation, error) {
+		return prepareWarehouseCategoryCreate(ctx, db, "third_category", "Data", "", "sub-1", false)
+	})
+	if err != nil || !p.Ready || p.Draft["subcategory_id"] != "sub-1" {
+		t.Fatalf("third category draft: %#v %v", p, err)
 	}
 }

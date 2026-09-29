@@ -1,5 +1,17 @@
 # Cores MCP
 
+## Warehouse-Kategorieanlage ab 1.5.18
+
+`warehouse.categories.prepare_create`/`.create`,
+`warehouse.subcategories.prepare_create`/`.create` und
+`warehouse.third_categories.prepare_create`/`.create` legen die drei Ebenen
+auch ohne neue Produktanlage an. Die Vorschau prüft Elternknoten, identische
+Namen und ähnliche Stammdaten. Eine bestätigte Anlage benötigt Warehouse-
+Administratorrechte und `cores:warehouse:create` oder `cores:write`.
+WarehouseCore 5.9.87 speichert die Kategorie samt Audit und dauerhaftem
+Idempotenzbeleg atomar. Die zurückgegebene ID lässt sich anschließend in
+`warehouse.products.prepare_update`/`.update` verwenden.
+
 ## Warehouse-Stammdaten und Produktbeziehungen ab 1.5.17
 
 `warehouse.manufacturers.prepare_create`/`.create` legen Hersteller unabhängig
@@ -464,7 +476,7 @@ Markdown-, Text-, CSV- und JSON-Dateien unter `MCP_KNOWLEDGE_DIRS` werden als MC
 
 ```bash
 make check
-docker build -t nobentie/cores-mcp:1.5.17 -t nobentie/cores-mcp:latest .
+docker build -t nobentie/cores-mcp:1.5.18 -t nobentie/cores-mcp:latest .
 ```
 
 Die Umbrella-Compose-Datei der Cores Suite bindet den Dienst intern ein. Der Cores-Dashboard-Reverse-Proxy veröffentlicht MCP und OAuth auf derselben Domain, damit der bestehende Suite-Login genutzt werden kann.

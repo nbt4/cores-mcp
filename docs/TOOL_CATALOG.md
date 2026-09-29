@@ -113,7 +113,7 @@ Alle Query-Namen und Felder stammen aus einer festen Registry. Nutzwerte werden 
 | `rental.requirements.prepare_update` | Vorhandene Bedarfszeile und neue positive Menge prüfen |
 | `rental.requirements.update` | Ausschließlich die bestätigte Menge einer Bedarfszeile ändern |
 
-## WarehouseCore (18 + 20 geführte Schreibtools)
+## WarehouseCore (18 + 26 geführte Schreibtools)
 
 | Tool | Zweck |
 |---|---|
@@ -126,6 +126,12 @@ Alle Query-Namen und Felder stammen aus einer festen Registry. Nutzwerte werden 
 | `warehouse.manufacturers.create` | Hersteller eigenständig mit Audit und Idempotenz anlegen; ID für ein bestehendes Produkt zurückgeben |
 | `warehouse.brands.prepare_create` | Marke, vorhandenen Hersteller, identische und ähnliche Namen prüfen |
 | `warehouse.brands.create` | Marke eigenständig mit Audit und Idempotenz anlegen; ID für ein bestehendes Produkt zurückgeben |
+| `warehouse.categories.prepare_create` | Hauptkategorie mit Abkürzung, identische und ähnliche Namen prüfen |
+| `warehouse.categories.create` | Bestätigte Hauptkategorie mit Audit und Idempotenz anlegen |
+| `warehouse.subcategories.prepare_create` | Elternkategorie und Namenskonflikte innerhalb der Hauptkategorie prüfen |
+| `warehouse.subcategories.create` | Bestätigte Unterkategorie mit Audit und Idempotenz anlegen |
+| `warehouse.third_categories.prepare_create` | Eltern-Unterkategorie und Namenskonflikte der dritten Ebene prüfen |
+| `warehouse.third_categories.create` | Bestätigte dritte Kategorieebene mit Audit und Idempotenz anlegen |
 | `warehouse.devices.search` | Geräte nach ID, Seriennummer, Barcode, Produkt oder Zustand suchen |
 | `warehouse.devices.get` | Gerätehistorie, Jobs, Bewegungen, Defekte und Wartung |
 | `warehouse.stock.shortages` | Mindestbestands- und Verfügbarkeitsengpässe |
