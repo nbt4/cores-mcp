@@ -48,11 +48,13 @@ func TestWarehouseStandaloneMasterPreparations(t *testing.T) {
 		`CREATE TABLE categories(categoryid SERIAL PRIMARY KEY,name TEXT,abbreviation TEXT)`,
 		`CREATE TABLE subcategories(subcategoryid TEXT PRIMARY KEY,name TEXT,abbreviation TEXT,categoryid INT)`,
 		`CREATE TABLE subbiercategories(subbiercategoryid TEXT PRIMARY KEY,name TEXT,abbreviation TEXT,subcategoryid TEXT)`,
+		`CREATE TABLE storage_zones(zone_id SERIAL PRIMARY KEY,code TEXT,barcode TEXT,name TEXT,location TEXT,process_role TEXT,operational_status TEXT,is_active BOOLEAN,parent_zone_id INT)`,
 		`INSERT INTO manufacturer(name,website) VALUES('MA Lighting','https://www.malighting.com'),('Robe Lighting',NULL)`,
 		`INSERT INTO brands(name,manufacturerid) VALUES('grandMA3',1)`,
 		`INSERT INTO categories(name,abbreviation) VALUES('Lighting','LT')`,
 		`INSERT INTO subcategories VALUES('sub-1','Control','CTRL',1)`,
 		`INSERT INTO subbiercategories VALUES('third-1','Network','NET','sub-1')`,
+		`INSERT INTO storage_zones(code,barcode,name,location,process_role,operational_status,is_active) VALUES('MAIN','LOC-MAIN','Main Warehouse','Berlin','storage','available',true)`,
 	} {
 		if _, err := database.Exec(statement); err != nil {
 			t.Fatal(err)
@@ -118,5 +120,17 @@ func TestWarehouseStandaloneMasterPreparations(t *testing.T) {
 	})
 	if err != nil || !p.Ready || p.Draft["subcategory_id"] != "sub-1" {
 		t.Fatalf("third category draft: %#v %v", p, err)
+	}
+	p, err = run(func(ctx context.Context) (preparedMutation, error) {
+		return prepareWarehouseLocationCreate(ctx, db, WarehouseLocationCreateInput{Code: "main", Name: "Main Warehouse"})
+	})
+	if err != nil || p.Ready || !containsString(p.Missing, "duplicate_location") {
+		t.Fatalf("location duplicate: %#v %v", p, err)
+	}
+	p, err = run(func(ctx context.Context) (preparedMutation, error) {
+		return prepareWarehouseLocationCreate(ctx, db, WarehouseLocationCreateInput{Code: "SHELF-A", Name: "Shelf A", ParentZoneID: 1})
+	})
+	if err != nil || !p.Ready || p.Draft["parent_zone_id"] != int64(1) {
+		t.Fatalf("location draft: %#v %v", p, err)
 	}
 }

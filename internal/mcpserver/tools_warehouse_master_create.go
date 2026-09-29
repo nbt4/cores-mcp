@@ -72,7 +72,7 @@ func registerWarehouseMasterCreateTools(server *mcp.Server, cfg config.Config, d
 func requireWarehouseMasterAdmin(ctx context.Context) error {
 	info := auth.TokenInfoFromContext(ctx)
 	if info == nil || info.Extra["is_admin"] != true {
-		return fmt.Errorf("Warehouse administrator permission is required to create manufacturer or brand")
+		return fmt.Errorf("Warehouse administrator permission is required for master-data creation")
 	}
 	return nil
 }

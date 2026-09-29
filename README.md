@@ -1,5 +1,14 @@
 # Cores MCP
 
+## Geführte Lagerplatzanlage ab 1.5.19
+
+`warehouse.locations.prepare_create` prüft Code, Scan-Code, Namen, Lagerplatztyp,
+Prozessrolle, Kapazität und einen aktiven Elternknoten. Ähnliche Lagerplätze
+müssen ausdrücklich geprüft werden. `warehouse.locations.create` benötigt
+Warehouse-Administratorrechte, `cores:warehouse:create` oder `cores:write`,
+Idempotenzschlüssel und Bestätigung. WarehouseCore speichert Lagerplatz, Audit
+und Wiederholungsbeleg in einer Transaktion.
+
 ## Warehouse-Kategorieanlage ab 1.5.18
 
 `warehouse.categories.prepare_create`/`.create`,
@@ -476,7 +485,7 @@ Markdown-, Text-, CSV- und JSON-Dateien unter `MCP_KNOWLEDGE_DIRS` werden als MC
 
 ```bash
 make check
-docker build -t nobentie/cores-mcp:1.5.18 -t nobentie/cores-mcp:latest .
+docker build -t nobentie/cores-mcp:1.5.19 -t nobentie/cores-mcp:latest .
 ```
 
 Die Umbrella-Compose-Datei der Cores Suite bindet den Dienst intern ein. Der Cores-Dashboard-Reverse-Proxy veröffentlicht MCP und OAuth auf derselben Domain, damit der bestehende Suite-Login genutzt werden kann.

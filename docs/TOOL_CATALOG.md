@@ -7,7 +7,7 @@ OAuth-Benutzers beschränkt. Das gilt auch für `cores.search`,
 berechtigt nicht zum Lesen fremder Pläne. Maschinentokens liefern keine Planner-Daten.
 Toolnamen und Eingabeschemas bleiben unverändert.
 
-Die 64 Abfragetools sind read-only und idempotent. Bei `MCP_ENABLE_WRITES=true` werden zusätzlich 34 vorbereitende und 34 bestätigte Schreibtools für alle vier Core-Services registriert. Suchtools akzeptieren üblicherweise `query`, `limit` und `offset`; Zeitfenster `from`, `to` und `limit`; Detailtools `id`. Datumswerte sind `YYYY-MM-DD` oder RFC3339.
+Die 64 Abfragetools sind read-only und idempotent. Bei `MCP_ENABLE_WRITES=true` werden zusätzlich 38 vorbereitende und 38 bestätigte Schreibtools für alle vier Core-Services registriert. Suchtools akzeptieren üblicherweise `query`, `limit` und `offset`; Zeitfenster `from`, `to` und `limit`; Detailtools `id`. Datumswerte sind `YYYY-MM-DD` oder RFC3339.
 
 Der MCP-Endpunkt verlangt immer `cores:read`. Für ein Vorbereitung- oder
 Ausführungstool ist zusätzlich entweder der kompatible Sammel-Scope
@@ -17,7 +17,7 @@ Ausführungstool ist zusätzlich entweder der kompatible Sammel-Scope
 |---|---|
 | `cores:rental:create` | Jobs und Requirements anlegen |
 | `cores:rental:update` | Job/Requirement ändern und Gerät zuweisen |
-| `cores:warehouse:create` | Tasks, Produkte, Hersteller und Marken anlegen |
+| `cores:warehouse:create` | Tasks, Produkte, Hersteller, Marken, Kategorien und Lagerplätze anlegen |
 | `cores:warehouse:update` | Bewegungen und Gerätezustände buchen sowie Produkte und ihre Beziehungen ändern |
 | `cores:warehouse:archive` | Produkte und mitarchivierte Geräte nach Abhängigkeitsprüfung archivieren oder wiederherstellen |
 | `cores:planner:create` | Pläne und Tasks anlegen |
@@ -113,7 +113,7 @@ Alle Query-Namen und Felder stammen aus einer festen Registry. Nutzwerte werden 
 | `rental.requirements.prepare_update` | Vorhandene Bedarfszeile und neue positive Menge prüfen |
 | `rental.requirements.update` | Ausschließlich die bestätigte Menge einer Bedarfszeile ändern |
 
-## WarehouseCore (18 + 26 geführte Schreibtools)
+## WarehouseCore (18 + 28 geführte Schreibtools)
 
 | Tool | Zweck |
 |---|---|
@@ -132,6 +132,8 @@ Alle Query-Namen und Felder stammen aus einer festen Registry. Nutzwerte werden 
 | `warehouse.subcategories.create` | Bestätigte Unterkategorie mit Audit und Idempotenz anlegen |
 | `warehouse.third_categories.prepare_create` | Eltern-Unterkategorie und Namenskonflikte der dritten Ebene prüfen |
 | `warehouse.third_categories.create` | Bestätigte dritte Kategorieebene mit Audit und Idempotenz anlegen |
+| `warehouse.locations.prepare_create` | Lagerplatzfelder, aktiven Elternknoten, Code, Scan-Code und ähnliche Orte prüfen |
+| `warehouse.locations.create` | Bestätigten Lagerplatz mit Audit und dauerhaftem Idempotenzbeleg anlegen |
 | `warehouse.devices.search` | Geräte nach ID, Seriennummer, Barcode, Produkt oder Zustand suchen |
 | `warehouse.devices.get` | Gerätehistorie, Jobs, Bewegungen, Defekte und Wartung |
 | `warehouse.stock.shortages` | Mindestbestands- und Verfügbarkeitsengpässe |
