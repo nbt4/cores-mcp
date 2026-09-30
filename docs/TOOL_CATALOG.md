@@ -7,7 +7,7 @@ OAuth-Benutzers beschränkt. Das gilt auch für `cores.search`,
 berechtigt nicht zum Lesen fremder Pläne. Maschinentokens liefern keine Planner-Daten.
 Toolnamen und Eingabeschemas bleiben unverändert.
 
-Die 64 Abfragetools sind read-only und idempotent. Bei `MCP_ENABLE_WRITES=true` werden zusätzlich 39 vorbereitende und 39 bestätigte Schreibtools für alle vier Core-Services registriert. Suchtools akzeptieren üblicherweise `query`, `limit` und `offset`; Zeitfenster `from`, `to` und `limit`; Detailtools `id`. Datumswerte sind `YYYY-MM-DD` oder RFC3339.
+Die 64 Abfragetools sind read-only und idempotent. Bei `MCP_ENABLE_WRITES=true` werden zusätzlich 41 vorbereitende und 41 bestätigte Schreibtools für alle vier Core-Services registriert. Suchtools akzeptieren üblicherweise `query`, `limit` und `offset`; Zeitfenster `from`, `to` und `limit`; Detailtools `id`. Datumswerte sind `YYYY-MM-DD` oder RFC3339.
 
 Der MCP-Endpunkt verlangt immer `cores:read`. Für ein Vorbereitung- oder
 Ausführungstool ist zusätzlich entweder der kompatible Sammel-Scope
@@ -18,7 +18,7 @@ Ausführungstool ist zusätzlich entweder der kompatible Sammel-Scope
 | `cores:rental:create` | Jobs und Requirements anlegen |
 | `cores:rental:update` | Job/Requirement ändern und Gerät zuweisen |
 | `cores:warehouse:create` | Tasks, Produkte, Hersteller, Marken, Kategorien und Lagerplätze anlegen |
-| `cores:warehouse:update` | Bewegungen und Gerätezustände buchen sowie Produkte, ihre Beziehungen und aktive Lagerplätze ändern |
+| `cores:warehouse:update` | Bewegungen und Gerätezustände buchen sowie Produkte, ihre Beziehungen, Hersteller, Marken und aktive Lagerplätze ändern |
 | `cores:warehouse:archive` | Produkte und mitarchivierte Geräte nach Abhängigkeitsprüfung archivieren oder wiederherstellen |
 | `cores:planner:create` | Pläne und Tasks anlegen |
 | `cores:procurement:create` | Produkte, Angebote, Lieferanten, Kategorien und Bestellungen anlegen |
@@ -134,6 +134,10 @@ Alle Query-Namen und Felder stammen aus einer festen Registry. Nutzwerte werden 
 | `warehouse.third_categories.create` | Bestätigte dritte Kategorieebene mit Audit und Idempotenz anlegen |
 | `warehouse.locations.prepare_create` | Lagerplatzfelder, aktiven Elternknoten, Code, Scan-Code und ähnliche Orte prüfen |
 | `warehouse.locations.create` | Bestätigten Lagerplatz mit Audit und dauerhaftem Idempotenzbeleg anlegen |
+| `warehouse.manufacturers.prepare_update` | Namen und Website mit vollständigem Diff, Version, Dubletten und verknüpften Datensatzanzahlen prüfen |
+| `warehouse.manufacturers.update` | Bestätigte Herstellerpflege versionsgesichert, auditiert und idempotent speichern |
+| `warehouse.brands.prepare_update` | Namen und Herstellerzuordnung samt Produktabhängigkeiten prüfen |
+| `warehouse.brands.update` | Bestätigte Markenpflege speichern; widersprüchliche Produktzuordnungen blockieren den Herstellerwechsel |
 | `warehouse.locations.prepare_update` | Vollständigen Lagerplatz-Diff, exakte Version, Duplikate, Elternhierarchie und Belegung prüfen |
 | `warehouse.locations.update` | Aktiven Lagerplatz nach Bestätigung versionsgesichert, auditiert und dauerhaft idempotent ändern |
 | `warehouse.devices.search` | Geräte nach ID, Seriennummer, Barcode, Produkt oder Zustand suchen |
@@ -307,3 +311,27 @@ Vorher/Nachher-Audit (`MCP/AI`) und Wiederholungsbeleg in einer Transaktion.
 Alle Datenbankänderungen an Lagerplätzen erhöhen durch Migration 046 ihre
 Version, einschließlich Frontend- und Inventuränderungen. Unveränderte
 Inventurintervalle erhalten den bestehenden nächsten Zähltermin.
+
+### Hersteller- und Markenänderungen ab 1.5.21
+
+Diese benannten Update-Capabilities sind für Issue #4/#5 freigegeben und nutzen
+`cores:warehouse:update` (oder `cores:write`) sowie Warehouse-Administratorrechte.
+Vor dem Aufruf sind vollständiger Diff, verknüpfte Datensatzanzahlen und ähnliche
+Namen zu prüfen. `expected_updated_at` stammt unverändert aus der Vorschau;
+`confirm_update=true` und ein eindeutiger `idempotency_key` sind erforderlich.
+`dry_run=true` verändert nichts.
+
+Hersteller unterstützen `name` und `website`; eine leere Website wird NULL.
+Marken unterstützen `name`, `manufacturer_id` und `clear_manufacturer=true` zum
+expliziten Entfernen der Zuordnung. Hersteller-ID setzen und gleichzeitig
+entfernen ist verboten. Name und Herstellerpaar dürfen keine Dublette ergeben;
+auch Marken ohne Hersteller werden auf Dubletten geprüft. Ein Wechsel oder
+Entfernen der Herstellerzuordnung ist gesperrt, wenn verknüpfte Produkte nicht
+bereits dieselbe Herstellerzuordnung haben. Bestehende Produkte werden nicht
+automatisch umgeschrieben. Namensänderungen wirken auf alle verknüpften Anzeigen.
+
+WarehouseCore installiert `047_warehouse_master_version` beim Start. Trigger
+versionieren auch bestehende Oberflächen- und Import-Schreibpfade. Update,
+Vorher/Nachher-Audit mit `MCP/AI`-Herkunft und dauerhafter Idempotenzbeleg werden
+zusammen gespeichert; Fehler rollen alle drei zurück. Parallel laufende
+Stammdaten- und Produktänderungen werden bei der abschließenden Prüfung gesperrt.

@@ -1,5 +1,26 @@
 # Cores MCP
 
+## Hersteller- und Markenpflege ab 1.5.21
+
+`warehouse.manufacturers.prepare_update`/`.update` bearbeiten Namen und Website;
+`website=""` leert die Website. `warehouse.brands.prepare_update`/`.update`
+bearbeiten Namen und Herstellerzuordnung; `clear_manufacturer=true` entfernt
+sie ausdrücklich. Beide Vorschauen zeigen Ist/Soll-Diff, exakte Version,
+Dubletten und die Anzahl verknüpfter Datensätze. Namensänderungen gelten auf
+allen verknüpften Datensätzen. Ähnliche Namen brauchen eine gesonderte Prüfung.
+
+Die Ausführung benötigt Warehouse-Adminrechte, `cores:warehouse:update` oder
+`cores:write`, `expected_updated_at`, `confirm_update=true` und einen
+`idempotency_key`. Ein Herstellerwechsel einer Marke ist gesperrt, solange
+verknüpfte Produkte einen anderen Hersteller benötigen. WarehouseCore prüft
+Version und Abhängigkeiten erneut und speichert Änderung, Vorher/Nachher-Audit
+und Wiederholungsbeleg atomar. Auch Änderungen über die Oberfläche erhöhen die
+Version. `cores.entities.schema` liefert die neuen Update-Felder.
+
+Der offizielle Smoke-Test verwendet für den übergreifenden Stammdatenresolver
+und die Audit-Tools jetzt die passenden Argumente; die Audit-Tools benötigen
+einen angemeldeten Administrator.
+
 ## OAuth-Freigabe ab 1.5.20
 
 Die Freigabeseite bietet bei aktivierten Schreibtools die Auswahl **Nur Lesen**
@@ -359,7 +380,7 @@ entfernt ausschließlich sein eigenes Schema.
 
 Cores MCP bindet die gesamte Cores Suite als sicheren MCP-Server an ChatGPT, Claude, Codex und andere MCP-fähige Agents an. Der Chat bleibt beim jeweiligen KI-Anbieter; Cores stellt nur kontrollierte Werkzeuge und Kontext bereit.
 
-Der Server bietet 64 lesende fachliche Tools, fünf wiederverwendbare Analyse-Prompts und dokumentierbare Knowledge-Ressourcen für RentalCore, WarehouseCore, PlannerCore und ProcurementCore. Bei `MCP_ENABLE_WRITES=true` kommen 39 vorbereitende und 39 bestätigte, eng begrenzte Schreibtools für alle vier Core-Services hinzu. Beliebiges SQL, generische HTTP-Aufrufe und Hard-Deletes bleiben ausgeschlossen.
+Der Server bietet 64 lesende fachliche Tools, fünf wiederverwendbare Analyse-Prompts und dokumentierbare Knowledge-Ressourcen für RentalCore, WarehouseCore, PlannerCore und ProcurementCore. Bei `MCP_ENABLE_WRITES=true` kommen 41 vorbereitende und 41 bestätigte, eng begrenzte Schreibtools für alle vier Core-Services hinzu. Beliebiges SQL, generische HTTP-Aufrufe und Hard-Deletes bleiben ausgeschlossen.
 
 ## Geführte Schreibzugriffe mit Rückfragen
 
@@ -475,7 +496,7 @@ Der Smoke-Test verbindet einen echten MCP-Client, listet alle Tools und ruft jed
 | `MCP_PUBLIC_URL` | `http://localhost:8090` | Öffentliche Basis-URL ohne `/mcp` |
 | `CORES_DASHBOARD_PUBLIC_URL` | `http://localhost:8080` | Cores-Login, auf den OAuth verweist |
 | `MCP_AUTH_MODE` | `oauth` | `oauth`, `bearer` oder nur lokal `none` |
-| `MCP_ENABLE_WRITES` | `false` | Aktiviert 78 geführte Schreibtools (39 Vorschauen plus 39 Ausführungen); nur mit `MCP_AUTH_MODE=oauth` zulässig |
+| `MCP_ENABLE_WRITES` | `false` | Aktiviert 82 geführte Schreibtools (41 Vorschauen plus 41 Ausführungen); nur mit `MCP_AUTH_MODE=oauth` zulässig |
 | `CORES_JWT_SECRET` | – | Dasselbe Signatur-Secret wie das Cores Dashboard, mindestens 32 Zeichen |
 | `MCP_STATIC_TOKENS` | – | Optionale `name:secret`-Paare für Agents |
 | `DATABASE_URL` | – | Komplette PostgreSQL-URL; überschreibt einzelne DB-Variablen |
@@ -492,7 +513,7 @@ Die vollständige Vorlage steht in [.env.example](.env.example).
 
 ## Sicherheitsmodell
 
-- Die 64 Abfragetools und 39 Vorbereitungstools sind `readOnlyHint=true`; Ausführungstools erzwingen einen Idempotenzschlüssel und sind `idempotentHint=true`. Zustandsänderungen sind zusätzlich als destruktiv annotiert.
+- Die 64 Abfragetools und 41 Vorbereitungstools sind `readOnlyHint=true`; Ausführungstools erzwingen einen Idempotenzschlüssel und sind `idempotentHint=true`. Zustandsänderungen sind zusätzlich als destruktiv annotiert.
 - Jede DB-Abfrage läuft in einer PostgreSQL-Transaktion mit `READ ONLY`, Timeout und Zeilenlimit.
 - Produktion verwendet zusätzlich die Rolle `cores_mcp` mit ausschließlich `SELECT`-Rechten.
 - Schreibtools verwenden ausschließlich validierte Endpunkte des jeweils verantwortlichen Core und ein zweiminütiges, auf den OAuth-Benutzer delegiertes Suite-Token. Rollenänderungen und Kontosperren werden dort live geprüft.
@@ -511,7 +532,7 @@ Markdown-, Text-, CSV- und JSON-Dateien unter `MCP_KNOWLEDGE_DIRS` werden als MC
 
 ```bash
 make check
-docker build -t nobentie/cores-mcp:1.5.20 -t nobentie/cores-mcp:latest .
+docker build -t nobentie/cores-mcp:1.5.21 -t nobentie/cores-mcp:latest .
 ```
 
 Die Umbrella-Compose-Datei der Cores Suite bindet den Dienst intern ein. Der Cores-Dashboard-Reverse-Proxy veröffentlicht MCP und OAuth auf derselben Domain, damit der bestehende Suite-Login genutzt werden kann.

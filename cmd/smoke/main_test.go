@@ -26,6 +26,8 @@ func TestWriteSmokeArgumentsNeverConfirmMutation(t *testing.T) {
 		"procurement.orders.create",
 		"warehouse.movements.create",
 		"warehouse.devices.update_status",
+		"warehouse.manufacturers.update",
+		"warehouse.brands.update",
 	} {
 		arguments := smokeArguments(name)
 		if name == "rental.requirements.update" && len(arguments) != 0 {
@@ -35,6 +37,22 @@ func TestWriteSmokeArgumentsNeverConfirmMutation(t *testing.T) {
 			if value == true {
 				t.Fatalf("%s sets %s=true", name, key)
 			}
+		}
+	}
+}
+
+func TestReadSmokeArgumentsMatchMasterAndAuditSchemas(t *testing.T) {
+	for _, test := range []struct{ name, required string }{
+		{"cores.master_data.resolve", "entity"},
+		{"warehouse.audit.history", "product_id"},
+		{"procurement.audit.history", "id"},
+	} {
+		arguments := smokeArguments(test.name)
+		if arguments[test.required] == nil {
+			t.Fatalf("%s missing %s: %#v", test.name, test.required, arguments)
+		}
+		if test.name != "cores.master_data.resolve" && arguments["query"] != nil {
+			t.Fatalf("audit smoke contains unsupported query: %#v", arguments)
 		}
 	}
 }

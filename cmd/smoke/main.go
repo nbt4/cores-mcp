@@ -111,6 +111,12 @@ func smokeArguments(name string) map[string]any {
 		return map[string]any{}
 	case name == "cores.entities.schema":
 		return map[string]any{"entity": "warehouse.products"}
+	case name == "cores.master_data.resolve":
+		return map[string]any{"entity": "warehouse.category", "query": "Licht", "limit": 5}
+	case name == "warehouse.audit.history":
+		return map[string]any{"product_id": 1, "limit": 5}
+	case name == "procurement.audit.history":
+		return map[string]any{"entity": "product", "id": 1, "limit": 5}
 	case name == "warehouse.master_data.resolve":
 		return map[string]any{"entity": "category", "query": "Licht", "limit": 5}
 	case name == "cores.query.records":

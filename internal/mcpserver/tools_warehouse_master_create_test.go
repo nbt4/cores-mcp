@@ -43,8 +43,9 @@ func TestWarehouseStandaloneMasterPreparations(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, statement := range []string{
-		`CREATE TABLE manufacturer(manufacturerid SERIAL PRIMARY KEY,name TEXT,website TEXT)`,
-		`CREATE TABLE brands(brandid SERIAL PRIMARY KEY,name TEXT,manufacturerid INT)`,
+		`CREATE TABLE manufacturer(manufacturerid SERIAL PRIMARY KEY,name TEXT,website TEXT,updated_at TIMESTAMP DEFAULT '2026-09-30 10:15:00.123456')`,
+		`CREATE TABLE brands(brandid SERIAL PRIMARY KEY,name TEXT,manufacturerid INT,updated_at TIMESTAMP DEFAULT '2026-09-30 10:15:00.123456')`,
+		`CREATE TABLE products(productid SERIAL PRIMARY KEY,name TEXT,manufacturerid INT,brandid INT)`,
 		`CREATE TABLE categories(categoryid SERIAL PRIMARY KEY,name TEXT,abbreviation TEXT)`,
 		`CREATE TABLE subcategories(subcategoryid TEXT PRIMARY KEY,name TEXT,abbreviation TEXT,categoryid INT)`,
 		`CREATE TABLE subbiercategories(subbiercategoryid TEXT PRIMARY KEY,name TEXT,abbreviation TEXT,subcategoryid TEXT)`,
@@ -236,6 +237,104 @@ func TestWarehouseStandaloneMasterPreparations(t *testing.T) {
 	}
 	if got := requiredMutationScope("warehouse.locations.update"); got != "cores:warehouse:update" {
 		t.Fatalf("location update scope: %s", got)
+	}
+
+	masterPreview := func(entity string, id int64, name, website *string, parent *int64, clear bool, expected string, confirmed bool) preparedMutation {
+		p, err := run(func(ctx context.Context) (preparedMutation, error) {
+			return prepareWarehouseMasterUpdate(ctx, db, entity, id, name, website, parent, clear, true, expected, confirmed)
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		return p
+	}
+	newName := "New Name"
+	host := "new.example"
+	exact := "2026-09-30T10:15:00.123456Z"
+	p = masterPreview("manufacturer", 1, &newName, &host, nil, false, "", false)
+	if !p.Ready || len(p.Diff) != 2 || p.Draft["website"] != "https://new.example" || p.Draft["expected_updated_at"] != exact {
+		t.Fatalf("manufacturer update %#v", p)
+	}
+	p = masterPreview("manufacturer", 1, &newName, nil, nil, false, "", true)
+	if p.Ready || !containsString(p.Missing, "expected_updated_at") {
+		t.Fatalf("missing master version %#v", p)
+	}
+	p = masterPreview("manufacturer", 1, &newName, nil, nil, false, "old", true)
+	if p.Ready || !containsString(p.Missing, "expected_updated_at") {
+		t.Fatalf("stale master version %#v", p)
+	}
+	empty := ""
+	p = masterPreview("manufacturer", 1, nil, &empty, nil, false, exact, true)
+	if !p.Ready || p.Draft["website"] != nil || len(p.Diff) != 1 {
+		t.Fatalf("clear website %#v", p)
+	}
+	invalid := "ftp://example.com"
+	p = masterPreview("manufacturer", 1, nil, &invalid, nil, false, "", false)
+	if p.Ready || !containsString(p.Missing, "website") {
+		t.Fatalf("invalid website %#v", p)
+	}
+	duplicateName := "robe lighting"
+	p = masterPreview("manufacturer", 1, &duplicateName, nil, nil, false, "", false)
+	if p.Ready || !containsString(p.Missing, "duplicate_manufacturer") {
+		t.Fatalf("duplicate manufacturer %#v", p)
+	}
+	p = masterPreview("manufacturer", 1, nil, nil, nil, false, "", false)
+	if p.Ready || !containsString(p.Missing, "changed_fields") {
+		t.Fatalf("manufacturer no-op %#v", p)
+	}
+	parent := int64(2)
+	p = masterPreview("brand", 1, &newName, nil, &parent, false, "", false)
+	if !p.Ready || len(p.Diff) != 2 || p.Draft["manufacturer_id"] != int64(2) {
+		t.Fatalf("brand reassociation %#v", p)
+	}
+	if _, err := database.Exec(`INSERT INTO products(name,manufacturerid,brandid) VALUES('Console',1,1)`); err != nil {
+		t.Fatal(err)
+	}
+	p = masterPreview("brand", 1, nil, nil, &parent, false, "", false)
+	if p.Ready || !containsString(p.Missing, "linked_products") {
+		t.Fatalf("product conflict %#v", p)
+	}
+	p = masterPreview("brand", 1, &newName, nil, nil, false, "", false)
+	if !p.Ready || len(p.Diff) != 1 {
+		t.Fatalf("brand rename with products %#v", p)
+	}
+	p = masterPreview("brand", 1, nil, nil, nil, true, "", false)
+	if p.Ready || !containsString(p.Missing, "linked_products") {
+		t.Fatalf("clear linked brand manufacturer %#v", p)
+	}
+	if _, err := database.Exec(`DELETE FROM products;INSERT INTO brands(name,manufacturerid) VALUES('Existing Brand',2)`); err != nil {
+		t.Fatal(err)
+	}
+	duplicateName = "Existing Brand"
+	p = masterPreview("brand", 1, &duplicateName, nil, &parent, false, "", false)
+	if p.Ready || !containsString(p.Missing, "duplicate_brand") {
+		t.Fatalf("duplicate brand %#v", p)
+	}
+	p = masterPreview("brand", 1, nil, nil, nil, true, "", false)
+	if !p.Ready || p.Draft["manufacturer_id"] != nil {
+		t.Fatalf("clear unused brand manufacturer %#v", p)
+	}
+	p = masterPreview("brand", 1, nil, nil, &parent, true, "", false)
+	if p.Ready || !containsString(p.Missing, "clear_manufacturer") {
+		t.Fatalf("set and clear manufacturer %#v", p)
+	}
+	parent = 999999
+	p = masterPreview("brand", 1, nil, nil, &parent, false, "", false)
+	if p.Ready || !containsString(p.Missing, "manufacturer_id") {
+		t.Fatalf("missing manufacturer %#v", p)
+	}
+	parent = 1 << 40
+	p = masterPreview("brand", 1, nil, nil, &parent, false, "", false)
+	if p.Ready || !containsString(p.Missing, "manufacturer_id") {
+		t.Fatalf("out of range manufacturer %#v", p)
+	}
+	for _, entity := range []string{"manufacturer", "brand"} {
+		if _, err := prepareWarehouseMasterUpdate(context.Background(), nil, entity, 1, &newName, nil, nil, false, false, "", false); err == nil {
+			t.Fatal("unauthenticated master preview accepted")
+		}
+		if got := requiredMutationScope("warehouse." + entity + "s.update"); got != "cores:warehouse:update" {
+			t.Fatalf("master scope %s", got)
+		}
 	}
 
 }
