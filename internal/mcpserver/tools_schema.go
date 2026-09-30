@@ -18,6 +18,7 @@ type writableEntitySchema struct {
 	Service     string
 	Input       any
 	UpdateInput any
+	ItemInput   any
 	DeleteInput any
 	Required    []string
 	Operations  []string
@@ -48,6 +49,7 @@ func writableEntitySchemas() map[string]writableEntitySchema {
 		"rental.jobs":                {Entity: "rental.jobs", Service: "rentalcore", Input: JobCreateInput{}, Required: []string{"description", "customer_id|customer_query", "start_date", "end_date"}, Operations: []string{"prepare_create", "create", "prepare_update", "update"}},
 		"rental.requirements":        {Entity: "rental.requirements", Service: "rentalcore", Input: RequirementCreateInput{}, Required: []string{"job_id|job_query", "product_id|product_query", "quantity"}, Operations: []string{"prepare_create", "create", "prepare_update", "update"}},
 		"rental.device_assignments":  {Entity: "rental.device_assignments", Service: "rentalcore", Input: JobDeviceAssignInput{}, Required: []string{"job_id|job_query", "device_id"}, Operations: []string{"prepare_assign", "assign"}},
+		"warehouse.packages":         {Entity: "warehouse.packages", Service: "warehousecore", Input: WarehousePackageCreateInput{}, UpdateInput: WarehousePackageUpdateInput{}, ItemInput: WarehousePackageItem{}, Required: []string{"name", "items"}, Operations: []string{"prepare_create", "create", "prepare_update", "update"}, Notes: []string{"Admin and matching create/update scope required. Code and ID are immutable. Package and all product lines are committed atomically with audit and idempotency. Exact version covers metadata and contents. Prices and contents used in any job are protected; create a new package instead. No stock movement, mirror product or file upload."}},
 		"warehouse.products":         {Entity: "warehouse.products", Service: "warehousecore", Input: WarehouseProductCreateInput{}, UpdateInput: WarehouseProductUpdateInput{}, Required: []string{"name", "category_id|category_name", "manufacturer_id|manufacturer_name"}, Operations: []string{"prepare_create", "create", "prepare_update", "update", "prepare_archive", "archive", "prepare_restore", "restore", "prepare_link_relation", "link_relation"}, Notes: []string{"Missing master data is created only when its create_* flag is explicitly true.", "Manufacturer, brand, category hierarchy, product, initial stock and initial devices are committed atomically.", "prepare_update and update accept WarehouseProductUpdateInput; call prepare_update to see its full diff and exact expected_updated_at.", "Lifecycle operations accept WarehouseProductLifecycleInput and require a dedicated archive scope, version, dependency preview and record-bound confirmation.", "Product relationships accept WarehouseProductRelationInput and use a versioned, audited upsert."}},
 		"warehouse.manufacturers":    {Entity: "warehouse.manufacturers", Service: "warehousecore", Input: WarehouseManufacturerCreateInput{}, UpdateInput: WarehouseManufacturerUpdateInput{}, Required: []string{"name"}, Operations: []string{"resolve", "prepare_create", "create", "prepare_update", "update", "resolve_or_create_via_product"}, Notes: []string{"Standalone creation returns manufacturer_id for warehouse.brands.create and warehouse.products.update. Updates support name and website (empty clears), full diff, exact version, administrator permission, confirmation and idempotency."}},
 		"warehouse.brands":           {Entity: "warehouse.brands", Service: "warehousecore", Input: WarehouseBrandCreateInput{}, UpdateInput: WarehouseBrandUpdateInput{}, Required: []string{"name", "manufacturer_id"}, Operations: []string{"resolve", "prepare_create", "create", "prepare_update", "update", "resolve_or_create_via_product"}, Notes: []string{"Standalone creation requires an existing manufacturer and returns brand_id for warehouse.products.update. Updates support name and manufacturer reassociation; clear_manufacturer explicitly removes the association. Linked products must already use the proposed manufacturer. Exact version, administrator permission, full diff, confirmation and idempotency are required."}},
@@ -74,6 +76,9 @@ func renderWritableEntitySchema(schema writableEntitySchema) map[string]any {
 	result := map[string]any{"entity": schema.Entity, "service": schema.Service, "operations": schema.Operations, "required": schema.Required, "fields": renderWritableFields(schema.Input, schema.Required), "notes": schema.Notes}
 	if schema.UpdateInput != nil {
 		result["update_fields"] = renderWritableFields(schema.UpdateInput, nil)
+	}
+	if schema.ItemInput != nil {
+		result["item_fields"] = renderWritableFields(schema.ItemInput, []string{"product_id", "quantity"})
 	}
 	if schema.DeleteInput != nil {
 		result["delete_fields"] = renderWritableFields(schema.DeleteInput, nil)

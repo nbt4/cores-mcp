@@ -1,5 +1,34 @@
 # Cores MCP
 
+## Produktpakete anlegen und bearbeiten ab 1.5.23
+
+`warehouse.packages.prepare_create`/`create` und `prepare_update`/`update`
+verwalten Name, Beschreibung, EUR-Preis, Kategorie, Website-Sichtbarkeit,
+Aliasse und die vollständige Produktliste mit Mengen und `is_optional`.
+`cores.entities.schema` liefert dafür `fields`, `update_fields` und `item_fields`.
+Ein Paket enthält 1–200 verschiedene aktive Produkte; Mengen sind ganze Zahlen
+von 1 bis 1000000. Preise sind nichtnegativ mit höchstens zwei Nachkommastellen.
+Paket-ID und automatisch erzeugter Code bleiben erhalten. Keine Lagerbuchung
+oder spiegelnde Produktanlage erfolgt. Bilder/Datei-Uploads gehören nicht dazu.
+
+Updates erhalten ausgelassene Felder und Produktzeilen. `items` ersetzt die
+vollständige Liste, `aliases: []` leert Aliasse; `clear_fields` leert nullable
+`description`, `price` und `category`. Beschreibung/Kategorie können auch über
+`""` geleert werden. Die Vorschau zeigt sämtliche Felder, Inhalte, Diff,
+Dubletten/ähnliche Namen und Jobnutzung. Bei Verwendung in einem Job bleiben
+Preis und Inhalt gesperrt, auch für abgeschlossene Jobs; ein neues Paket ist
+nötig. Andere Metadaten bleiben bearbeitbar. Öffentlich sichtbare Pakete
+enthalten einen entsprechenden Hinweis in der Vorschau.
+
+Warehouse-Adminrechte und `cores:warehouse:create` bzw. `cores:warehouse:update`
+(oder Legacy `cores:write`), ausdrückliche Bestätigung und Idempotenzschlüssel
+sind erforderlich. Updates verlangen die exakte `expected_updated_at`.
+WarehouseCore 5.9.93 speichert Paket, Inhalte, vollständigen Vorher/Nachher-Audit
+und dauerhaften Wiederholungsbeleg atomar. Migration `050` (Umbrella `023`)
+versioniert auch UI-/Importänderungen an Metadaten und einzelnen Produktzeilen.
+Metadaten-Updates erhalten Zeilen-IDs. Dry-run verändert nichts.
+
+
 ## Kategorien bearbeiten und entfernen ab 1.5.22
 
 Alle drei Warehouse-Kategorieebenen bieten `prepare_update`/`update` sowie
@@ -414,7 +443,7 @@ entfernt ausschließlich sein eigenes Schema.
 
 Cores MCP bindet die gesamte Cores Suite als sicheren MCP-Server an ChatGPT, Claude, Codex und andere MCP-fähige Agents an. Der Chat bleibt beim jeweiligen KI-Anbieter; Cores stellt nur kontrollierte Werkzeuge und Kontext bereit.
 
-Der Server bietet 64 lesende fachliche Tools, fünf wiederverwendbare Analyse-Prompts und dokumentierbare Knowledge-Ressourcen für RentalCore, WarehouseCore, PlannerCore und ProcurementCore. Bei `MCP_ENABLE_WRITES=true` kommen 47 vorbereitende und 47 bestätigte, eng begrenzte Schreibtools für alle vier Core-Services hinzu. Beliebiges SQL, generische HTTP-Aufrufe und generische Löschwerkzeuge bleiben ausgeschlossen. Unbenutzte Warehouse-Kategorien können ausschließlich über die benannten, gesondert bestätigten Löschwerkzeuge entfernt werden.
+Der Server bietet 64 lesende fachliche Tools, fünf wiederverwendbare Analyse-Prompts und dokumentierbare Knowledge-Ressourcen für RentalCore, WarehouseCore, PlannerCore und ProcurementCore. Bei `MCP_ENABLE_WRITES=true` kommen 49 vorbereitende und 49 bestätigte, eng begrenzte Schreibtools für alle vier Core-Services hinzu. Beliebiges SQL, generische HTTP-Aufrufe und generische Löschwerkzeuge bleiben ausgeschlossen. Unbenutzte Warehouse-Kategorien können ausschließlich über die benannten, gesondert bestätigten Löschwerkzeuge entfernt werden.
 
 ## Geführte Schreibzugriffe mit Rückfragen
 
@@ -530,7 +559,7 @@ Der Smoke-Test verbindet einen echten MCP-Client, listet alle Tools und ruft jed
 | `MCP_PUBLIC_URL` | `http://localhost:8090` | Öffentliche Basis-URL ohne `/mcp` |
 | `CORES_DASHBOARD_PUBLIC_URL` | `http://localhost:8080` | Cores-Login, auf den OAuth verweist |
 | `MCP_AUTH_MODE` | `oauth` | `oauth`, `bearer` oder nur lokal `none` |
-| `MCP_ENABLE_WRITES` | `false` | Aktiviert 94 geführte Schreibtools (47 Vorschauen plus 47 Ausführungen); nur mit `MCP_AUTH_MODE=oauth` zulässig |
+| `MCP_ENABLE_WRITES` | `false` | Aktiviert 98 geführte Schreibtools (49 Vorschauen plus 49 Ausführungen); nur mit `MCP_AUTH_MODE=oauth` zulässig |
 | `CORES_JWT_SECRET` | – | Dasselbe Signatur-Secret wie das Cores Dashboard, mindestens 32 Zeichen |
 | `MCP_STATIC_TOKENS` | – | Optionale `name:secret`-Paare für Agents |
 | `DATABASE_URL` | – | Komplette PostgreSQL-URL; überschreibt einzelne DB-Variablen |
@@ -547,7 +576,7 @@ Die vollständige Vorlage steht in [.env.example](.env.example).
 
 ## Sicherheitsmodell
 
-- Die 64 Abfragetools und 47 Vorbereitungstools sind `readOnlyHint=true`; Ausführungstools erzwingen einen Idempotenzschlüssel und sind `idempotentHint=true`. Zustandsänderungen sind zusätzlich als destruktiv annotiert.
+- Die 64 Abfragetools und 49 Vorbereitungstools sind `readOnlyHint=true`; Ausführungstools erzwingen einen Idempotenzschlüssel und sind `idempotentHint=true`. Zustandsänderungen sind zusätzlich als destruktiv annotiert.
 - Jede DB-Abfrage läuft in einer PostgreSQL-Transaktion mit `READ ONLY`, Timeout und Zeilenlimit.
 - Produktion verwendet zusätzlich die Rolle `cores_mcp` mit ausschließlich `SELECT`-Rechten.
 - Schreibtools verwenden ausschließlich validierte Endpunkte des jeweils verantwortlichen Core und ein zweiminütiges, auf den OAuth-Benutzer delegiertes Suite-Token. Rollenänderungen und Kontosperren werden dort live geprüft.
@@ -566,7 +595,7 @@ Markdown-, Text-, CSV- und JSON-Dateien unter `MCP_KNOWLEDGE_DIRS` werden als MC
 
 ```bash
 make check
-docker build -t nobentie/cores-mcp:1.5.22 -t nobentie/cores-mcp:latest .
+docker build -t nobentie/cores-mcp:1.5.23 -t nobentie/cores-mcp:latest .
 ```
 
 Die Umbrella-Compose-Datei der Cores Suite bindet den Dienst intern ein. Der Cores-Dashboard-Reverse-Proxy veröffentlicht MCP und OAuth auf derselben Domain, damit der bestehende Suite-Login genutzt werden kann.

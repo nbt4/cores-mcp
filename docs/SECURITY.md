@@ -103,3 +103,13 @@ einen Idempotenzschlüssel. Der Ziel-Core prüft unter Datenbanksperren erneut;
 Löschung, Audit und dauerhafter Wiederholungsbeleg werden zusammen committet.
 Audit bleibt erhalten. Es gibt kein Cascade, keine automatische Umzuordnung
 und kein MCP-Undo für dauerhaft entfernte Kategorien. Dry-run löscht nichts.
+
+## Produktpakete
+
+Die benannten Create-/Update-Workflows verlangen Warehouse-Adminrechte und den
+passenden Warehouse-Scope. Vollständige Metadaten und Produktzeilen werden im
+Ziel-Core mit Audit und dauerhaftem Wiederholungsbeleg atomar gespeichert.
+Die exakte Updateversion umfasst auch einzelne Zeilenänderungen anderer
+Schreibpfade. Vorhandene Jobnutzung sperrt Änderungen an Preis und Inhalt;
+Metadaten bleiben bearbeitbar. Website-Sichtbarkeit trägt eine Warnung über
+öffentliche Paketdaten. Es gibt keine Paketlöschung und keine Lagerbuchung.

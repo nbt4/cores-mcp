@@ -7,7 +7,7 @@ OAuth-Benutzers beschränkt. Das gilt auch für `cores.search`,
 berechtigt nicht zum Lesen fremder Pläne. Maschinentokens liefern keine Planner-Daten.
 Toolnamen und Eingabeschemas bleiben unverändert.
 
-Die 64 Abfragetools sind read-only und idempotent. Bei `MCP_ENABLE_WRITES=true` werden zusätzlich 47 vorbereitende und 47 bestätigte Schreibtools für alle vier Core-Services registriert. Suchtools akzeptieren üblicherweise `query`, `limit` und `offset`; Zeitfenster `from`, `to` und `limit`; Detailtools `id`. Datumswerte sind `YYYY-MM-DD` oder RFC3339.
+Die 64 Abfragetools sind read-only und idempotent. Bei `MCP_ENABLE_WRITES=true` werden zusätzlich 49 vorbereitende und 49 bestätigte Schreibtools für alle vier Core-Services registriert. Suchtools akzeptieren üblicherweise `query`, `limit` und `offset`; Zeitfenster `from`, `to` und `limit`; Detailtools `id`. Datumswerte sind `YYYY-MM-DD` oder RFC3339.
 
 Der MCP-Endpunkt verlangt immer `cores:read`. Für ein Vorbereitung- oder
 Ausführungstool ist zusätzlich entweder der kompatible Sammel-Scope
@@ -377,3 +377,33 @@ WarehouseCore-Migration `049` bzw. Umbrella-Migration `022` installieren
 Versionstrigger für alle drei Tabellen. Der Ziel-Core prüft die Daten unter
 Sperren erneut und speichert Änderung/Löschung, Audit und dauerhaften
 Wiederholungsbeleg zusammen. Ein Audit-Fehler rollt alles zurück.
+
+### Warehouse-Produktpakete ab 1.5.23
+
+| Tool | Funktion |
+|---|---|
+| `warehouse.packages.prepare_create` | Vollständige Metadaten und 1–200 aktive Produktzeilen samt Mengen/Optionalität prüfen; Dubletten und ähnliche Pakete zeigen |
+| `warehouse.packages.create` | Paket, Inhalte, Audit und dauerhaften Wiederholungsbeleg nach Bestätigung atomar anlegen |
+| `warehouse.packages.prepare_update` | Alle Felder/Inhalte, exakte Version, vollständigen Diff und Jobanzahl anzeigen |
+| `warehouse.packages.update` | Versionsgesicherte Änderung nach Bestätigung; Preis/Inhalt bei vorhandener Jobnutzung sperren |
+
+Schema-Discovery: `warehouse.packages` enthält `fields`, `update_fields` sowie
+`item_fields` für `product_id`, `quantity` (1–1000000) und `is_optional`.
+Preis ist EUR, nichtnegativ, höchstens zwei Nachkommastellen und 99999999.99.
+Namen 1–255, Beschreibung höchstens 4000, Kategorie höchstens 100 Zeichen;
+maximal 50 Aliasse mit je höchstens 160 Zeichen. Blank-/Dublettenaliasse werden
+normalisiert; Produkt-IDs müssen verschieden und aktiv sein.
+
+Ausgelassene Updatefelder bleiben erhalten; `items` ersetzt die komplette
+Produktliste, `aliases: []` leert Aliasse. `clear_fields` unterstützt nur
+`description`, `price`, `category`; gleichzeitiges Setzen und Leeren ist ungültig.
+Jobnutzung schützt Preis und Zusammensetzung einschließlich Optionalität auch
+für vergangene Jobs. Andere Metadaten bleiben bearbeitbar. Keine Lagerbuchung,
+keine neuen Produkte, keine Datei-/Bildoperationen und keine Paketlöschung.
+Website-Sichtbarkeit wird samt Hinweis auf öffentliche Daten vorbereitet.
+
+Warehouse-Admin und Create-/Update-Scope (oder Legacy Write), `confirm_creation`
+bzw. `confirm_update`, Idempotenzschlüssel und beim Update exakte Version sind
+nötig. Ziel-Core prüft erneut und committet Audit und Wiederholungsbeleg atomar;
+Migration 050/Umbrella 023 versioniert auch Änderungen einzelner Produktzeilen.
+Metadatenänderungen ersetzen keine Zeilen-IDs; `dry_run=true` verändert nichts.
