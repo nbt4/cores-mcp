@@ -7,7 +7,7 @@ OAuth-Benutzers beschränkt. Das gilt auch für `cores.search`,
 berechtigt nicht zum Lesen fremder Pläne. Maschinentokens liefern keine Planner-Daten.
 Toolnamen und Eingabeschemas bleiben unverändert.
 
-Die 64 Abfragetools sind read-only und idempotent. Bei `MCP_ENABLE_WRITES=true` werden zusätzlich 38 vorbereitende und 38 bestätigte Schreibtools für alle vier Core-Services registriert. Suchtools akzeptieren üblicherweise `query`, `limit` und `offset`; Zeitfenster `from`, `to` und `limit`; Detailtools `id`. Datumswerte sind `YYYY-MM-DD` oder RFC3339.
+Die 64 Abfragetools sind read-only und idempotent. Bei `MCP_ENABLE_WRITES=true` werden zusätzlich 39 vorbereitende und 39 bestätigte Schreibtools für alle vier Core-Services registriert. Suchtools akzeptieren üblicherweise `query`, `limit` und `offset`; Zeitfenster `from`, `to` und `limit`; Detailtools `id`. Datumswerte sind `YYYY-MM-DD` oder RFC3339.
 
 Der MCP-Endpunkt verlangt immer `cores:read`. Für ein Vorbereitung- oder
 Ausführungstool ist zusätzlich entweder der kompatible Sammel-Scope
@@ -18,7 +18,7 @@ Ausführungstool ist zusätzlich entweder der kompatible Sammel-Scope
 | `cores:rental:create` | Jobs und Requirements anlegen |
 | `cores:rental:update` | Job/Requirement ändern und Gerät zuweisen |
 | `cores:warehouse:create` | Tasks, Produkte, Hersteller, Marken, Kategorien und Lagerplätze anlegen |
-| `cores:warehouse:update` | Bewegungen und Gerätezustände buchen sowie Produkte und ihre Beziehungen ändern |
+| `cores:warehouse:update` | Bewegungen und Gerätezustände buchen sowie Produkte, ihre Beziehungen und aktive Lagerplätze ändern |
 | `cores:warehouse:archive` | Produkte und mitarchivierte Geräte nach Abhängigkeitsprüfung archivieren oder wiederherstellen |
 | `cores:planner:create` | Pläne und Tasks anlegen |
 | `cores:procurement:create` | Produkte, Angebote, Lieferanten, Kategorien und Bestellungen anlegen |
@@ -113,7 +113,7 @@ Alle Query-Namen und Felder stammen aus einer festen Registry. Nutzwerte werden 
 | `rental.requirements.prepare_update` | Vorhandene Bedarfszeile und neue positive Menge prüfen |
 | `rental.requirements.update` | Ausschließlich die bestätigte Menge einer Bedarfszeile ändern |
 
-## WarehouseCore (18 + 28 geführte Schreibtools)
+## WarehouseCore (18 + 30 geführte Schreibtools)
 
 | Tool | Zweck |
 |---|---|
@@ -134,6 +134,8 @@ Alle Query-Namen und Felder stammen aus einer festen Registry. Nutzwerte werden 
 | `warehouse.third_categories.create` | Bestätigte dritte Kategorieebene mit Audit und Idempotenz anlegen |
 | `warehouse.locations.prepare_create` | Lagerplatzfelder, aktiven Elternknoten, Code, Scan-Code und ähnliche Orte prüfen |
 | `warehouse.locations.create` | Bestätigten Lagerplatz mit Audit und dauerhaftem Idempotenzbeleg anlegen |
+| `warehouse.locations.prepare_update` | Vollständigen Lagerplatz-Diff, exakte Version, Duplikate, Elternhierarchie und Belegung prüfen |
+| `warehouse.locations.update` | Aktiven Lagerplatz nach Bestätigung versionsgesichert, auditiert und dauerhaft idempotent ändern |
 | `warehouse.devices.search` | Geräte nach ID, Seriennummer, Barcode, Produkt oder Zustand suchen |
 | `warehouse.devices.get` | Gerätehistorie, Jobs, Bewegungen, Defekte und Wartung |
 | `warehouse.stock.shortages` | Mindestbestands- und Verfügbarkeitsengpässe |
@@ -283,3 +285,25 @@ Ergebnis zusammen mit der Fachmutation.
 | `data-quality-review` | Datenlücken nach Entscheidungswirkung priorisieren |
 
 Prompts führen nicht selbstständig Aktionen aus. Sie geben dem Client eine bewährte Reihenfolge und Bewertungsstruktur für die Tools vor.
+
+### Lagerplatzänderungen ab 1.5.20
+
+`warehouse.locations.prepare_update` und `.update` sind die freigegebene
+Capability für Änderungen aktiver Lagerplätze mit `cores:warehouse:update`
+(oder `cores:write`) und Warehouse-Administratorrechten. Ausführung benötigt
+`confirm_update=true`, die exakte `expected_updated_at`-Version aus der Vorschau
+und einen Idempotenzschlüssel. `dry_run=true` unterdrückt jede Bestätigung.
+Code, Scan-Code und Name unter demselben Elternknoten sind eindeutig; ähnliche
+Namen müssen vor einer Umbenennung ausdrücklich geprüft werden. Elternknoten
+und alle Vorfahren müssen aktiv sein, eine Zuordnung zu sich selbst oder einem
+Nachfahren ist gesperrt. Die Vorschau zeigt aktive Geräte im Lager, Cases und
+Mengenbestand entsprechend der Warehouse-Lagerplatzansicht;
+Kapazitätsabsenkungen unter die Belegung und nicht belegbare Plätze mit Bestand
+werden blockiert. Nullable Felder können über `clear_fields` geleert werden;
+gleichzeitiges Setzen und Leeren ist unzulässig. Betriebsstatus, Archivierung
+und Inventurabschluss sind eigene Workflows und werden nicht geändert.
+WarehouseCore wiederholt diese Prüfungen unter Sperre und schreibt Änderung,
+Vorher/Nachher-Audit (`MCP/AI`) und Wiederholungsbeleg in einer Transaktion.
+Alle Datenbankänderungen an Lagerplätzen erhöhen durch Migration 046 ihre
+Version, einschließlich Frontend- und Inventuränderungen. Unveränderte
+Inventurintervalle erhalten den bestehenden nächsten Zähltermin.

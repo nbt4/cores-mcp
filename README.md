@@ -1,5 +1,31 @@
 # Cores MCP
 
+## OAuth-Freigabe ab 1.5.20
+
+Die Freigabeseite bietet bei aktivierten Schreibtools die Auswahl **Nur Lesen**
+oder **Lesen und Schreiben**, auch wenn der Client zunächst nur `cores:read`
+anfordert. Nur Lesen ist vorausgewählt. Die ausdrückliche Schreibfreigabe
+übernimmt angeforderte granulare Scopes oder den kompatiblen `cores:write`-Scope.
+Fehlende Auswahl bleibt lesend; deaktivierte Schreibtools blockieren jede
+Schreibfreigabe. Refresh-Tokens behalten ihre freigegebenen Rechte.
+Bestehende lesende Verbindungen müssen einmal neu autorisiert werden: im
+Cores-Dialog **Lesen und Schreiben** wählen und **Ausgewählten Zugriff erlauben**
+bestätigen. Die Seite unterstützt Deutsch und Englisch über die Browsersprache
+oder `lang=de|en`; Core-Rollen und die Bestätigung jeder Schreibaktion gelten
+weiterhin.
+
+## Lagerplatzpflege ab 1.5.20
+
+`warehouse.locations.prepare_update` zeigt alle bearbeitbaren Felder, den
+vollständigen Ist/Soll-Diff, die genaue Version, ähnliche Lagerplätze sowie
+Elternhierarchie und aktuelle Belegung. `.update` benötigt Warehouse-Adminrechte,
+`cores:warehouse:update` oder `cores:write`, `expected_updated_at`,
+Idempotenzschlüssel und ausdrückliche Bestätigung. WarehouseCore 5.9.89 prüft
+Duplikate, Hierarchiekreise und Bestandsgrenzen erneut und speichert Änderung,
+Audit und Wiederholungsbeleg atomar. Optionale Felder werden über `clear_fields`
+geleert; Betriebsstatus und Archivierung werden durch dieses Werkzeug nicht
+geändert. `cores.entities.schema` beschreibt die vollständigen Update-Felder.
+
 ## Geführte Lagerplatzanlage ab 1.5.19
 
 `warehouse.locations.prepare_create` prüft Code, Scan-Code, Namen, Lagerplatztyp,
@@ -333,7 +359,7 @@ entfernt ausschließlich sein eigenes Schema.
 
 Cores MCP bindet die gesamte Cores Suite als sicheren MCP-Server an ChatGPT, Claude, Codex und andere MCP-fähige Agents an. Der Chat bleibt beim jeweiligen KI-Anbieter; Cores stellt nur kontrollierte Werkzeuge und Kontext bereit.
 
-Der Server bietet 64 lesende fachliche Tools, fünf wiederverwendbare Analyse-Prompts und dokumentierbare Knowledge-Ressourcen für RentalCore, WarehouseCore, PlannerCore und ProcurementCore. Bei `MCP_ENABLE_WRITES=true` kommen 29 vorbereitende und 29 bestätigte, eng begrenzte Schreibtools für alle vier Core-Services hinzu. Beliebiges SQL, generische HTTP-Aufrufe und Hard-Deletes bleiben ausgeschlossen.
+Der Server bietet 64 lesende fachliche Tools, fünf wiederverwendbare Analyse-Prompts und dokumentierbare Knowledge-Ressourcen für RentalCore, WarehouseCore, PlannerCore und ProcurementCore. Bei `MCP_ENABLE_WRITES=true` kommen 39 vorbereitende und 39 bestätigte, eng begrenzte Schreibtools für alle vier Core-Services hinzu. Beliebiges SQL, generische HTTP-Aufrufe und Hard-Deletes bleiben ausgeschlossen.
 
 ## Geführte Schreibzugriffe mit Rückfragen
 
@@ -449,7 +475,7 @@ Der Smoke-Test verbindet einen echten MCP-Client, listet alle Tools und ruft jed
 | `MCP_PUBLIC_URL` | `http://localhost:8090` | Öffentliche Basis-URL ohne `/mcp` |
 | `CORES_DASHBOARD_PUBLIC_URL` | `http://localhost:8080` | Cores-Login, auf den OAuth verweist |
 | `MCP_AUTH_MODE` | `oauth` | `oauth`, `bearer` oder nur lokal `none` |
-| `MCP_ENABLE_WRITES` | `false` | Aktiviert 58 geführte Schreibtools (29 Vorschauen plus 29 Ausführungen); nur mit `MCP_AUTH_MODE=oauth` zulässig |
+| `MCP_ENABLE_WRITES` | `false` | Aktiviert 78 geführte Schreibtools (39 Vorschauen plus 39 Ausführungen); nur mit `MCP_AUTH_MODE=oauth` zulässig |
 | `CORES_JWT_SECRET` | – | Dasselbe Signatur-Secret wie das Cores Dashboard, mindestens 32 Zeichen |
 | `MCP_STATIC_TOKENS` | – | Optionale `name:secret`-Paare für Agents |
 | `DATABASE_URL` | – | Komplette PostgreSQL-URL; überschreibt einzelne DB-Variablen |
@@ -466,7 +492,7 @@ Die vollständige Vorlage steht in [.env.example](.env.example).
 
 ## Sicherheitsmodell
 
-- Die 64 Abfragetools und 29 Vorbereitungstools sind `readOnlyHint=true`; Ausführungstools erzwingen einen Idempotenzschlüssel und sind `idempotentHint=true`. Zustandsänderungen sind zusätzlich als destruktiv annotiert.
+- Die 64 Abfragetools und 39 Vorbereitungstools sind `readOnlyHint=true`; Ausführungstools erzwingen einen Idempotenzschlüssel und sind `idempotentHint=true`. Zustandsänderungen sind zusätzlich als destruktiv annotiert.
 - Jede DB-Abfrage läuft in einer PostgreSQL-Transaktion mit `READ ONLY`, Timeout und Zeilenlimit.
 - Produktion verwendet zusätzlich die Rolle `cores_mcp` mit ausschließlich `SELECT`-Rechten.
 - Schreibtools verwenden ausschließlich validierte Endpunkte des jeweils verantwortlichen Core und ein zweiminütiges, auf den OAuth-Benutzer delegiertes Suite-Token. Rollenänderungen und Kontosperren werden dort live geprüft.
@@ -485,7 +511,7 @@ Markdown-, Text-, CSV- und JSON-Dateien unter `MCP_KNOWLEDGE_DIRS` werden als MC
 
 ```bash
 make check
-docker build -t nobentie/cores-mcp:1.5.19 -t nobentie/cores-mcp:latest .
+docker build -t nobentie/cores-mcp:1.5.20 -t nobentie/cores-mcp:latest .
 ```
 
 Die Umbrella-Compose-Datei der Cores Suite bindet den Dienst intern ein. Der Cores-Dashboard-Reverse-Proxy veröffentlicht MCP und OAuth auf derselben Domain, damit der bestehende Suite-Login genutzt werden kann.

@@ -297,11 +297,12 @@ func (s *OAuthServer) authorize(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Security-Policy", httpx.ContentSecurityPolicy(s.issuer, params.Get("redirect_uri")))
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		_ = consentTemplate.Execute(w, map[string]any{
-			"Client": client.Name,
-			"User":   user.Username,
-			"Params": authorizationFields(params),
-			"CSRF":   csrf,
-			"Writes": containsWriteScope(requestedScopes(params.Get("scope"), s.enableWrites)),
+			"Client":       client.Name,
+			"User":         user.Username,
+			"Params":       authorizationFields(params),
+			"CSRF":         csrf,
+			"EnableWrites": s.enableWrites,
+			"Lang":         consentLanguage(params.Get("lang"), r.Header.Get("Accept-Language")),
 		})
 		return
 	}
@@ -314,6 +315,11 @@ func (s *OAuthServer) authorize(w http.ResponseWriter, r *http.Request) {
 		oauthRedirectError(w, r, "access_denied", "user denied access")
 		return
 	}
+	scopes, err := consentScopes(params.Get("scope"), r.PostForm.Get("access_mode"), s.enableWrites)
+	if err != nil {
+		oauthRedirectError(w, r, "invalid_scope", err.Error())
+		return
+	}
 	http.SetCookie(w, &http.Cookie{Name: "cores_mcp_csrf", Value: "", Path: "/oauth/authorize", HttpOnly: true, Secure: strings.HasPrefix(s.issuer, "https://"), SameSite: http.SameSiteLaxMode, MaxAge: -1})
 	code := randomToken(32)
 	s.mu.Lock()
@@ -321,7 +327,7 @@ func (s *OAuthServer) authorize(w http.ResponseWriter, r *http.Request) {
 	s.codes[code] = authorizationCode{
 		ClientID: client.ID, RedirectURI: params.Get("redirect_uri"), Challenge: params.Get("code_challenge"),
 		Resource: firstNonEmpty(params.Get("resource"), s.resource), User: user, ExpiresAt: time.Now().Add(5 * time.Minute),
-		Scopes: requestedScopes(params.Get("scope"), s.enableWrites),
+		Scopes: scopes,
 	}
 	s.mu.Unlock()
 	redirect, _ := url.Parse(params.Get("redirect_uri"))
@@ -458,12 +464,6 @@ func (s *OAuthServer) supportedScopes() []string {
 
 func requestedScopes(raw string, enableWrites bool) []string {
 	requested := strings.Fields(raw)
-	if len(requested) == 0 {
-		requested = []string{readScope}
-		if enableWrites {
-			requested = append(requested, writeScope)
-		}
-	}
 	result := []string{readScope}
 	if enableWrites {
 		for _, scope := range requested {
@@ -473,6 +473,26 @@ func requestedScopes(raw string, enableWrites bool) []string {
 		}
 	}
 	return result
+}
+
+// The browser consent, rather than the client's initial discovery request,
+// decides whether to grant writes. Omitting the choice always stays read-only.
+func consentScopes(raw, mode string, enableWrites bool) ([]string, error) {
+	switch mode {
+	case "", "read":
+		return []string{readScope}, nil
+	case "write":
+		if !enableWrites {
+			return nil, errors.New("write access is disabled")
+		}
+		scopes := requestedScopes(raw, true)
+		if !containsWriteScope(scopes) {
+			scopes = append(scopes, writeScope)
+		}
+		return scopes, nil
+	default:
+		return nil, errors.New("invalid access selection")
+	}
 }
 
 func SupportedScopes(enableWrites bool) []string {
@@ -646,7 +666,7 @@ type authorizationField struct {
 
 func authorizationFields(values url.Values) []authorizationField {
 	fields := make([]authorizationField, 0, len(values))
-	for _, name := range []string{"response_type", "client_id", "redirect_uri", "code_challenge", "code_challenge_method", "state", "scope", "resource"} {
+	for _, name := range []string{"response_type", "client_id", "redirect_uri", "code_challenge", "code_challenge_method", "state", "scope", "resource", "lang"} {
 		for _, value := range values[name] {
 			fields = append(fields, authorizationField{Name: name, Value: value})
 		}
@@ -681,27 +701,71 @@ func writeJSON(w http.ResponseWriter, status int, value any) {
 	_ = json.NewEncoder(w).Encode(value)
 }
 
-var consentTemplate = template.Must(template.New("consent").Parse(`<!doctype html>
-<html lang="de">
+func consentLanguage(explicit, preferred string) string {
+	if explicit == "en" || explicit == "de" {
+		return explicit
+	}
+	if strings.HasPrefix(strings.ToLower(preferred), "en") {
+		return "en"
+	}
+	return "de"
+}
+
+var consentMessages = map[string][2]string{
+	"title":      {"Cores MCP freigeben", "Authorize Cores MCP"},
+	"eyebrow":    {"Sichere Verbindung", "Secure connection"},
+	"heading":    {"Cores MCP verbinden", "Connect Cores MCP"},
+	"client":     {"möchte im Namen von", "would like to access Cores data on behalf of"},
+	"user":       {"auf freigegebene Cores-Daten zugreifen.", "."},
+	"write_help": {"Wähle den Zugriff für diese Verbindung. Lesen verändert keine Daten. Lesen und Schreiben erlaubt die dokumentierten Anlagen und Änderungen sowie freigegebene Archivierungs-, Freigabe- und Wareneingangsworkflows. Jede Schreibaktion braucht eine Vorschau und ausdrückliche Bestätigung; deine Rechte im jeweiligen Core gelten weiterhin.", "Choose access for this connection. Reading does not change data. Read and write enables documented creation and updates, plus supported archiving, approval and receipt workflows. Each write requires a preview and explicit confirmation; your permissions in each Core still apply."},
+	"read_help":  {"Die Verbindung darf Bestände, Jobs, Planungen und Beschaffungsinformationen ausschließlich lesen. Sie kann keine Daten verändern.", "This connection can only read inventory, jobs, planning and procurement information. It cannot change data."},
+	"access":     {"Zugriff erlauben", "Allow access"},
+	"read":       {"Nur Lesen", "Read only"},
+	"write":      {"Lesen und Schreiben", "Read and write"},
+	"deny":       {"Ablehnen", "Deny"},
+	"allow":      {"Ausgewählten Zugriff erlauben", "Allow selected access"},
+	"allow_read": {"Lesenden Zugriff erlauben", "Allow read access"},
+}
+
+func consentMessage(lang, key string) string {
+	pair := consentMessages[key]
+	if lang == "en" {
+		return pair[1]
+	}
+	return pair[0]
+}
+
+var consentTemplate = template.Must(template.New("consent").Funcs(template.FuncMap{"msg": consentMessage}).Parse(`<!doctype html>
+<html lang="{{.Lang}}">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <title>Cores MCP freigeben</title>
+  <title>{{msg .Lang "title"}}</title>
   <link rel="stylesheet" href="/cores-theme.css">
 </head>
 <body class="suite-auth-page">
   <main class="suite-auth-card">
     <div class="suite-auth-brand"><img class="suite-auth-logo" src="/logos/cores_white_full.svg" alt="Cores"></div>
-    <p class="suite-auth-eyebrow">Sichere Verbindung</p>
-    <h1 class="suite-auth-title">Cores MCP verbinden</h1>
-    <p class="suite-auth-copy"><strong>{{.Client}}</strong> möchte im Namen von <strong>{{.User}}</strong> auf freigegebene Cores-Daten zugreifen.</p>
-    {{if .Writes}}<div class="suite-auth-notice">Die Verbindung darf Cores-Daten lesen und die dokumentierten operativen Workflows ausführen: Anlagen, Gerätezuweisung, Job- und Bedarfsänderung, Bestellung, Lagerbewegung sowie Gerätezustand. Jede Aktion wird vorab validiert, vollständig angezeigt und erfordert eine ausdrückliche Bestätigung; Rollen des Ziel-Cores gelten weiterhin. Löschungen und Freigaben bleiben gesperrt.</div>{{else}}<div class="suite-auth-notice">Die Verbindung darf Bestände, Jobs, Planungen und Beschaffungsinformationen ausschließlich lesen. Sie kann keine Daten verändern.</div>{{end}}
+    <p class="suite-auth-eyebrow">{{msg .Lang "eyebrow"}}</p>
+    <h1 class="suite-auth-title">{{msg .Lang "heading"}}</h1>
+    <p class="suite-auth-copy"><strong>{{.Client}}</strong> {{msg .Lang "client"}} <strong>{{.User}}</strong> {{msg .Lang "user"}}</p>
+    {{if .EnableWrites}}<div class="suite-auth-notice" id="access-help">{{msg .Lang "write_help"}}</div>{{else}}<div class="suite-auth-notice">{{msg .Lang "read_help"}}</div>{{end}}
     <form method="post" action="/oauth/authorize">
       {{range .Params}}<input type="hidden" name="{{.Name}}" value="{{.Value}}">{{end}}
       <input type="hidden" name="csrf" value="{{.CSRF}}">
+      <input type="hidden" name="lang" value="{{.Lang}}">
+      {{if .EnableWrites}}
+      <div class="suite-auth-copy suite-core-switcher">
+        <label class="suite-core-switcher-label" for="access-mode">{{msg .Lang "access"}}</label>
+        <select id="access-mode" name="access_mode" aria-describedby="access-help">
+          <option value="read" selected>{{msg .Lang "read"}}</option>
+          <option value="write">{{msg .Lang "write"}}</option>
+        </select>
+      </div>
+      {{else}}<input type="hidden" name="access_mode" value="read">{{end}}
       <div class="suite-auth-actions">
-        <button class="suite-button" name="decision" value="deny" type="submit">Ablehnen</button>
-        <button class="suite-button suite-button--primary" name="decision" value="allow" type="submit">{{if .Writes}}Lese- und Anlagezugriff erlauben{{else}}Lesenden Zugriff erlauben{{end}}</button>
+        <button class="suite-button" name="decision" value="deny" type="submit">{{msg .Lang "deny"}}</button>
+        <button class="suite-button suite-button--primary" name="decision" value="allow" type="submit">{{if .EnableWrites}}{{msg .Lang "allow"}}{{else}}{{msg .Lang "allow_read"}}{{end}}</button>
       </div>
     </form>
   </main>

@@ -76,3 +76,13 @@ Bestandsaussagen hängen von vollständig erfassten Anforderungen, Paketauflösu
   `users.is_active=false` setzen; auch bereits ausgestellte OAuth-Access-Tokens
   werden bei der nächsten Anfrage verweigert.
 - Knowledge-Ordner nur lesend mounten und Änderungen reviewen.
+
+## Auswahl der OAuth-Rechte
+
+Die Freigabeseite bleibt standardmäßig lesend, unabhängig von fehlenden oder
+angeforderten Scopes. Nur die ausdrücklich gewählte Option Lesen und Schreiben
+vergibt angeforderte granulare Schreibrechte oder, bei anfänglicher
+Read-only-Anforderung, `cores:write`. Fehlende oder lesende Auswahl vergibt
+nur `cores:read`; unbekannte Optionen und Schreibfreigaben bei deaktivierten
+Schreibtools werden abgelehnt. Der CSRF-Schutz gilt auch für diese Auswahl.
+Refresh übernimmt die erteilten Rechte und kann sie nicht erweitern.

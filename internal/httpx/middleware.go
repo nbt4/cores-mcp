@@ -60,7 +60,8 @@ func ContentSecurityPolicy(publicURL string, redirectURLs ...string) string {
 	for _, redirectURL := range redirectURLs {
 		addOrigin(redirectURL)
 	}
-	return fmt.Sprintf("default-src 'none'; style-src 'self' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self'; form-action %s; frame-ancestors 'none'; base-uri 'none'", strings.Join(formActions, " "))
+	// The canonical suite theme uses a data SVG for native select chevrons.
+	return fmt.Sprintf("default-src 'none'; style-src 'self' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data:; form-action %s; frame-ancestors 'none'; base-uri 'none'", strings.Join(formActions, " "))
 }
 
 func ValidateOrigin(publicURL string, allowed map[string]struct{}, next http.Handler) http.Handler {

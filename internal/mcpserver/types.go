@@ -106,7 +106,7 @@ func executeMutationTool[In any](ctx context.Context, name, permissionLabel stri
 	var permissionErr error
 	ctx, permissionErr = authorizeMutation(ctx, name)
 	if permissionErr != nil {
-		message := name + " requires " + requiredMutationScope(name) + " (or legacy cores:write). Reconnect the Cores MCP connector and grant " + permissionLabel + " access."
+		message := name + " requires " + requiredMutationScope(name) + " (or legacy cores:write). Reconnect the Cores MCP connector, choose Read and write (Lesen und Schreiben) in the Cores authorization dialog and confirm the selected access."
 		return &mcp.CallToolResult{IsError: true, Content: []mcp.Content{&mcp.TextContent{Text: message}}}, Output{
 			AsOf: now(), Summary: message, Warnings: []string{"No data was changed."},
 		}, nil
@@ -182,7 +182,7 @@ func requiredMutationScope(tool string) string {
 		return coresauth.ServiceWriteScope("rental", "update")
 	case "warehouse.tasks.create", "warehouse.products.create", "warehouse.manufacturers.create", "warehouse.brands.create", "warehouse.categories.create", "warehouse.subcategories.create", "warehouse.third_categories.create", "warehouse.locations.create":
 		return coresauth.ServiceWriteScope("warehouse", "create")
-	case "warehouse.movements.create", "warehouse.devices.update_status", "warehouse.products.update", "warehouse.products.link_relation":
+	case "warehouse.movements.create", "warehouse.devices.update_status", "warehouse.products.update", "warehouse.products.link_relation", "warehouse.locations.update":
 		return coresauth.ServiceWriteScope("warehouse", "update")
 	case "warehouse.products.archive", "warehouse.products.restore":
 		return coresauth.ServiceWriteScope("warehouse", "archive")

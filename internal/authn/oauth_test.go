@@ -37,8 +37,8 @@ func TestValidRedirectURI(t *testing.T) {
 	}
 }
 
-func TestRequestedScopesDefaultToEnabledCapabilities(t *testing.T) {
-	if got := strings.Join(requestedScopes("", true), " "); got != readScope+" "+writeScope {
+func TestRequestedScopesDefaultToReadOnly(t *testing.T) {
+	if got := strings.Join(requestedScopes("", true), " "); got != readScope {
 		t.Fatalf("default scopes = %q", got)
 	}
 	if got := strings.Join(requestedScopes(readScope, true), " "); got != readScope {
@@ -66,94 +66,141 @@ func TestSupportedScopesIncludeLegacyAndGranularWrites(t *testing.T) {
 }
 
 func TestOAuthAuthorizationCodeFlow(t *testing.T) {
-	secret := strings.Repeat("s", 48)
-	server, err := NewOAuthServer("https://mcp.example.com", "https://cores.example.com", secret, t.TempDir()+"/clients.json", true, func(_ context.Context, id uint) (bool, error) { return id == 7, nil })
-	if err != nil {
-		t.Fatal(err)
-	}
-	mux := http.NewServeMux()
-	server.Register(mux)
+	for _, tc := range []struct {
+		name, requested, selection, expected string
+		writes                               bool
+	}{
+		{"client requests read, user chooses write", readScope, "write", readScope + " " + writeScope, true},
+		{"client requests write, user chooses read", readScope + " " + writeScope, "read", readScope, true},
+		{"missing choice remains read-only", readScope + " " + writeScope, "", readScope, true},
+		{"missing scope remains read-only", "", "read", readScope, true},
+		{"explicit legacy writes", readScope + " " + writeScope, "write", readScope + " " + writeScope, true},
+		{"granular writes remain granular", readScope + " cores:warehouse:update", "write", readScope + " cores:warehouse:update", true},
+		{"writes disabled", readScope, "read", readScope, false},
+		{"cannot enable writes on read-only server", readScope, "write", "invalid_scope", false},
+		{"invalid selection is rejected", readScope, "admin", "invalid_scope", true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			secret := strings.Repeat("s", 48)
+			server, err := NewOAuthServer("https://mcp.example.com", "https://cores.example.com", secret, t.TempDir()+"/clients.json", tc.writes, func(_ context.Context, id uint) (bool, error) { return id == 7, nil })
+			if err != nil {
+				t.Fatal(err)
+			}
+			mux := http.NewServeMux()
+			server.Register(mux)
 
-	registration := httptest.NewRequest(http.MethodPost, "/oauth/register", strings.NewReader(`{"client_name":"Test","redirect_uris":["https://client.example.com/callback"],"token_endpoint_auth_method":"none"}`))
-	registration.Header.Set("Content-Type", "application/json")
-	registered := httptest.NewRecorder()
-	mux.ServeHTTP(registered, registration)
-	if registered.Code != http.StatusCreated {
-		t.Fatalf("register status=%d body=%s", registered.Code, registered.Body.String())
-	}
-	var client struct {
-		ID string `json:"client_id"`
-	}
-	if err := json.Unmarshal(registered.Body.Bytes(), &client); err != nil {
-		t.Fatal(err)
-	}
+			registration := httptest.NewRequest(http.MethodPost, "/oauth/register", strings.NewReader(`{"client_name":"Test","redirect_uris":["https://client.example.com/callback"],"token_endpoint_auth_method":"none"}`))
+			registration.Header.Set("Content-Type", "application/json")
+			registered := httptest.NewRecorder()
+			mux.ServeHTTP(registered, registration)
+			if registered.Code != http.StatusCreated {
+				t.Fatalf("register status=%d body=%s", registered.Code, registered.Body.String())
+			}
+			var client struct {
+				ID string `json:"client_id"`
+			}
+			if err := json.Unmarshal(registered.Body.Bytes(), &client); err != nil {
+				t.Fatal(err)
+			}
 
-	verifier := "test-code-verifier-with-sufficient-entropy"
-	digest := sha256.Sum256([]byte(verifier))
-	challenge := base64.RawURLEncoding.EncodeToString(digest[:])
-	query := url.Values{"response_type": {"code"}, "client_id": {client.ID}, "redirect_uri": {"https://client.example.com/callback"}, "code_challenge": {challenge}, "code_challenge_method": {"S256"}, "scope": {readScope + " " + writeScope}, "state": {"state-1"}}
+			verifier := "test-code-verifier-with-sufficient-entropy"
+			digest := sha256.Sum256([]byte(verifier))
+			challenge := base64.RawURLEncoding.EncodeToString(digest[:])
+			query := url.Values{"response_type": {"code"}, "client_id": {client.ID}, "redirect_uri": {"https://client.example.com/callback"}, "code_challenge": {challenge}, "code_challenge_method": {"S256"}, "scope": {tc.requested}, "state": {"state-1"}}
 
-	suiteToken, err := jwtlib.NewWithClaims(jwtlib.SigningMethodHS256, suiteClaims{UserID: 7, Username: "tester", RegisteredClaims: jwtlib.RegisteredClaims{ExpiresAt: jwtlib.NewNumericDate(time.Now().Add(time.Hour))}}).SignedString([]byte(secret))
-	if err != nil {
-		t.Fatal(err)
-	}
-	authorize := httptest.NewRequest(http.MethodGet, "/oauth/authorize?"+query.Encode(), nil)
-	authorize.AddCookie(&http.Cookie{Name: "cores_token", Value: suiteToken})
-	consent := httptest.NewRecorder()
-	mux.ServeHTTP(consent, authorize)
-	if consent.Code != http.StatusOK || len(consent.Result().Cookies()) == 0 {
-		t.Fatalf("authorize status=%d body=%s", consent.Code, consent.Body.String())
-	}
-	if policy := consent.Header().Get("Content-Security-Policy"); !strings.Contains(policy, "form-action 'self' https://mcp.example.com https://client.example.com;") {
-		t.Fatalf("consent CSP does not allow the validated callback origin: %s", policy)
-	}
-	assertAuthorizationFields(t, consent.Body.String(), query)
-	csrf := consent.Result().Cookies()[0]
+			suiteToken, err := jwtlib.NewWithClaims(jwtlib.SigningMethodHS256, suiteClaims{UserID: 7, Username: "tester", RegisteredClaims: jwtlib.RegisteredClaims{ExpiresAt: jwtlib.NewNumericDate(time.Now().Add(time.Hour))}}).SignedString([]byte(secret))
+			if err != nil {
+				t.Fatal(err)
+			}
+			authorize := httptest.NewRequest(http.MethodGet, "/oauth/authorize?"+query.Encode(), nil)
+			authorize.AddCookie(&http.Cookie{Name: "cores_token", Value: suiteToken})
+			consent := httptest.NewRecorder()
+			mux.ServeHTTP(consent, authorize)
+			if consent.Code != http.StatusOK || len(consent.Result().Cookies()) == 0 {
+				t.Fatalf("authorize status=%d body=%s", consent.Code, consent.Body.String())
+			}
+			if policy := consent.Header().Get("Content-Security-Policy"); !strings.Contains(policy, "form-action 'self' https://mcp.example.com https://client.example.com;") {
+				t.Fatalf("consent CSP does not allow the validated callback origin: %s", policy)
+			}
+			assertAuthorizationFields(t, consent.Body.String(), query)
+			if tc.writes != strings.Contains(consent.Body.String(), `<option value="write">`) {
+				t.Fatal("write selection availability differs from server configuration")
+			}
+			if tc.writes && !strings.Contains(consent.Body.String(), `<option value="read" selected>`) {
+				t.Fatal("read-only must be the default selection")
+			}
+			csrf := consent.Result().Cookies()[0]
 
-	form := url.Values{}
-	for key, values := range query {
-		form[key] = append([]string(nil), values...)
-	}
-	form.Set("csrf", csrf.Value)
-	form.Set("decision", "allow")
-	approve := httptest.NewRequest(http.MethodPost, "/oauth/authorize", strings.NewReader(form.Encode()))
-	approve.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	approve.AddCookie(&http.Cookie{Name: "cores_token", Value: suiteToken})
-	approve.AddCookie(csrf)
-	approved := httptest.NewRecorder()
-	mux.ServeHTTP(approved, approve)
-	if approved.Code != http.StatusFound {
-		t.Fatalf("approve status=%d body=%s", approved.Code, approved.Body.String())
-	}
-	redirect, err := url.Parse(approved.Header().Get("Location"))
-	if err != nil || redirect.Query().Get("code") == "" || redirect.Query().Get("state") != "state-1" {
-		t.Fatalf("invalid redirect: %s", approved.Header().Get("Location"))
-	}
+			form := url.Values{}
+			for key, values := range query {
+				form[key] = append([]string(nil), values...)
+			}
+			form.Set("csrf", csrf.Value)
+			form.Set("decision", "allow")
+			form.Set("access_mode", tc.selection)
+			approve := httptest.NewRequest(http.MethodPost, "/oauth/authorize", strings.NewReader(form.Encode()))
+			approve.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+			approve.AddCookie(&http.Cookie{Name: "cores_token", Value: suiteToken})
+			approve.AddCookie(csrf)
+			approved := httptest.NewRecorder()
+			mux.ServeHTTP(approved, approve)
+			if approved.Code != http.StatusFound {
+				t.Fatalf("approve status=%d body=%s", approved.Code, approved.Body.String())
+			}
+			redirect, err := url.Parse(approved.Header().Get("Location"))
+			if tc.expected == "invalid_scope" {
+				if err != nil || redirect.Query().Get("error") != "invalid_scope" || redirect.Query().Get("code") != "" {
+					t.Fatalf("invalid consent issued code: %s", approved.Header().Get("Location"))
+				}
+				return
+			}
+			if err != nil || redirect.Query().Get("code") == "" || redirect.Query().Get("state") != "state-1" {
+				t.Fatalf("invalid redirect: %s", approved.Header().Get("Location"))
+			}
 
-	tokenForm := url.Values{"grant_type": {"authorization_code"}, "client_id": {client.ID}, "code": {redirect.Query().Get("code")}, "redirect_uri": {"https://client.example.com/callback"}, "code_verifier": {verifier}}
-	tokenRequest := httptest.NewRequest(http.MethodPost, "/oauth/token", strings.NewReader(tokenForm.Encode()))
-	tokenRequest.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	tokenResponse := httptest.NewRecorder()
-	mux.ServeHTTP(tokenResponse, tokenRequest)
-	if tokenResponse.Code != http.StatusOK {
-		t.Fatalf("token status=%d body=%s", tokenResponse.Code, tokenResponse.Body.String())
-	}
-	var tokens struct {
-		Access  string `json:"access_token"`
-		Refresh string `json:"refresh_token"`
-		Scope   string `json:"scope"`
-	}
-	if err := json.Unmarshal(tokenResponse.Body.Bytes(), &tokens); err != nil {
-		t.Fatal(err)
-	}
-	if tokens.Access == "" || tokens.Refresh == "" {
-		t.Fatalf("missing tokens: %s", tokenResponse.Body.String())
-	}
-	if tokens.Scope != readScope+" "+writeScope {
-		t.Fatalf("scope = %q", tokens.Scope)
-	}
-	if _, err := server.VerifyToken(context.Background(), tokens.Access, httptest.NewRequest(http.MethodPost, "/mcp", nil)); err != nil {
-		t.Fatalf("verify token: %v", err)
+			tokenForm := url.Values{"grant_type": {"authorization_code"}, "client_id": {client.ID}, "code": {redirect.Query().Get("code")}, "redirect_uri": {"https://client.example.com/callback"}, "code_verifier": {verifier}}
+			tokenRequest := httptest.NewRequest(http.MethodPost, "/oauth/token", strings.NewReader(tokenForm.Encode()))
+			tokenRequest.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+			tokenResponse := httptest.NewRecorder()
+			mux.ServeHTTP(tokenResponse, tokenRequest)
+			if tokenResponse.Code != http.StatusOK {
+				t.Fatalf("token status=%d body=%s", tokenResponse.Code, tokenResponse.Body.String())
+			}
+			var tokens struct {
+				Access  string `json:"access_token"`
+				Refresh string `json:"refresh_token"`
+				Scope   string `json:"scope"`
+			}
+			if err := json.Unmarshal(tokenResponse.Body.Bytes(), &tokens); err != nil {
+				t.Fatal(err)
+			}
+			if tokens.Access == "" || tokens.Refresh == "" {
+				t.Fatalf("missing tokens: %s", tokenResponse.Body.String())
+			}
+			if tokens.Scope != tc.expected {
+				t.Fatalf("scope = %q", tokens.Scope)
+			}
+			if _, err := server.VerifyToken(context.Background(), tokens.Access, httptest.NewRequest(http.MethodPost, "/mcp", nil)); err != nil {
+				t.Fatalf("verify token: %v", err)
+			}
+			refreshForm := url.Values{"grant_type": {"refresh_token"}, "client_id": {client.ID}, "refresh_token": {tokens.Refresh}, "scope": {readScope + " " + writeScope}}
+			refreshRequest := httptest.NewRequest(http.MethodPost, "/oauth/token", strings.NewReader(refreshForm.Encode()))
+			refreshRequest.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+			refreshResponse := httptest.NewRecorder()
+			mux.ServeHTTP(refreshResponse, refreshRequest)
+			if refreshResponse.Code != http.StatusOK {
+				t.Fatalf("refresh status=%d", refreshResponse.Code)
+			}
+			var refreshed struct {
+				Scope string `json:"scope"`
+			}
+			if err := json.Unmarshal(refreshResponse.Body.Bytes(), &refreshed); err != nil {
+				t.Fatal(err)
+			}
+			if refreshed.Scope != tc.expected {
+				t.Fatalf("refresh escalated scopes: %q", refreshed.Scope)
+			}
+		})
 	}
 }
 
@@ -291,5 +338,29 @@ func TestMalformedAuthorizationFormDoesNotRedirect(t *testing.T) {
 	}
 	if location := response.Header().Get("Location"); location != "" {
 		t.Fatalf("unexpected redirect to %q", location)
+	}
+}
+
+func TestConsentScopesRejectInvalidOrDisabledWriteSelection(t *testing.T) {
+	for _, tc := range []struct {
+		mode    string
+		enabled bool
+	}{{"write", false}, {"admin", true}, {"cores:write", true}} {
+		if _, err := consentScopes(readScope, tc.mode, tc.enabled); err == nil {
+			t.Fatalf("accepted invalid consent: %#v", tc)
+		}
+	}
+}
+
+func TestConsentLanguage(t *testing.T) {
+	for _, tc := range []struct{ explicit, preferred, want string }{{"", "en-US,en;q=0.9", "en"}, {"", "de-DE", "de"}, {"de", "en-US", "de"}, {"en", "de-DE", "en"}, {"fr", "en-US", "en"}} {
+		if got := consentLanguage(tc.explicit, tc.preferred); got != tc.want {
+			t.Fatalf("language %q want %q", got, tc.want)
+		}
+	}
+	for key, pair := range consentMessages {
+		if pair[0] == "" || pair[1] == "" {
+			t.Fatalf("missing translation for %s", key)
+		}
 	}
 }
