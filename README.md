@@ -1,5 +1,38 @@
 # Cores MCP
 
+## Geräte anlegen, bearbeiten und archivieren ab 1.5.24
+
+Die Werkzeugpaare `warehouse.devices.prepare_create`/`create`,
+`prepare_update`/`update`, `prepare_archive`/`archive`, `prepare_restore`/`restore`
+und `prepare_revert_update`/`revert_update` decken Einzelgeräte ab. Alle verlangen
+Warehouse-Administratorrechte und den passenden `cores:warehouse:create`,
+`cores:warehouse:update` bzw. `cores:warehouse:archive`-Scope (oder Legacy
+`cores:write`). Anlage und Bearbeitung zeigen sämtliche Metadaten inklusive
+Seriennummer, Barcode/QR, Bewertung, Betriebsstunden, Datumsfeldern und Notizen.
+Nullable Felder lassen sich ausdrücklich über `clear_fields` leeren. IDs,
+physischer Zustand und Betriebszustand werden bei Feldänderungen bewahrt;
+Bewegungen und Betriebszustand laufen weiter über ihre eigenen Werkzeuge.
+
+`cores.entities.schema` für `warehouse.devices` liefert `fields`, `update_fields`,
+`lifecycle_fields` und `revert_fields`. Die bestätigte Ausführung braucht einen
+Idempotenzschlüssel und bei bestehenden Geräten die exakte Vorschau-Version.
+Archivierung und Restore verlangen `confirm_lifecycle` und eine Phrase
+`ARCHIVE|RESTORE WAREHOUSE DEVICE <ID>`. Aktive Jobs, Picklisten, Reservierungen,
+Cases, Komponenten, Aufgaben, Defekte und Wartung sperren beide Aktionen.
+Scan-Kennungen und Seriennummern bleiben bei Archivierung reserviert. Restore
+prüft zusätzlich Produkt und Lagerkapazität; Historie bleibt erhalten.
+
+`warehouse.devices.audit_history` liest redigierte Änderungen und zeigt
+`can_prepare_revert` für die eigene letzte unveränderte MCP-Feldänderung.
+Roh-JSON, Notizinhalte, IPs und User-Agent sind ausgeschlossen. Revert braucht
+Audit-ID, Version, `confirm_revert` und
+`REVERT WAREHOUSE DEVICE <ID> UPDATE <AUDIT-ID>`. Spätere Geräteänderungen oder
+Audits sperren Revert. Erneute Referenz-/Identitätsprüfung, eigener Audit und
+dauerhafter Replay-Beleg verhindern das Überschreiben späterer Arbeit.
+WarehouseCore `5.9.94` prüft und speichert alle Aktionen atomar; Migration `051`
+(Umbrella `024`) versioniert auch Geräteänderungen außerhalb des MCP.
+
+
 ## Produktpakete anlegen und bearbeiten ab 1.5.23
 
 `warehouse.packages.prepare_create`/`create` und `prepare_update`/`update`
@@ -443,7 +476,7 @@ entfernt ausschließlich sein eigenes Schema.
 
 Cores MCP bindet die gesamte Cores Suite als sicheren MCP-Server an ChatGPT, Claude, Codex und andere MCP-fähige Agents an. Der Chat bleibt beim jeweiligen KI-Anbieter; Cores stellt nur kontrollierte Werkzeuge und Kontext bereit.
 
-Der Server bietet 64 lesende fachliche Tools, fünf wiederverwendbare Analyse-Prompts und dokumentierbare Knowledge-Ressourcen für RentalCore, WarehouseCore, PlannerCore und ProcurementCore. Bei `MCP_ENABLE_WRITES=true` kommen 49 vorbereitende und 49 bestätigte, eng begrenzte Schreibtools für alle vier Core-Services hinzu. Beliebiges SQL, generische HTTP-Aufrufe und generische Löschwerkzeuge bleiben ausgeschlossen. Unbenutzte Warehouse-Kategorien können ausschließlich über die benannten, gesondert bestätigten Löschwerkzeuge entfernt werden.
+Der Server bietet 65 lesende fachliche Tools, fünf wiederverwendbare Analyse-Prompts und dokumentierbare Knowledge-Ressourcen für RentalCore, WarehouseCore, PlannerCore und ProcurementCore. Bei `MCP_ENABLE_WRITES=true` kommen 54 vorbereitende und 54 bestätigte, eng begrenzte Schreibtools für alle vier Core-Services hinzu. Beliebiges SQL, generische HTTP-Aufrufe und generische Löschwerkzeuge bleiben ausgeschlossen. Unbenutzte Warehouse-Kategorien können ausschließlich über die benannten, gesondert bestätigten Löschwerkzeuge entfernt werden.
 
 ## Geführte Schreibzugriffe mit Rückfragen
 
@@ -559,7 +592,7 @@ Der Smoke-Test verbindet einen echten MCP-Client, listet alle Tools und ruft jed
 | `MCP_PUBLIC_URL` | `http://localhost:8090` | Öffentliche Basis-URL ohne `/mcp` |
 | `CORES_DASHBOARD_PUBLIC_URL` | `http://localhost:8080` | Cores-Login, auf den OAuth verweist |
 | `MCP_AUTH_MODE` | `oauth` | `oauth`, `bearer` oder nur lokal `none` |
-| `MCP_ENABLE_WRITES` | `false` | Aktiviert 98 geführte Schreibtools (49 Vorschauen plus 49 Ausführungen); nur mit `MCP_AUTH_MODE=oauth` zulässig |
+| `MCP_ENABLE_WRITES` | `false` | Aktiviert 108 geführte Schreibtools (54 Vorschauen plus 54 Ausführungen); nur mit `MCP_AUTH_MODE=oauth` zulässig |
 | `CORES_JWT_SECRET` | – | Dasselbe Signatur-Secret wie das Cores Dashboard, mindestens 32 Zeichen |
 | `MCP_STATIC_TOKENS` | – | Optionale `name:secret`-Paare für Agents |
 | `DATABASE_URL` | – | Komplette PostgreSQL-URL; überschreibt einzelne DB-Variablen |
@@ -576,7 +609,7 @@ Die vollständige Vorlage steht in [.env.example](.env.example).
 
 ## Sicherheitsmodell
 
-- Die 64 Abfragetools und 49 Vorbereitungstools sind `readOnlyHint=true`; Ausführungstools erzwingen einen Idempotenzschlüssel und sind `idempotentHint=true`. Zustandsänderungen sind zusätzlich als destruktiv annotiert.
+- Die 65 Abfragetools und 54 Vorbereitungstools sind `readOnlyHint=true`; Ausführungstools erzwingen einen Idempotenzschlüssel und sind `idempotentHint=true`. Zustandsänderungen sind zusätzlich als destruktiv annotiert.
 - Jede DB-Abfrage läuft in einer PostgreSQL-Transaktion mit `READ ONLY`, Timeout und Zeilenlimit.
 - Produktion verwendet zusätzlich die Rolle `cores_mcp` mit ausschließlich `SELECT`-Rechten.
 - Schreibtools verwenden ausschließlich validierte Endpunkte des jeweils verantwortlichen Core und ein zweiminütiges, auf den OAuth-Benutzer delegiertes Suite-Token. Rollenänderungen und Kontosperren werden dort live geprüft.
@@ -595,7 +628,7 @@ Markdown-, Text-, CSV- und JSON-Dateien unter `MCP_KNOWLEDGE_DIRS` werden als MC
 
 ```bash
 make check
-docker build -t nobentie/cores-mcp:1.5.23 -t nobentie/cores-mcp:latest .
+docker build -t nobentie/cores-mcp:1.5.24 -t nobentie/cores-mcp:latest .
 ```
 
 Die Umbrella-Compose-Datei der Cores Suite bindet den Dienst intern ein. Der Cores-Dashboard-Reverse-Proxy veröffentlicht MCP und OAuth auf derselben Domain, damit der bestehende Suite-Login genutzt werden kann.

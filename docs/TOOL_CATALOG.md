@@ -7,7 +7,7 @@ OAuth-Benutzers beschränkt. Das gilt auch für `cores.search`,
 berechtigt nicht zum Lesen fremder Pläne. Maschinentokens liefern keine Planner-Daten.
 Toolnamen und Eingabeschemas bleiben unverändert.
 
-Die 64 Abfragetools sind read-only und idempotent. Bei `MCP_ENABLE_WRITES=true` werden zusätzlich 49 vorbereitende und 49 bestätigte Schreibtools für alle vier Core-Services registriert. Suchtools akzeptieren üblicherweise `query`, `limit` und `offset`; Zeitfenster `from`, `to` und `limit`; Detailtools `id`. Datumswerte sind `YYYY-MM-DD` oder RFC3339.
+Die 65 Abfragetools sind read-only und idempotent. Bei `MCP_ENABLE_WRITES=true` werden zusätzlich 54 vorbereitende und 54 bestätigte Schreibtools für alle vier Core-Services registriert. Suchtools akzeptieren üblicherweise `query`, `limit` und `offset`; Zeitfenster `from`, `to` und `limit`; Detailtools `id`. Datumswerte sind `YYYY-MM-DD` oder RFC3339.
 
 Der MCP-Endpunkt verlangt immer `cores:read`. Für ein Vorbereitung- oder
 Ausführungstool ist zusätzlich entweder der kompatible Sammel-Scope
@@ -407,3 +407,35 @@ bzw. `confirm_update`, Idempotenzschlüssel und beim Update exakte Version sind
 nötig. Ziel-Core prüft erneut und committet Audit und Wiederholungsbeleg atomar;
 Migration 050/Umbrella 023 versioniert auch Änderungen einzelner Produktzeilen.
 Metadatenänderungen ersetzen keine Zeilen-IDs; `dry_run=true` verändert nichts.
+
+### Warehouse-Geräte ab 1.5.24
+
+| Tools | Verhalten |
+|---|---|
+| `warehouse.devices.prepare_create` / `create` | Ein Einzelgerät mit vollständigen Metadaten und optionalem Lagerplatz prüfen/anlegen; aktives individual-Produkt, eindeutige reservierte Kennungen, Kapazität |
+| `warehouse.devices.prepare_update` / `update` | Vollständiger Felddiff, exakte Geräteversion, nullable `clear_fields`; Identitätsänderungen bei aktiven Abhängigkeiten, Produktwechsel bei Historie sperren |
+| `warehouse.devices.prepare_archive` / `archive` | Abhängigkeiten und Version prüfen; alle Scan-Kennungen deaktivieren, Historie bewahren; keine endgültige Löschung |
+| `warehouse.devices.prepare_restore` / `restore` | Abhängigkeiten, aktives Produkt, Kennungen und Kapazität erneut prüfen; Scan-Kennungen reaktivieren, Betriebszustand bewahren |
+| `warehouse.devices.audit_history` | Administrator-Abfrage ohne Notizinhalte, Roh-JSON, IP oder User-Agent; Audit-ID, Version und `can_prepare_revert` |
+| `warehouse.devices.prepare_revert_update` / `revert_update` | Nur eigene letzte unveränderte MCP-`device.update` anhand Audit-ID umkehren; erneute Referenzprüfung, eigener Audit und Replay-Beleg |
+
+Schema `warehouse.devices`: `fields`, `update_fields`, `lifecycle_fields`,
+`revert_fields`. Schreibrechte: create für Anlage, update für Feldänderung/Revert,
+archive für Archivierung/Restore; Legacy `cores:write` bleibt kompatibel.
+Ausführungen brauchen jeweils `idempotency_key`, explizite Bestätigung und bei
+bestehenden Geräten die exakte `expected_updated_at`-Version. Lebenszyklus:
+`confirm_lifecycle` plus `ARCHIVE|RESTORE WAREHOUSE DEVICE <ID>`. Revert:
+`confirm_revert` plus `REVERT WAREHOUSE DEVICE <ID> UPDATE <AUDIT-ID>`.
+
+Aktive Jobs (auch gepacktes/ausgegebenes Material geschlossener Jobs), Picklisten,
+Reservierungen, Cases, Komponenten, Aufgaben, offene Defekte, Wartungsaufträge
+und aktive Wartungspläne sperren Archivierung/Restore und Identitätsänderungen.
+Seriennummern und Scan-Kennungen bleiben gegenüber archivierten Geräten reserviert.
+Metadaten-Updates verändern weder Bewegungen noch Betriebszustand. Wartungsdaten
+schließen keine Aufträge ab und ändern keine Pläne. Physische Etiketten werden
+bei Kennungsänderungen nicht automatisch erzeugt.
+
+WarehouseCore `5.9.94` committet Mutation, Audit und Replay-Beleg atomar.
+Migration `051` / Umbrella `024` versioniert sämtliche Geräte-Schreiber.
+Revert ist ausdrücklich nur der beschriebene Feld-Rückweg; spätere Writes oder
+Audits, fremde Akteure und andere Aktionsarten sperren ihn.

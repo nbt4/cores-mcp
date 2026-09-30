@@ -40,7 +40,7 @@ func registerWarehouseTools(server *mcp.Server, db *store.Store) {
 		productID := products[0]["product_id"]
 		devices, err := db.Query(ctx, `SELECT d.deviceid AS device_id,d.serialnumber,d.barcode,d.qr_code,d.status,d.condition_status,d.current_location,
                    z.zone_id,z.code AS zone_code,z.name AS zone,c.caseid AS case_id,c.name AS current_case,d.purchasedate,d.lastmaintenance,d.nextmaintenance,
-                   d.condition_rating,d.usage_hours,d.total_revenue,d.last_maintenance_cost,d.status_updated_at
+                   d.condition_rating,d.usage_hours,d.total_revenue,d.last_maintenance_cost,d.status_updated_at,d.lifecycle_status,d.archived_at,d.archived_by_product,d.updated_at
               FROM devices d LEFT JOIN storage_zones z ON z.zone_id=d.zone_id LEFT JOIN cases c ON c.caseid=d.current_case_id
              WHERE d.productid=$1 ORDER BY d.condition_status,d.deviceid`, productID)
 		if err != nil {
@@ -92,7 +92,7 @@ func registerWarehouseTools(server *mcp.Server, db *store.Store) {
 	addTool(server, "warehouse.devices.get", "Get device history", "Get a serialized device plus status, location, movement, defect, maintenance, component and job history by ID, barcode, QR code, or serial number.", func(ctx context.Context, input IDInput) (any, []Source, []string, error) {
 		devices, err := db.Query(ctx, `SELECT d.deviceid AS device_id,p.productid AS product_id,p.name AS product,p.product_code,d.serialnumber,d.barcode,d.qr_code,
                    d.status,d.condition_status,z.code AS zone_code,z.name AS zone,c.caseid AS case_id,c.name AS current_case,d.purchasedate,
-                   d.lastmaintenance,d.nextmaintenance,d.condition_rating,d.usage_hours,d.total_revenue,d.last_maintenance_cost,d.status_updated_at
+                   d.lastmaintenance,d.nextmaintenance,d.condition_rating,d.usage_hours,d.total_revenue,d.last_maintenance_cost,d.status_updated_at,d.lifecycle_status,d.archived_at,d.archived_by_product,d.updated_at
               FROM devices d JOIN products p ON p.productid=d.productid LEFT JOIN storage_zones z ON z.zone_id=d.zone_id LEFT JOIN cases c ON c.caseid=d.current_case_id
              WHERE d.deviceid=$1 OR d.barcode=$1 OR d.qr_code=$1 OR d.serialnumber=$1 LIMIT 1`, input.ID)
 		if err != nil || len(devices) == 0 {

@@ -113,6 +113,8 @@ func smokeArguments(name string) map[string]any {
 		return map[string]any{"entity": "warehouse.products"}
 	case name == "cores.master_data.resolve":
 		return map[string]any{"entity": "warehouse.category", "query": "Licht", "limit": 5}
+	case name == "warehouse.devices.audit_history":
+		return map[string]any{"device_id": "smoke-read-only", "limit": 5}
 	case name == "warehouse.audit.history":
 		return map[string]any{"product_id": 1, "limit": 5}
 	case name == "procurement.audit.history":
@@ -146,7 +148,7 @@ func smokeArguments(name string) map[string]any {
 }
 
 func isWriteTool(name string) bool {
-	for _, suffix := range []string{".create", ".update", ".assign_device", ".update_status", ".delete"} {
+	for _, suffix := range []string{".create", ".update", ".assign_device", ".update_status", ".delete", ".archive", ".restore", ".revert_update"} {
 		if strings.HasSuffix(name, suffix) {
 			return true
 		}

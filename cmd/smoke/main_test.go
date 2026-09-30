@@ -20,6 +20,7 @@ func TestWriteSmokeArgumentsNeverConfirmMutation(t *testing.T) {
 		"rental.jobs.create",
 		"planner.tasks.create",
 		"warehouse.tasks.create",
+		"warehouse.devices.create", "warehouse.devices.update", "warehouse.devices.archive", "warehouse.devices.restore", "warehouse.devices.revert_update",
 		"rental.jobs.assign_device",
 		"rental.jobs.update",
 		"rental.requirements.update",
@@ -48,6 +49,7 @@ func TestReadSmokeArgumentsMatchMasterAndAuditSchemas(t *testing.T) {
 	for _, test := range []struct{ name, required string }{
 		{"cores.master_data.resolve", "entity"},
 		{"warehouse.audit.history", "product_id"},
+		{"warehouse.devices.audit_history", "device_id"},
 		{"procurement.audit.history", "id"},
 	} {
 		arguments := smokeArguments(test.name)
