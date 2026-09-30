@@ -337,3 +337,32 @@ func TestRFC3339ValuePreservesDatabaseVersion(t *testing.T) {
 		t.Fatalf("time version = %q, want %q", got, want)
 	}
 }
+
+func TestWarehouseCategoryDeletionRequiresDedicatedScopeAndControls(t *testing.T) {
+	deleteCtx := writeScopeContextWithScopes(t, "cores:read", "cores:warehouse:delete")
+	updateCtx := writeScopeContextWithScopes(t, "cores:read", "cores:warehouse:update")
+	for _, entity := range []string{"categories", "subcategories", "third_categories"} {
+		name := "warehouse." + entity + ".delete"
+		if got := requiredMutationScope(name); got != "cores:warehouse:delete" {
+			t.Fatalf("delete scope %s", got)
+		}
+		if _, err := authorizeMutation(updateCtx, name); err == nil {
+			t.Fatal("update scope authorized deletion")
+		}
+		if _, err := authorizeMutation(deleteCtx, name); err != nil {
+			t.Fatal(err)
+		}
+		if got := executionToolForPreparation("warehouse." + entity + ".prepare_delete"); got != name {
+			t.Fatalf("preparation permission %s", got)
+		}
+	}
+	input := WarehouseCategoryDeleteInput{CategoryID: 1, ConfirmDelete: true}
+	if _, err := prepareWriteInvocation(deleteCtx, "warehouse.categories.delete", input); err == nil {
+		t.Fatal("confirmed deletion without idempotency key accepted")
+	}
+	input.DryRun = true
+	dry, err := prepareWriteInvocation(deleteCtx, "warehouse.categories.delete", input)
+	if err != nil || dry.Confirmed || dry.Input.ConfirmDelete {
+		t.Fatalf("deletion dry-run confirms mutation: %#v %v", dry, err)
+	}
+}

@@ -28,6 +28,9 @@ func TestWriteSmokeArgumentsNeverConfirmMutation(t *testing.T) {
 		"warehouse.devices.update_status",
 		"warehouse.manufacturers.update",
 		"warehouse.brands.update",
+		"warehouse.categories.delete",
+		"warehouse.subcategories.delete",
+		"warehouse.third_categories.delete",
 	} {
 		arguments := smokeArguments(name)
 		if name == "rental.requirements.update" && len(arguments) != 0 {

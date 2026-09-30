@@ -45,10 +45,10 @@ func TestWarehouseStandaloneMasterPreparations(t *testing.T) {
 	for _, statement := range []string{
 		`CREATE TABLE manufacturer(manufacturerid SERIAL PRIMARY KEY,name TEXT,website TEXT,updated_at TIMESTAMP DEFAULT '2026-09-30 10:15:00.123456')`,
 		`CREATE TABLE brands(brandid SERIAL PRIMARY KEY,name TEXT,manufacturerid INT,updated_at TIMESTAMP DEFAULT '2026-09-30 10:15:00.123456')`,
-		`CREATE TABLE products(productid SERIAL PRIMARY KEY,name TEXT,manufacturerid INT,brandid INT)`,
-		`CREATE TABLE categories(categoryid SERIAL PRIMARY KEY,name TEXT,abbreviation TEXT)`,
-		`CREATE TABLE subcategories(subcategoryid TEXT PRIMARY KEY,name TEXT,abbreviation TEXT,categoryid INT)`,
-		`CREATE TABLE subbiercategories(subbiercategoryid TEXT PRIMARY KEY,name TEXT,abbreviation TEXT,subcategoryid TEXT)`,
+		`CREATE TABLE products(productid SERIAL PRIMARY KEY,name TEXT,manufacturerid INT,brandid INT,categoryid INT,subcategoryid TEXT,subbiercategoryid TEXT)`,
+		`CREATE TABLE categories(categoryid SERIAL PRIMARY KEY,name TEXT,abbreviation TEXT,updated_at TIMESTAMP DEFAULT '2026-09-30 10:15:00.123456')`,
+		`CREATE TABLE subcategories(subcategoryid TEXT PRIMARY KEY,name TEXT,abbreviation TEXT,categoryid INT,updated_at TIMESTAMP DEFAULT '2026-09-30 10:15:00.123456')`,
+		`CREATE TABLE subbiercategories(subbiercategoryid TEXT PRIMARY KEY,name TEXT,abbreviation TEXT,subcategoryid TEXT,updated_at TIMESTAMP DEFAULT '2026-09-30 10:15:00.123456')`,
 		`CREATE TABLE storage_zones(zone_id SERIAL PRIMARY KEY,code TEXT,barcode TEXT,name TEXT,location TEXT,process_role TEXT,operational_status TEXT,is_active BOOLEAN,parent_zone_id INT,type TEXT DEFAULT 'other',location_kind TEXT DEFAULT 'area',description TEXT,capacity INT,capacity_mode TEXT DEFAULT 'item_count',is_storable BOOLEAN DEFAULT TRUE,pick_sequence INT,max_weight_kg NUMERIC,max_volume_m3 NUMERIC,inventory_frequency_days INT,updated_at TIMESTAMP DEFAULT '2026-09-30 10:15:00.123456')`,
 		`CREATE TABLE devices(deviceid TEXT,zone_id INT,lifecycle_status TEXT,status TEXT)`,
 		`CREATE TABLE cases(caseid INT,zone_id INT)`,
@@ -334,6 +334,154 @@ func TestWarehouseStandaloneMasterPreparations(t *testing.T) {
 		}
 		if got := requiredMutationScope("warehouse." + entity + "s.update"); got != "cores:warehouse:update" {
 			t.Fatalf("master scope %s", got)
+		}
+	}
+
+	categoryPreview := func(kind string, id any, name, abbr *string, parent any, expected string, confirm bool, similar bool) preparedMutation {
+		p, err := run(func(ctx context.Context) (preparedMutation, error) {
+			return prepareWarehouseCategoryUpdate(ctx, db, kind, id, name, abbr, parent, similar, expected, confirm)
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		return p
+	}
+	deletionPreview := func(kind string, id any, expected string, confirm bool) preparedMutation {
+		p, err := run(func(ctx context.Context) (preparedMutation, error) {
+			return prepareWarehouseCategoryDelete(ctx, db, kind, id, expected, confirm)
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		return p
+	}
+	categoryName := "Updated Category Fixture"
+	for _, target := range []struct {
+		kind string
+		id   any
+	}{{"category", int64(1)}, {"subcategory", "sub-1"}, {"third_category", "third-1"}} {
+		p = categoryPreview(target.kind, target.id, &categoryName, nil, nil, "", false, true)
+		if !p.Ready || len(p.Diff) != 1 || p.Draft["expected_updated_at"] != exact {
+			t.Fatalf("category update %#v", p)
+		}
+		p = categoryPreview(target.kind, target.id, &categoryName, nil, nil, "", true, true)
+		if p.Ready || !containsString(p.Missing, "expected_updated_at") {
+			t.Fatalf("missing category version %#v", p)
+		}
+		p = categoryPreview(target.kind, target.id, &categoryName, nil, nil, "old", true, true)
+		if p.Ready || !containsString(p.Missing, "expected_updated_at") {
+			t.Fatalf("stale category version %#v", p)
+		}
+		p = categoryPreview(target.kind, target.id, nil, nil, nil, "", false, true)
+		if p.Ready || !containsString(p.Missing, "changed_fields") {
+			t.Fatalf("category no-op %#v", p)
+		}
+	}
+	p = categoryPreview("category", int64(1), nil, &empty, nil, "", false, true)
+	if p.Ready || !containsString(p.Missing, "abbreviation") {
+		t.Fatalf("empty top abbreviation %#v", p)
+	}
+	p = categoryPreview("subcategory", "sub-1", nil, &empty, nil, "", false, true)
+	if !p.Ready || p.Draft["abbreviation"] != "" {
+		t.Fatalf("clear sub abbreviation %#v", p)
+	}
+	p = categoryPreview("third_category", "third-1", nil, &empty, nil, "", false, true)
+	if !p.Ready {
+		t.Fatalf("clear third abbreviation %#v", p)
+	}
+	if _, err := database.Exec(`INSERT INTO categories(name,abbreviation) VALUES('Other Parent','OP');INSERT INTO subcategories(subcategoryid,name,categoryid) VALUES('sub-2','Other Sub',2);INSERT INTO subbiercategories(subbiercategoryid,name,subcategoryid) VALUES('third-2','Other Third','sub-2')`); err != nil {
+		t.Fatal(err)
+	}
+	topParent := int64(2)
+	subParent := "sub-2"
+	p = categoryPreview("subcategory", "sub-1", nil, nil, &topParent, "", false, true)
+	if !p.Ready || p.Draft["category_id"] != int64(2) {
+		t.Fatalf("sub move %#v", p)
+	}
+	p = categoryPreview("third_category", "third-1", nil, nil, &subParent, "", false, true)
+	if !p.Ready {
+		t.Fatalf("third move %#v", p)
+	}
+	if _, err := database.Exec(`INSERT INTO products(name,categoryid,subcategoryid,subbiercategoryid) VALUES('Hierarchy fixture',1,'sub-1','third-1')`); err != nil {
+		t.Fatal(err)
+	}
+	p = categoryPreview("subcategory", "sub-1", nil, nil, &topParent, "", false, true)
+	if p.Ready || !containsString(p.Missing, "linked_products") {
+		t.Fatalf("sub product conflict %#v", p)
+	}
+	p = categoryPreview("third_category", "third-1", nil, nil, &subParent, "", false, true)
+	if p.Ready || !containsString(p.Missing, "linked_products") {
+		t.Fatalf("third product conflict %#v", p)
+	}
+	for _, target := range []struct {
+		kind string
+		id   any
+	}{{"category", int64(1)}, {"subcategory", "sub-1"}, {"third_category", "third-1"}} {
+		p = deletionPreview(target.kind, target.id, "", false)
+		if p.Ready || !containsString(p.Missing, "active_dependencies") {
+			t.Fatalf("delete linked category %#v", p)
+		}
+	}
+	duplicateName = "Other Parent"
+	p = categoryPreview("category", int64(1), &duplicateName, nil, nil, "", false, true)
+	if p.Ready || !containsString(p.Missing, "duplicate_category") {
+		t.Fatalf("duplicate top %#v", p)
+	}
+	duplicateName = "Other Sub"
+	p = categoryPreview("subcategory", "sub-1", &duplicateName, nil, &topParent, "", false, true)
+	if p.Ready || !containsString(p.Missing, "duplicate_category") {
+		t.Fatalf("duplicate sub %#v", p)
+	}
+	duplicateName = "Other Third"
+	p = categoryPreview("third_category", "third-1", &duplicateName, nil, &subParent, "", false, true)
+	if p.Ready || !containsString(p.Missing, "duplicate_category") {
+		t.Fatalf("duplicate third %#v", p)
+	}
+	topParent = 1 << 40
+	p = categoryPreview("subcategory", "sub-1", nil, nil, &topParent, "", false, true)
+	if p.Ready || !containsString(p.Missing, "category_id") {
+		t.Fatalf("out of range parent %#v", p)
+	}
+	topParent = 99999
+	p = categoryPreview("subcategory", "sub-1", nil, nil, &topParent, "", false, true)
+	if p.Ready || !containsString(p.Missing, "category_id") {
+		t.Fatalf("missing top parent %#v", p)
+	}
+	subParent = "missing"
+	p = categoryPreview("third_category", "third-1", nil, nil, &subParent, "", false, true)
+	if p.Ready || !containsString(p.Missing, "subcategory_id") {
+		t.Fatalf("missing sub parent %#v", p)
+	}
+	if _, err := database.Exec(`INSERT INTO categories(name,abbreviation) VALUES('Delete Category Fixture','DEL');INSERT INTO subcategories(subcategoryid,name,categoryid) VALUES('delete-sub','Delete Sub Fixture',2);INSERT INTO subbiercategories(subbiercategoryid,name,subcategoryid) VALUES('delete-third','Delete Third Fixture','sub-2')`); err != nil {
+		t.Fatal(err)
+	}
+	for _, target := range []struct {
+		kind string
+		id   any
+	}{{"category", int64(3)}, {"subcategory", "delete-sub"}, {"third_category", "delete-third"}} {
+		p = deletionPreview(target.kind, target.id, "", false)
+		if !p.Ready || p.Draft["confirmation_text_required"] != warehouseCategoryDeletePhrase(target.kind, target.id) || p.Diff["record"]["after"] != nil {
+			t.Fatalf("unused deletion %#v", p)
+		}
+		p = deletionPreview(target.kind, target.id, "", true)
+		if p.Ready || !containsString(p.Missing, "expected_updated_at") {
+			t.Fatalf("delete without version %#v", p)
+		}
+		p = deletionPreview(target.kind, target.id, exact, true)
+		if !p.Ready {
+			t.Fatalf("versioned deletion %#v", p)
+		}
+	}
+	if _, err := database.Exec(`CREATE TABLE custom_category_ref(category_id INT REFERENCES categories(categoryid))`); err != nil {
+		t.Fatal(err)
+	}
+	p = deletionPreview("category", int64(3), "", false)
+	if p.Ready || !containsString(p.Missing, "additional_references") {
+		t.Fatalf("additional reference guard %#v", p)
+	}
+	for _, kind := range []string{"category", "subcategory", "third_category"} {
+		if _, err := prepareWarehouseCategoryDelete(context.Background(), nil, kind, nil, "", false); err == nil {
+			t.Fatal("unauthenticated category deletion preview accepted")
 		}
 	}
 

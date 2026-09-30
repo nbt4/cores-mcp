@@ -6,7 +6,7 @@
   Additive creation is the default; the named P0/P1 and Issue #5 lifecycle
   workflows documented in `docs/TOOL_CATALOG.md` are the only allowed
   update/order/approval/receipt exceptions.
-- Never add arbitrary mutation, hard-delete, shell, file, email, or unrestricted
+- Never add arbitrary mutation, generic hard-delete, shell, file, email, or unrestricted
   HTTP tools. Named approval and receipt tools require dedicated scopes,
   optimistic locking, target-Core audit, elevated confirmation and idempotency.
 - Expose business capabilities, not arbitrary SQL or unrestricted table access.
@@ -16,3 +16,9 @@
 - Use the official Model Context Protocol Go SDK and support Streamable HTTP.
 - Run `go test ./...`, `go vet ./...`, and `go build ./cmd/server` before release.
 - Update `README.md` and `docs/TOOL_CATALOG.md` whenever tools or configuration change.
+
+- The user explicitly authorized category removal via MCP. Only the named
+  `warehouse.categories`, `warehouse.subcategories` and `warehouse.third_categories`
+  prepare_delete/delete workflows may permanently delete unused categories.
+  Require admin/delete scope, exact version, dependency preview, explicit and
+  record-bound confirmation, atomic audit/idempotency, and forbid cascade.

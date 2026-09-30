@@ -146,7 +146,7 @@ func smokeArguments(name string) map[string]any {
 }
 
 func isWriteTool(name string) bool {
-	for _, suffix := range []string{".create", ".update", ".assign_device", ".update_status"} {
+	for _, suffix := range []string{".create", ".update", ".assign_device", ".update_status", ".delete"} {
 		if strings.HasSuffix(name, suffix) {
 			return true
 		}

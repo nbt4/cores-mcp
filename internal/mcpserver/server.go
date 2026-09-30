@@ -14,7 +14,7 @@ import (
 	"github.com/nbt4/cores-mcp/internal/store"
 )
 
-const Version = "1.5.21"
+const Version = "1.5.22"
 
 func New(cfg config.Config, db *store.Store, logger *slog.Logger) *mcp.Server {
 	description := "Read-only operational context and safe cross-core queries for RentalCore, WarehouseCore, PlannerCore and ProcurementCore."
@@ -56,6 +56,8 @@ func New(cfg config.Config, db *store.Store, logger *slog.Logger) *mcp.Server {
 		registerWarehouseProductRelationTools(server, cfg, db)
 		registerWarehouseMasterCreateTools(server, cfg, db)
 		registerWarehouseCategoryCreateTools(server, cfg, db)
+		registerWarehouseCategoryUpdateTools(server, cfg, db)
+		registerWarehouseCategoryDeleteTools(server, cfg, db)
 		registerWarehouseLocationCreateTools(server, cfg, db)
 		registerWarehouseLocationUpdateTools(server, cfg, db)
 		registerWarehouseMasterUpdateTools(server, cfg, db)
@@ -132,6 +134,12 @@ var mutationTools = map[string]struct{}{
 	"warehouse.manufacturers.create":    {},
 	"warehouse.brands.create":           {},
 	"warehouse.categories.create":       {},
+	"warehouse.categories.update":       {},
+	"warehouse.categories.delete":       {},
+	"warehouse.subcategories.delete":    {},
+	"warehouse.third_categories.delete": {},
+	"warehouse.subcategories.update":    {},
+	"warehouse.third_categories.update": {},
 	"warehouse.subcategories.create":    {},
 	"warehouse.third_categories.create": {},
 	"warehouse.locations.create":        {},

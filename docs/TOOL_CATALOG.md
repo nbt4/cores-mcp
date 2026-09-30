@@ -7,7 +7,7 @@ OAuth-Benutzers beschränkt. Das gilt auch für `cores.search`,
 berechtigt nicht zum Lesen fremder Pläne. Maschinentokens liefern keine Planner-Daten.
 Toolnamen und Eingabeschemas bleiben unverändert.
 
-Die 64 Abfragetools sind read-only und idempotent. Bei `MCP_ENABLE_WRITES=true` werden zusätzlich 41 vorbereitende und 41 bestätigte Schreibtools für alle vier Core-Services registriert. Suchtools akzeptieren üblicherweise `query`, `limit` und `offset`; Zeitfenster `from`, `to` und `limit`; Detailtools `id`. Datumswerte sind `YYYY-MM-DD` oder RFC3339.
+Die 64 Abfragetools sind read-only und idempotent. Bei `MCP_ENABLE_WRITES=true` werden zusätzlich 47 vorbereitende und 47 bestätigte Schreibtools für alle vier Core-Services registriert. Suchtools akzeptieren üblicherweise `query`, `limit` und `offset`; Zeitfenster `from`, `to` und `limit`; Detailtools `id`. Datumswerte sind `YYYY-MM-DD` oder RFC3339.
 
 Der MCP-Endpunkt verlangt immer `cores:read`. Für ein Vorbereitung- oder
 Ausführungstool ist zusätzlich entweder der kompatible Sammel-Scope
@@ -18,7 +18,8 @@ Ausführungstool ist zusätzlich entweder der kompatible Sammel-Scope
 | `cores:rental:create` | Jobs und Requirements anlegen |
 | `cores:rental:update` | Job/Requirement ändern und Gerät zuweisen |
 | `cores:warehouse:create` | Tasks, Produkte, Hersteller, Marken, Kategorien und Lagerplätze anlegen |
-| `cores:warehouse:update` | Bewegungen und Gerätezustände buchen sowie Produkte, ihre Beziehungen, Hersteller, Marken und aktive Lagerplätze ändern |
+| `cores:warehouse:update` | Bewegungen und Gerätezustände buchen sowie Produkte, ihre Beziehungen, Hersteller, Marken, alle Kategorieebenen und aktive Lagerplätze ändern |
+| `cores:warehouse:delete` | Ungenutzte Warehouse-Kategorien aller drei Ebenen dauerhaft entfernen; Adminrechte und zusätzliche datensatzgebundene Bestätigung erforderlich |
 | `cores:warehouse:archive` | Produkte und mitarchivierte Geräte nach Abhängigkeitsprüfung archivieren oder wiederherstellen |
 | `cores:planner:create` | Pläne und Tasks anlegen |
 | `cores:procurement:create` | Produkte, Angebote, Lieferanten, Kategorien und Bestellungen anlegen |
@@ -132,6 +133,18 @@ Alle Query-Namen und Felder stammen aus einer festen Registry. Nutzwerte werden 
 | `warehouse.subcategories.create` | Bestätigte Unterkategorie mit Audit und Idempotenz anlegen |
 | `warehouse.third_categories.prepare_create` | Eltern-Unterkategorie und Namenskonflikte der dritten Ebene prüfen |
 | `warehouse.third_categories.create` | Bestätigte dritte Kategorieebene mit Audit und Idempotenz anlegen |
+| `warehouse.categories.prepare_update` | Hauptkategorie: vollständigen Diff, Version, Dubletten und Produktzuordnungen prüfen |
+| `warehouse.categories.update` | Bestätigte Änderung versionsgesichert, auditiert und idempotent speichern |
+| `warehouse.categories.prepare_delete` | Hauptkategorie: ganzen Datensatz, Produkt-/Kinderanzahl und genaue Löschphrase zeigen |
+| `warehouse.categories.delete` | Nur ungenutzten Datensatz ohne Kinder dauerhaft entfernen; kein Cascade, Audit bleibt erhalten |
+| `warehouse.subcategories.prepare_update` | Unterkategorie: vollständigen Diff, Version, Dubletten und Produktzuordnungen prüfen |
+| `warehouse.subcategories.update` | Bestätigte Änderung versionsgesichert, auditiert und idempotent speichern |
+| `warehouse.subcategories.prepare_delete` | Unterkategorie: ganzen Datensatz, Produkt-/Kinderanzahl und genaue Löschphrase zeigen |
+| `warehouse.subcategories.delete` | Nur ungenutzten Datensatz ohne Kinder dauerhaft entfernen; kein Cascade, Audit bleibt erhalten |
+| `warehouse.third_categories.prepare_update` | Dritte Kategorieebene: vollständigen Diff, Version, Dubletten und Produktzuordnungen prüfen |
+| `warehouse.third_categories.update` | Bestätigte Änderung versionsgesichert, auditiert und idempotent speichern |
+| `warehouse.third_categories.prepare_delete` | Dritte Kategorieebene: ganzen Datensatz, Produkt-/Kinderanzahl und genaue Löschphrase zeigen |
+| `warehouse.third_categories.delete` | Nur ungenutzten Datensatz ohne Kinder dauerhaft entfernen; kein Cascade, Audit bleibt erhalten |
 | `warehouse.locations.prepare_create` | Lagerplatzfelder, aktiven Elternknoten, Code, Scan-Code und ähnliche Orte prüfen |
 | `warehouse.locations.create` | Bestätigten Lagerplatz mit Audit und dauerhaftem Idempotenzbeleg anlegen |
 | `warehouse.manufacturers.prepare_update` | Namen und Website mit vollständigem Diff, Version, Dubletten und verknüpften Datensatzanzahlen prüfen |
@@ -335,3 +348,32 @@ versionieren auch bestehende Oberflächen- und Import-Schreibpfade. Update,
 Vorher/Nachher-Audit mit `MCP/AI`-Herkunft und dauerhafter Idempotenzbeleg werden
 zusammen gespeichert; Fehler rollen alle drei zurück. Parallel laufende
 Stammdaten- und Produktänderungen werden bei der abschließenden Prüfung gesperrt.
+
+### Kategoriepflege und explizit autorisiertes Entfernen ab 1.5.22
+
+Die benannten Kategorie-Update- und Löschwerkzeuge sind für Issue #4/#5
+freigegeben. Der Nutzer hat das Entfernen von Kategorien ausdrücklich angefordert.
+Ein Update benötigt Warehouse-Adminrechte, `cores:warehouse:update` oder
+`cores:write`, vollständigen Diff, unveränderte Mikrosekunden-Version,
+`confirm_update=true` und Idempotenz. Name: 1–100 Zeichen; Abkürzung: höchstens
+10 Zeichen, auf Hauptebene verpflichtend. `category_id` im Unterkategorie-Update
+und `subcategory_id` im Dritt-Kategorie-Update ändern den Elternknoten;
+Primärschlüssel bleiben unverändert. Produktzuordnungen einschließlich
+Nachfahren dürfen dadurch nicht widersprüchlich werden.
+
+Löschen ist ausschließlich mit Warehouse-Adminrechten und `cores:warehouse:delete`
+oder `cores:write` möglich. `prepare_delete` muss vor der ausdrücklichen
+Bestätigung den ganzen Datensatz und die Produkt-/Kinderanzahl zeigen. Es darf
+keine Produktverwendung und keine Kinder geben. Auch zusätzliche Fremdschlüssel
+von Erweiterungstabellen sperren das Entfernen bis zur gesonderten Prüfung.
+`confirm_delete=true`, exakte `expected_updated_at`, die unveränderte Phrase
+`DELETE WAREHOUSE CATEGORY <id>`, `DELETE WAREHOUSE SUBCATEGORY <id>` bzw.
+`DELETE WAREHOUSE THIRD_CATEGORY <id>` und `idempotency_key` sind erforderlich.
+Keine kaskadierenden Löschungen oder automatischen Umzuordnungen. Dauerhaftes
+Entfernen besitzt kein MCP-Undo; die Audit-Historie bleibt erhalten.
+
+`cores.entities.schema` veröffentlicht `update_fields` und `delete_fields`.
+WarehouseCore-Migration `049` bzw. Umbrella-Migration `022` installieren
+Versionstrigger für alle drei Tabellen. Der Ziel-Core prüft die Daten unter
+Sperren erneut und speichert Änderung/Löschung, Audit und dauerhaften
+Wiederholungsbeleg zusammen. Ein Audit-Fehler rollt alles zurück.

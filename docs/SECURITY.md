@@ -9,7 +9,7 @@ Der MCP-Server liest operative Daten aus der gemeinsamen Cores-PostgreSQL-Datenb
 - OAuth 2.0 Authorization Code mit PKCE S256, Dynamic Client Registration und
   Mindest-Scope `cores:read`. Schreibtools verlangen zusätzlich entweder den
   kompatiblen Sammel-Scope `cores:write` oder einen granularen Scope je Service
-  und Aktionsklasse (`cores:<service>:create|update|approve|receive`).
+  und Aktionsklasse (`cores:<service>:create|update|archive|delete|approve|submit|receive`).
 - Ein bewusst read-only ausgestelltes Token bleibt auch bei serverseitig
   aktivierten Schreibtools nutzbar. Neu benötigte Schreibscopes erfordern einen
   sichtbaren OAuth-Consent.
@@ -33,7 +33,7 @@ Der MCP-Server liest operative Daten aus der gemeinsamen Cores-PostgreSQL-Datenb
 
 Optionale Schreibtools schreiben niemals über die Datenbankrolle. Sie rufen ausschließlich fest verdrahtete fachliche Endpunkte des verantwortlichen Core mit einem zweiminütigen, aus dem interaktiven OAuth-Benutzer abgeleiteten Suite-Token auf. Dazu zählen additive Anlagen sowie die einzeln definierten P0/P1-Operationen Gerätezuweisung, Job-/Requirement-Änderung, Bestellung, Lagerbewegung und Gerätezustand. Rollen- und Mitgliedschaftsregeln des Zielservices bleiben wirksam; Warehouse-Produkte samt ausdrücklich freigegebenen neuen Stammdaten benötigen Warehouse-Administratorrechte und werden in einer Zielservice-Transaktion angelegt, Bestellungen benötigen Procurement-Administratorrechte und Planner-Tasks werden bereits in der Vorschau auf die persönliche Planmitgliedschaft begrenzt. Statische Maschinentokens können keine Schreibtools nutzen.
 
-Vor jeder Operation liefert ein eigenes Vorbereitungstool Pflichtlücken, Referenzkandidaten, aktuelle Werte, Risiken und mögliche Duplikate. Das Ausführungstool schreibt erst nach finaler Vorschau, dem operationsspezifischen `confirm_*` und einem gültigen `idempotency_key`; unvollständige empfohlene Produktdaten benötigen zusätzlich `accept_incomplete=true`. `dry_run=true` entfernt die Bestätigung serverseitig und führt nur die Validierung/Vorschau aus. Gleiche bestätigte Aufrufe werden je MCP-Prozess 24 Stunden dedupliziert, gleichzeitige Wiederholungen zusammengeführt und abweichende Payloads unter demselben Schlüssel blockiert. Der Header wird an den Ziel-Core weitergereicht; ProcurementCore speichert ihn für Produkte, Angebote, Lieferanten, Kategorien, Bedarfsentscheidungen und Wareneingänge atomar mit dem Ergebnis. Andere Workflows benötigen für Deduplizierung über MCP-Neustarts und Replikate weiterhin persistente Verarbeitung im jeweiligen Ziel-Core. Es gibt absichtlich kein universelles SQL-, HTTP-, Datei- oder Shell-Werkzeug und keine Tools für Hard-Deletes, Benutzerverwaltung oder beliebige Mutation.
+Vor jeder Operation liefert ein eigenes Vorbereitungstool Pflichtlücken, Referenzkandidaten, aktuelle Werte, Risiken und mögliche Duplikate. Das Ausführungstool schreibt erst nach finaler Vorschau, dem operationsspezifischen `confirm_*` und einem gültigen `idempotency_key`; unvollständige empfohlene Produktdaten benötigen zusätzlich `accept_incomplete=true`. `dry_run=true` entfernt die Bestätigung serverseitig und führt nur die Validierung/Vorschau aus. Gleiche bestätigte Aufrufe werden je MCP-Prozess 24 Stunden dedupliziert, gleichzeitige Wiederholungen zusammengeführt und abweichende Payloads unter demselben Schlüssel blockiert. Der Header wird an den Ziel-Core weitergereicht; ProcurementCore speichert ihn für Produkte, Angebote, Lieferanten, Kategorien, Bedarfsentscheidungen und Wareneingänge atomar mit dem Ergebnis. Andere Workflows benötigen für Deduplizierung über MCP-Neustarts und Replikate weiterhin persistente Verarbeitung im jeweiligen Ziel-Core. Es gibt absichtlich kein universelles SQL-, HTTP-, Datei- oder Shell-Werkzeug und keine Tools für generische Löschungen, Benutzerverwaltung oder beliebige Mutation.
 
 Procurement-Freigaben und Wareneingänge besitzen eigene Scopes. Freigaben
 erzwingen das Vier-Augen-Prinzip. Beide Aktionen prüfen die unveränderte
@@ -86,3 +86,20 @@ Read-only-Anforderung, `cores:write`. Fehlende oder lesende Auswahl vergibt
 nur `cores:read`; unbekannte Optionen und Schreibfreigaben bei deaktivierten
 Schreibtools werden abgelehnt. Der CSRF-Schutz gilt auch für diese Auswahl.
 Refresh übernimmt die erteilten Rechte und kann sie nicht erweitern.
+
+## Dauerhaftes Entfernen ungenutzter Warehouse-Kategorien
+
+Die ausdrücklich vom Nutzer autorisierten `warehouse.categories`,
+`warehouse.subcategories` und `warehouse.third_categories` bieten jeweils
+`prepare_delete` und `delete`. Dies sind die einzigen Capabilities zum
+dauerhaften Entfernen. Warehouse-Adminrechte und `cores:warehouse:delete`
+(oder Legacy `cores:write`) sind erforderlich; ein Update-Scope genügt nicht.
+
+Die Vorschau zeigt den vollständigen Datensatz und Produkt-/Kinderanzahl.
+Abhängigkeiten sperren die Löschung, ebenso zusätzliche Fremdschlüssel aus
+Erweiterungstabellen. Die Ausführung verlangt die unveränderte Version,
+`confirm_delete=true`, die exakte datensatzgebundene Bestätigungsphrase und
+einen Idempotenzschlüssel. Der Ziel-Core prüft unter Datenbanksperren erneut;
+Löschung, Audit und dauerhafter Wiederholungsbeleg werden zusammen committet.
+Audit bleibt erhalten. Es gibt kein Cascade, keine automatische Umzuordnung
+und kein MCP-Undo für dauerhaft entfernte Kategorien. Dry-run löscht nichts.

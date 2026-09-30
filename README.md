@@ -1,5 +1,39 @@
 # Cores MCP
 
+## Kategorien bearbeiten und entfernen ab 1.5.22
+
+Alle drei Warehouse-Kategorieebenen bieten `prepare_update`/`update` sowie
+`prepare_delete`/`delete`: `warehouse.categories`, `warehouse.subcategories`
+und `warehouse.third_categories`. `cores.entities.schema` zeigt die jeweiligen
+`update_fields` und `delete_fields`. Die dritte Ebene verwendet als Eingabe
+`third_category_id`; `create` gibt diese ID als `subbiercategory_id` zurück.
+
+Updates bearbeiten Namen, Abkürzungen und auf den unteren Ebenen den vorhandenen
+Elternknoten. IDs bleiben unverändert. Die Vorschau zeigt alle Felder, den Diff,
+Dubletten, ähnliche Namen und verknüpfte Datensatzanzahlen. Ein Elternwechsel,
+der vorhandene Produktzuordnungen widersprüchlich macht, wird gesperrt; das gilt
+auch für Produkte unter dritten Kategorien eines verschobenen Unterknotens.
+Auf Hauptebene ist eine Abkürzung erforderlich, auf unteren Ebenen leert `""` sie.
+Ausführung: Warehouse-Adminrechte, `cores:warehouse:update` oder `cores:write`,
+`expected_updated_at`, `confirm_update=true` und `idempotency_key`.
+
+Entfernen ist dauerhaft und nur für ungenutzte Kategorien ohne Kinder erlaubt.
+Die Vorschau zeigt den ganzen Datensatz, Produkt- und Kinderanzahl sowie die
+exakte Bestätigungsphrase, z. B. `DELETE WAREHOUSE CATEGORY 123`. Ausführung:
+Warehouse-Adminrechte, `cores:warehouse:delete` oder `cores:write`, exakte
+`expected_updated_at`, `confirm_delete=true`, `confirmation_text` und
+`idempotency_key`. Ein Update-Scope allein berechtigt nicht zum Löschen.
+Zusätzliche Fremdschlüssel aus Erweiterungstabellen sperren das Entfernen bis
+zur gesonderten Prüfung. Es gibt kein kaskadierendes Löschen, keine automatische
+Umzuordnung und kein MCP-Undo für dauerhaft entfernte Kategorien.
+
+WarehouseCore prüft Version und Abhängigkeiten erneut. Änderung bzw. Löschung,
+Vorher/Nachher-Audit mit MCP/AI-Herkunft und Wiederholungsbeleg werden atomar
+committet. Audit bleibt nach dem Entfernen erhalten. `dry_run=true` verändert
+nichts. Die Migration `049_warehouse_category_version` versioniert auch normale
+Oberflächen- und Importänderungen. Für granulare Löschrechte den Connector mit
+dem neuen Scope erneut autorisieren; bestehende `cores:write`-Freigaben gelten.
+
 ## Hersteller- und Markenpflege ab 1.5.21
 
 `warehouse.manufacturers.prepare_update`/`.update` bearbeiten Namen und Website;
@@ -380,7 +414,7 @@ entfernt ausschließlich sein eigenes Schema.
 
 Cores MCP bindet die gesamte Cores Suite als sicheren MCP-Server an ChatGPT, Claude, Codex und andere MCP-fähige Agents an. Der Chat bleibt beim jeweiligen KI-Anbieter; Cores stellt nur kontrollierte Werkzeuge und Kontext bereit.
 
-Der Server bietet 64 lesende fachliche Tools, fünf wiederverwendbare Analyse-Prompts und dokumentierbare Knowledge-Ressourcen für RentalCore, WarehouseCore, PlannerCore und ProcurementCore. Bei `MCP_ENABLE_WRITES=true` kommen 41 vorbereitende und 41 bestätigte, eng begrenzte Schreibtools für alle vier Core-Services hinzu. Beliebiges SQL, generische HTTP-Aufrufe und Hard-Deletes bleiben ausgeschlossen.
+Der Server bietet 64 lesende fachliche Tools, fünf wiederverwendbare Analyse-Prompts und dokumentierbare Knowledge-Ressourcen für RentalCore, WarehouseCore, PlannerCore und ProcurementCore. Bei `MCP_ENABLE_WRITES=true` kommen 47 vorbereitende und 47 bestätigte, eng begrenzte Schreibtools für alle vier Core-Services hinzu. Beliebiges SQL, generische HTTP-Aufrufe und generische Löschwerkzeuge bleiben ausgeschlossen. Unbenutzte Warehouse-Kategorien können ausschließlich über die benannten, gesondert bestätigten Löschwerkzeuge entfernt werden.
 
 ## Geführte Schreibzugriffe mit Rückfragen
 
@@ -496,7 +530,7 @@ Der Smoke-Test verbindet einen echten MCP-Client, listet alle Tools und ruft jed
 | `MCP_PUBLIC_URL` | `http://localhost:8090` | Öffentliche Basis-URL ohne `/mcp` |
 | `CORES_DASHBOARD_PUBLIC_URL` | `http://localhost:8080` | Cores-Login, auf den OAuth verweist |
 | `MCP_AUTH_MODE` | `oauth` | `oauth`, `bearer` oder nur lokal `none` |
-| `MCP_ENABLE_WRITES` | `false` | Aktiviert 82 geführte Schreibtools (41 Vorschauen plus 41 Ausführungen); nur mit `MCP_AUTH_MODE=oauth` zulässig |
+| `MCP_ENABLE_WRITES` | `false` | Aktiviert 94 geführte Schreibtools (47 Vorschauen plus 47 Ausführungen); nur mit `MCP_AUTH_MODE=oauth` zulässig |
 | `CORES_JWT_SECRET` | – | Dasselbe Signatur-Secret wie das Cores Dashboard, mindestens 32 Zeichen |
 | `MCP_STATIC_TOKENS` | – | Optionale `name:secret`-Paare für Agents |
 | `DATABASE_URL` | – | Komplette PostgreSQL-URL; überschreibt einzelne DB-Variablen |
@@ -513,11 +547,11 @@ Die vollständige Vorlage steht in [.env.example](.env.example).
 
 ## Sicherheitsmodell
 
-- Die 64 Abfragetools und 41 Vorbereitungstools sind `readOnlyHint=true`; Ausführungstools erzwingen einen Idempotenzschlüssel und sind `idempotentHint=true`. Zustandsänderungen sind zusätzlich als destruktiv annotiert.
+- Die 64 Abfragetools und 47 Vorbereitungstools sind `readOnlyHint=true`; Ausführungstools erzwingen einen Idempotenzschlüssel und sind `idempotentHint=true`. Zustandsänderungen sind zusätzlich als destruktiv annotiert.
 - Jede DB-Abfrage läuft in einer PostgreSQL-Transaktion mit `READ ONLY`, Timeout und Zeilenlimit.
 - Produktion verwendet zusätzlich die Rolle `cores_mcp` mit ausschließlich `SELECT`-Rechten.
 - Schreibtools verwenden ausschließlich validierte Endpunkte des jeweils verantwortlichen Core und ein zweiminütiges, auf den OAuth-Benutzer delegiertes Suite-Token. Rollenänderungen und Kontosperren werden dort live geprüft.
-- Es existieren keine Tools für beliebiges SQL, Dateien, Shell, E-Mail, generische Änderungen oder Hard-Deletes. Zulässige Änderungen, Statuswechsel, Bewegungen, Bestellungen, Procurement-Freigaben und Wareneingänge sind einzelne fachliche Capabilities mit Live-Validierung, Ziel-Core-Berechtigung, finaler Vorschau und ausdrücklicher Bestätigung.
+- Es existieren keine Tools für beliebiges SQL, Dateien, Shell, E-Mail, generische Änderungen oder generische Löschungen. Zulässige Änderungen, Statuswechsel, Bewegungen, Bestellungen, Procurement-Freigaben und Wareneingänge sind einzelne fachliche Capabilities mit Live-Validierung, Ziel-Core-Berechtigung, finaler Vorschau und ausdrücklicher Bestätigung.
 - Lesende Tools geben keine unnötigen Kontaktinformationen, Secrets oder internen privaten Notizen aus. Geführte Anlagen zeigen die vom Benutzer eingegebenen Felder im Entwurf und im Ergebnis.
 - Nutzertexte aus Beschreibungen/Notizen gelten als nicht vertrauenswürdige Daten, niemals als Agent-Anweisung.
 - Toolantworten enthalten Zeitstempel, Quellen und fachliche Warnungen.
@@ -532,7 +566,7 @@ Markdown-, Text-, CSV- und JSON-Dateien unter `MCP_KNOWLEDGE_DIRS` werden als MC
 
 ```bash
 make check
-docker build -t nobentie/cores-mcp:1.5.21 -t nobentie/cores-mcp:latest .
+docker build -t nobentie/cores-mcp:1.5.22 -t nobentie/cores-mcp:latest .
 ```
 
 Die Umbrella-Compose-Datei der Cores Suite bindet den Dienst intern ein. Der Cores-Dashboard-Reverse-Proxy veröffentlicht MCP und OAuth auf derselben Domain, damit der bestehende Suite-Login genutzt werden kann.
