@@ -252,3 +252,22 @@ func (s *writeReplayStore) pruneLocked(now time.Time) {
 		delete(s.entries, oldestKey)
 	}
 }
+
+// These closed owner APIs persist their receipt in the business transaction.
+// A transport/transaction error can safely retry the same key; successful or
+// ambiguous commits replay at the target instead of creating another record.
+func hasDurableWarehouseRetry(tool string) bool {
+	for _, prefix := range []string{"warehouse.tasks.", "warehouse.maintenance_plans.", "warehouse.maintenance_orders.", "warehouse.defects."} {
+		if strings.HasPrefix(tool, prefix) {
+			return true
+		}
+	}
+	return false
+}
+func (s *writeReplayStore) forgetFailed(key string, entry *writeReplay) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if current := s.entries[key]; current == entry && entry != nil && entry.err != nil {
+		delete(s.entries, key)
+	}
+}

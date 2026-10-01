@@ -97,7 +97,8 @@ func TestOperationalCreateInputsRequireCompleteDrafts(t *testing.T) {
 	if err != nil || task.Ready || !containsString(task.Missing, "plan_id") || !containsString(task.Missing, "title") {
 		t.Fatalf("task draft = %#v, err=%v", task, err)
 	}
-	warehouseTask, err := prepareWarehouseTaskCreate(context.Background(), nil, WarehouseTaskCreateInput{TaskType: "unknown", Priority: 101})
+	invalidPriority := 101
+	warehouseTask, err := prepareWarehouseTaskCreate(context.Background(), nil, WarehouseTaskCreateInput{TaskType: "unknown", Priority: &invalidPriority})
 	if err != nil || warehouseTask.Ready || !containsString(warehouseTask.Missing, "task_type") || !containsString(warehouseTask.Missing, "priority") || !containsString(warehouseTask.Missing, "context") {
 		t.Fatalf("warehouse task draft = %#v, err=%v", warehouseTask, err)
 	}
@@ -162,8 +163,8 @@ func TestWriteToolsExposeSafeAnnotationsAndSchemas(t *testing.T) {
 	for _, tool := range listed.Tools {
 		tools[tool.Name] = tool
 	}
-	if len(tools) != 252 {
-		t.Fatalf("tool count = %d, want 252", len(tools))
+	if len(tools) != 268 {
+		t.Fatalf("tool count = %d, want 268", len(tools))
 	}
 	if tool := tools["warehouse.audit.history"]; tool == nil || tool.Annotations == nil || !tool.Annotations.ReadOnlyHint {
 		t.Fatal("warehouse audit history must be read-only")

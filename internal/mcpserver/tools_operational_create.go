@@ -31,18 +31,21 @@ type PlannerTaskCreateInput struct {
 
 type WarehouseTaskCreateInput struct {
 	MutationControl
-	TaskType        string   `json:"task_type,omitempty" jsonschema:"One of putaway, move, pick, replenish, count, inspect, pack, or return."`
-	Priority        int      `json:"priority,omitempty" jsonschema:"Priority from 1 to 100; defaults to 50."`
-	FromZoneID      *int64   `json:"from_zone_id,omitempty"`
-	ToZoneID        *int64   `json:"to_zone_id,omitempty"`
-	CaseID          *int64   `json:"case_id,omitempty"`
-	DeviceID        string   `json:"device_id,omitempty"`
-	ProductID       *int64   `json:"product_id,omitempty"`
-	Quantity        *float64 `json:"quantity,omitempty" jsonschema:"Positive product quantity when relevant."`
-	JobID           *int64   `json:"job_id,omitempty"`
-	DueAt           string   `json:"due_at,omitempty" jsonschema:"Optional RFC3339 due timestamp."`
-	Notes           string   `json:"notes,omitempty"`
-	ConfirmCreation bool     `json:"confirm_creation,omitempty" jsonschema:"Set true only after showing the final draft to the user and receiving explicit confirmation."`
+	TaskType           string            `json:"task_type,omitempty" jsonschema:"One of putaway, move, pick, replenish, count, inspect, pack, or return."`
+	Priority           *int              `json:"priority,omitempty" jsonschema:"Priority from 0 to 100; omitted defaults to 50."`
+	FromZoneID         *int64            `json:"from_zone_id,omitempty"`
+	ToZoneID           *int64            `json:"to_zone_id,omitempty"`
+	CaseID             *int64            `json:"case_id,omitempty"`
+	DeviceID           string            `json:"device_id,omitempty"`
+	ProductID          *int64            `json:"product_id,omitempty"`
+	Quantity           *float64          `json:"quantity,omitempty" jsonschema:"Positive product quantity when relevant."`
+	JobID              *int64            `json:"job_id,omitempty"`
+	DueAt              string            `json:"due_at,omitempty" jsonschema:"Optional RFC3339 due timestamp."`
+	Notes              string            `json:"notes,omitempty"`
+	AssignedTo         *int64            `json:"assigned_to,omitempty" jsonschema:"Positive active suite user ID for assignment only; no user administration."`
+	ExpectedReferences map[string]string `json:"expected_references,omitempty" jsonschema:"Exact complete reference versions returned by preview; required for confirmed creation."`
+
+	ConfirmCreation bool `json:"confirm_creation,omitempty" jsonschema:"Set true only after showing the final draft to the user and receiving explicit confirmation."`
 }
 
 type preparedOperationalCreate struct {
@@ -116,27 +119,6 @@ func registerOperationalCreateTools(server *mcp.Server, cfg config.Config, db *s
 		return map[string]any{"creation_status": "created", "task": created}, []Source{{Service: "plannercore", Entity: "task", ID: fmt.Sprint(created["id"])}}, nil, nil
 	})
 
-	addWritePreparationTool(server, "warehouse.tasks.prepare_create", "Prepare warehouse task creation", "Validate the warehouse task type, priority, due date and every referenced live Cores record before creation.", func(ctx context.Context, input WarehouseTaskCreateInput) (any, []Source, []string, error) {
-		prepared, err := prepareWarehouseTaskCreate(ctx, db, input)
-		return prepared.response("draft"), []Source{{Service: "warehousecore", Entity: "warehouse_task_draft"}}, untrustedTextWarning(), err
-	})
-	addCreateTool(server, "warehouse.tasks.create", "Create warehouse task", "Create one additive WarehouseCore work item after validating all references. First call warehouse.tasks.prepare_create, show the final draft, and obtain explicit confirmation.", func(ctx context.Context, input WarehouseTaskCreateInput) (any, []Source, []string, error) {
-		prepared, err := prepareWarehouseTaskCreate(ctx, db, input)
-		if err != nil {
-			return nil, nil, nil, err
-		}
-		if !prepared.Ready {
-			return prepared.response("needs_input"), []Source{{Service: "warehousecore", Entity: "warehouse_task_draft"}}, []string{"No data was changed. Ask the listed questions before retrying."}, nil
-		}
-		if !input.ConfirmCreation {
-			return prepared.response("confirmation_required"), []Source{{Service: "warehousecore", Entity: "warehouse_task_draft"}}, []string{"No data was changed. Show this final draft and ask the user for explicit confirmation."}, nil
-		}
-		var created map[string]any
-		if err := api.doJSON(ctx, cfg.WarehouseURL, "/api/v1/warehouse/tasks", http.MethodPost, prepared.Draft, &created); err != nil {
-			return nil, nil, nil, err
-		}
-		return map[string]any{"creation_status": "created", "warehouse_task": created}, []Source{{Service: "warehousecore", Entity: "warehouse_task", ID: fmt.Sprint(created["task_id"])}}, nil, nil
-	})
 }
 
 func preparePlannerPlanCreate(ctx context.Context, db *store.Store, input PlannerPlanCreateInput) (preparedOperationalCreate, error) {
@@ -213,17 +195,17 @@ func preparePlannerTaskCreate(ctx context.Context, db *store.Store, input Planne
 
 func prepareWarehouseTaskCreate(ctx context.Context, db *store.Store, input WarehouseTaskCreateInput) (preparedOperationalCreate, error) {
 	taskType := strings.ToLower(strings.TrimSpace(input.TaskType))
-	priority := input.Priority
-	if priority == 0 {
-		priority = 50
+	priority := 50
+	if input.Priority != nil {
+		priority = *input.Priority
 	}
 	prepared := preparedOperationalCreate{Draft: map[string]any{"task_type": taskType, "priority": priority}}
 	validTypes := map[string]bool{"putaway": true, "move": true, "pick": true, "replenish": true, "count": true, "inspect": true, "pack": true, "return": true}
 	if !validTypes[taskType] {
 		prepared.require("task_type", "Welcher gültige Aufgabentyp soll verwendet werden: putaway, move, pick, replenish, count, inspect, pack oder return?")
 	}
-	if priority < 1 || priority > 100 {
-		prepared.require("priority", "Welche Priorität zwischen 1 und 100 soll die Lageraufgabe erhalten?")
+	if priority < 0 || priority > 100 {
+		prepared.require("priority", "Welche Priorität zwischen 0 und 100 soll die Lageraufgabe erhalten?")
 	}
 	if input.FromZoneID == nil && input.ToZoneID == nil && input.CaseID == nil && strings.TrimSpace(input.DeviceID) == "" && input.ProductID == nil && input.JobID == nil {
 		prepared.require("context", "Auf welche Zone, welches Case, Gerät, Produkt oder welchen Job bezieht sich die Lageraufgabe?")

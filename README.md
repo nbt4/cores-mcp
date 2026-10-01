@@ -1,5 +1,44 @@
 # Cores MCP
 
+## Atomare MCP-Lageraufgaben — WarehouseCore 5.9.102 / Cores MCP 1.5.32
+
+`warehouse.tasks` unterstützt vollständige Anlage und Teilupdates, `start`,
+`complete`, `cancel`, `reopen`, `archive`, `restore` samt `prepare_*`, `search`
+und redigierter `audit_history`. Das Schema beschreibt Typ, Priorität 0–100
+(Standard 50), Quelle/Ziel, Case, Gerät, Produkt/Menge, Job, Zuständigkeit,
+Termin und Arbeitsnotizen. `clear_fields` leert optionale Werte ausdrücklich;
+mindestens eine fachliche Referenz bleibt erforderlich. Geräte-/Produktbezug
+muss zusammenpassen; Seriengeräte haben bei angegebener Menge genau ein Stück.
+Mengen besitzen höchstens drei Nachkommastellen, Termine eine explizite Zeitzone.
+
+Admin und create/update/archive-Scope, vollständige Vorschau/Diff und Idempotenz
+sind erforderlich. Die Anlage behält `confirm_creation`; übrige Aktionen verwenden
+`confirm_change` und die genaue `expected_updated_at`. Alle bestätigten Aktionen
+verlangen die vollständige `expected_references` aus der Vorschau, einschließlich
+ersetzter Verknüpfungen. Aktive Arbeit prüft aktive Geräte/Produkte/Cases/Zonen,
+offene Jobs und aktive Zuständigkeiten. Änderungen an referenzierten Datensätzen
+oder Ereignissen lassen eine ältere Vorschau scheitern.
+
+Abschluss, Storno, Wiederöffnung und Lifecycle benötigen die Phrase
+`COMPLETE|CANCEL|REOPEN|ARCHIVE|RESTORE WAREHOUSE TASK <ID>`; Storno/Wiederöffnung
+zusätzlich einen Grund. Nur terminale Aufgaben können archiviert werden. Restore
+erhält terminalen Status und Historie, auch wenn Stammdaten inzwischen archiviert
+sind; Wiederöffnung prüft aktive Referenzen erneut. Normale Aufgabenlisten blenden
+Archive aus. Arbeitsnotizen und Ereignisgründe werden in der Historienabfrage
+redigiert; Actor, Herkunft, Zeitpunkt, Zustände und Versionen bleiben abrufbar.
+
+Aufgabe, Ereignis, Referenzversionen, Vorher/Nachher-Audits und dauerhafter Replay
+sind atomar. **Aufgabenabschluss quittiert Arbeit und bucht keinen Lagerbestand.**
+Physische Geräte-/Case-/Mengenbewegungen bleiben eigene bestätigte Werkzeuge.
+Migration Warehouse `056` / Umbrella `029` schützt Archive und versioniert alle
+Aufgaben-/Ereignisschreiber sowie betroffene Geräte, Cases, Produkte, Zonen und
+Jobs. Umbrella-Neuinstallationen erhalten das kanonische Aufgabenschema.
+Fehlgeschlagene Aufgaben-/Wartungsaufrufe lassen sich mit demselben Schlüssel
+wiederholen; der atomare Owner-Replay schützt auch nach Transportfehlern.
+
+268 Tools: 80 Abfragen, 94 Vorschauen, 94 Ausführungen. Keine neue Konfiguration.
+Inventur und weitere Anforderungen von #4/#5 bleiben im Abschlusscheck offen.
+
 ## MCP-Wartungsaufträge und Defekte — WarehouseCore 5.9.101 / Cores MCP 1.5.31
 
 `warehouse.maintenance_orders` und `warehouse.defects` unterstützen `search`,

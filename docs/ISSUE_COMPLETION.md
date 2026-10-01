@@ -15,7 +15,7 @@ and production verification. Optional event streams are separate follow-up work.
 | Warehouse cases | Create/update/archive/restore, models search, audit | Template/content workflow tools |
 | Warehouse maintenance/defects | Full recurring plans and manual work/defect create/update/transition/complete/cancel/reopen/archive/restore; atomic schedule/condition/legacy effects, events, redacted audits and explicit cost scope | — |
 | Warehouse inventory | Variance reads, physical movements | Guided count/line/review/approve/cancel with atomic audit |
-| Warehouse tasks | Create | Metadata update, complete/cancel/archive/restore |
+| Warehouse tasks | Full create/partial update/start/complete/cancel/reopen/archive/restore, exact task/reference versions, atomic events/audits/durable replay and redacted history | — |
 | Rental customers/venues | Resolve/search | Complete create/update/archive/restore |
 | Rental jobs | Create, limited metadata/status updates, device assignment | Complete fields, locking, lifecycle, full atomic audit/replay |
 | Rental requirements | Create, quantity update | Complete fields, lifecycle, full atomic audit/replay |

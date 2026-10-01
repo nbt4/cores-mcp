@@ -112,7 +112,7 @@ func executeMutationTool[In any](ctx context.Context, name, permissionLabel stri
 		}, nil
 	}
 
-	if strings.HasPrefix(name, "warehouse.maintenance_orders.") || strings.HasPrefix(name, "warehouse.defects.") {
+	if strings.HasPrefix(name, "warehouse.maintenance_orders.") || strings.HasPrefix(name, "warehouse.defects.") || strings.HasPrefix(name, "warehouse.tasks.") {
 		permissionErr = requireWarehouseMasterAdmin(ctx)
 		raw, _ := json.Marshal(input)
 		fields := map[string]any{}
@@ -165,6 +165,9 @@ func executeMutationTool[In any](ctx context.Context, name, permissionLabel stri
 	data, sources, warnings, err := fn(ctx, invocation.Input)
 	if invocation.Confirmed {
 		mutationReplays.finish(invocation.ReplayKey, replay, data, sources, warnings, err)
+		if err != nil && hasDurableWarehouseRetry(name) {
+			mutationReplays.forgetFailed(invocation.ReplayKey, replay)
+		}
 	}
 	if err != nil {
 		message := fmt.Sprintf("%s failed: %v", name, err)
@@ -194,7 +197,7 @@ func authorizeMutation(ctx context.Context, tool string) (context.Context, error
 }
 
 func requiredMutationScope(tool string) string {
-	if strings.HasPrefix(tool, "warehouse.maintenance_orders.") || strings.HasPrefix(tool, "warehouse.defects.") {
+	if strings.HasPrefix(tool, "warehouse.maintenance_orders.") || strings.HasPrefix(tool, "warehouse.defects.") || strings.HasPrefix(tool, "warehouse.tasks.") {
 		action := "update"
 		if strings.HasSuffix(tool, ".create") {
 			action = "create"
