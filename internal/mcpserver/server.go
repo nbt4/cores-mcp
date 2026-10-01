@@ -14,7 +14,7 @@ import (
 	"github.com/nbt4/cores-mcp/internal/store"
 )
 
-const Version = "1.5.24"
+const Version = "1.5.25"
 
 func New(cfg config.Config, db *store.Store, logger *slog.Logger) *mcp.Server {
 	description := "Read-only operational context and safe cross-core queries for RentalCore, WarehouseCore, PlannerCore and ProcurementCore."
@@ -34,6 +34,7 @@ func New(cfg config.Config, db *store.Store, logger *slog.Logger) *mcp.Server {
 	registerWarehouseTools(server, db)
 	registerWarehouseAuditTool(server, db)
 	registerWarehouseDeviceAuditTool(server, db)
+	registerWarehousePackageAuditTool(server, db)
 	registerWarehouseMasterTools(server, db)
 	registerMasterDataTools(server, db)
 	registerPlannerTools(server, db)
@@ -62,6 +63,7 @@ func New(cfg config.Config, db *store.Store, logger *slog.Logger) *mcp.Server {
 		registerWarehouseLocationCreateTools(server, cfg, db)
 		registerWarehouseLocationUpdateTools(server, cfg, db)
 		registerWarehousePackageTools(server, cfg, db)
+		registerWarehousePackageLifecycleTools(server, cfg, db)
 		registerWarehouseDeviceTools(server, cfg, db)
 		registerWarehouseMasterUpdateTools(server, cfg, db)
 		registerOperationalCreateTools(server, cfg, db)
@@ -157,6 +159,8 @@ var mutationTools = map[string]struct{}{
 	"warehouse.brands.update":           {},
 	"warehouse.packages.create":         {},
 	"warehouse.packages.update":         {},
+	"warehouse.packages.archive":        {},
+	"warehouse.packages.restore":        {},
 	"warehouse.tasks.create":            {},
 }
 

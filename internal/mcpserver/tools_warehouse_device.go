@@ -83,8 +83,8 @@ type warehouseDeviceDraft struct {
 }
 
 const warehouseDeviceDependenciesSQL = `SELECT
- (SELECT count(*) FROM job_devices jd JOIN jobs j ON j.jobid=jd.jobid JOIN status s ON s.statusid=j.statusid WHERE jd.deviceid=$1 AND ((j.deleted_at IS NULL AND NOT warehouse_job_status_is_closed(s.status)) OR jd.pack_status IN ('packed','issued'))) AS jobs,
- (SELECT count(*) FROM job_position_devices pd JOIN job_positions p ON p.position_id=pd.position_id JOIN jobs j ON j.jobid=p.job_id JOIN status s ON s.statusid=j.statusid WHERE pd.device_id=$1 AND j.deleted_at IS NULL AND NOT warehouse_job_status_is_closed(s.status)) AS picklists,
+ (SELECT count(*) FROM job_devices jd JOIN jobs j ON j.jobid=jd.jobid LEFT JOIN status s ON s.statusid=j.statusid WHERE jd.deviceid=$1 AND ((j.deleted_at IS NULL AND NOT warehouse_job_status_is_closed(COALESCE(s.status,''))) OR jd.pack_status IN ('packed','issued'))) AS jobs,
+ (SELECT count(*) FROM job_position_devices pd JOIN job_positions p ON p.position_id=pd.position_id JOIN jobs j ON j.jobid=p.job_id LEFT JOIN status s ON s.statusid=j.statusid WHERE pd.device_id=$1 AND j.deleted_at IS NULL AND NOT warehouse_job_status_is_closed(COALESCE(s.status,''))) AS picklists,
  (SELECT count(*) FROM job_package_reservations WHERE device_id=$1 AND reservation_status<>'released') AS reservations,
  (SELECT count(*) FROM devicescases WHERE deviceid=$1)+(SELECT count(*) FROM devices WHERE deviceid=$1 AND current_case_id IS NOT NULL) AS cases,
  (SELECT count(*) FROM device_components WHERE device_id=$1 OR component_device_id=$1) AS components,

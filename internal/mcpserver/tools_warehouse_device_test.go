@@ -134,6 +134,11 @@ func TestWarehouseDevicePreparationAndRedactedAudit(t *testing.T) {
 	if p := update(WarehouseDeviceUpdateInput{DeviceID: "DEV-A", ClearFields: []string{"barcode"}}); p.Ready {
 		t.Fatal("scan clear accepted")
 	}
+	exec(`INSERT INTO jobs VALUES(3,NULL,NULL);INSERT INTO job_devices VALUES('DEV-A',3,'pending')`)
+	if life("archive").Ready {
+		t.Fatal("unknown job status ignored")
+	}
+	exec(`DELETE FROM job_devices`)
 	exec(`INSERT INTO warehouse_tasks VALUES('DEV-A','open')`)
 	if life("archive").Ready {
 		t.Fatal("task dependency ignored")

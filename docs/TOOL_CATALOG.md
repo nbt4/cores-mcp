@@ -7,7 +7,7 @@ OAuth-Benutzers beschränkt. Das gilt auch für `cores.search`,
 berechtigt nicht zum Lesen fremder Pläne. Maschinentokens liefern keine Planner-Daten.
 Toolnamen und Eingabeschemas bleiben unverändert.
 
-Die 65 Abfragetools sind read-only und idempotent. Bei `MCP_ENABLE_WRITES=true` werden zusätzlich 54 vorbereitende und 54 bestätigte Schreibtools für alle vier Core-Services registriert. Suchtools akzeptieren üblicherweise `query`, `limit` und `offset`; Zeitfenster `from`, `to` und `limit`; Detailtools `id`. Datumswerte sind `YYYY-MM-DD` oder RFC3339.
+Die 66 Abfragetools sind read-only und idempotent. Bei `MCP_ENABLE_WRITES=true` werden zusätzlich 56 vorbereitende und 56 bestätigte Schreibtools für alle vier Core-Services registriert. Suchtools akzeptieren üblicherweise `query`, `limit` und `offset`; Zeitfenster `from`, `to` und `limit`; Detailtools `id`. Datumswerte sind `YYYY-MM-DD` oder RFC3339.
 
 Der MCP-Endpunkt verlangt immer `cores:read`. Für ein Vorbereitung- oder
 Ausführungstool ist zusätzlich entweder der kompatible Sammel-Scope
@@ -439,3 +439,26 @@ WarehouseCore `5.9.94` committet Mutation, Audit und Replay-Beleg atomar.
 Migration `051` / Umbrella `024` versioniert sämtliche Geräte-Schreiber.
 Revert ist ausdrücklich nur der beschriebene Feld-Rückweg; spätere Writes oder
 Audits, fremde Akteure und andere Aktionsarten sperren ihn.
+
+### Warehouse-Paket-Lebenszyklus ab 1.5.25
+
+| Tools | Verhalten |
+|---|---|
+| `warehouse.packages.prepare_archive` / `archive` | Vollständiges Paket, Metadaten-/Inhaltsversion, Website-Diff, aktive Jobs und Reservierungen prüfen; Paket deaktivieren, Historie bewahren |
+| `warehouse.packages.prepare_restore` / `restore` | Zusätzlich aktive Produktreferenzen und gültige Bestandteile prüfen; Paket reaktivieren, Website-Sichtbarkeit deaktiviert lassen |
+| `warehouse.packages.audit_history` | Administrator-Abfrage von redigierten Paket-Ereignissen und neuen Ergebnisversionen, ohne Beschreibungen, Roh-JSON, IP oder User-Agent |
+
+Schema `warehouse.packages` enthält `lifecycle_fields`. Scope für beide Aktionen:
+`cores:warehouse:archive` oder Legacy `cores:write`, plus Warehouse-Admin.
+Ausführung braucht `expected_updated_at`, `idempotency_key`, `confirm_lifecycle`
+und exakt `ARCHIVE|RESTORE WAREHOUSE PACKAGE <ID>`. Dry-run ist möglich.
+
+Aktive Jobs, Jobs ohne Status und offene Reservierungen blockieren beide Aktionen;
+historische geschlossene Jobs bleiben erhalten. Restore prüft alle Bestandteile,
+aktive Produkte und den eindeutigen Namen. Beide Aktionen deaktivieren Website-
+Sichtbarkeit; spätere Veröffentlichung verlangt einen gesonderten bestätigten
+Update. ID, Code, Preis und Inhaltszeilen bleiben erhalten, ohne Bestandsbewegung
+oder endgültiges Löschen. WarehouseCore 5.9.95 speichert Mutation, Audit und
+Replay atomar und prüft alle Abhängigkeiten erneut. Bestehende Versionstrigger
+reichen aus; keine zusätzliche Migration. Geräte-Abhängigkeiten behandeln
+fehlenden Jobstatus ebenfalls konservativ als offen.
