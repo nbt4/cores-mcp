@@ -164,7 +164,7 @@ INSERT INTO storage_zones(code,barcode,name,type,description,inventory_frequency
 		}
 	}
 	schemaResult := renderWritableEntitySchema(writableEntitySchemas()["warehouse.locations"])
-	if len(schemaResult["lifecycle_fields"].([]map[string]any)) != 4 {
+	if len(schemaResult["lifecycle_fields"].([]map[string]any)) != 6 {
 		t.Fatal(schemaResult)
 	}
 }

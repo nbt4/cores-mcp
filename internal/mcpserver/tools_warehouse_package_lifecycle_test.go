@@ -147,7 +147,7 @@ func TestWarehousePackageLifecycleAndAudit(t *testing.T) {
 		}
 	}
 	entitySchema := renderWritableEntitySchema(writableEntitySchemas()["warehouse.packages"])
-	if len(entitySchema["lifecycle_fields"].([]map[string]any)) != 4 {
+	if len(entitySchema["lifecycle_fields"].([]map[string]any)) != 6 {
 		t.Fatal(entitySchema)
 	}
 }

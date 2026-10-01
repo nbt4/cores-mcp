@@ -113,3 +113,17 @@ Die exakte Updateversion umfasst auch einzelne Zeilenänderungen anderer
 Schreibpfade. Vorhandene Jobnutzung sperrt Änderungen an Preis und Inhalt;
 Metadaten bleiben bearbeitbar. Website-Sichtbarkeit trägt eine Warnung über
 öffentliche Paketdaten. Es gibt keine Paketlöschung und keine Lagerbuchung.
+
+
+## Case-Lebenszyklus
+
+Benannte Case-Werkzeuge benötigen Warehouse-Admin und passenden create/update/
+archive-Scope. Vorschau und Dry-run verändern keine Daten. Die Ziel-API akzeptiert
+nur die dokumentierten Felder und Operationen; sie prüft IDs, Modell, Lager-
+hierarchie, Scannerreservierungen, Inhalte, Aufgaben und Jobs erneut. Exakte
+Case-Versionen erfassen auch UI-/Scanner-Inhaltsänderungen. Lifecycle benötigt
+zusätzlich eine Case-gebundene Phrase. Archivierte Cases bleiben reserviert und
+können über Scanner oder Inhaltsoperationen nicht benutzt werden. Mutation,
+Audit (MCP/AI, Nutzer, Vorher/Nachher) und Idempotenzbeleg committen atomar.
+Audit-Historie liefert nur redigierte Metadaten; Beschreibungen/Roh-JSON bleiben
+bei normalen Audit-Abfragen ausgeschlossen. Keine endgültige Case-Löschung.

@@ -48,12 +48,13 @@ func registerSchemaTools(server *mcp.Server) {
 
 func writableEntitySchemas() map[string]writableEntitySchema {
 	return map[string]writableEntitySchema{
-		"rental.jobs":                {Entity: "rental.jobs", Service: "rentalcore", Input: JobCreateInput{}, Required: []string{"description", "customer_id|customer_query", "start_date", "end_date"}, Operations: []string{"prepare_create", "create", "prepare_update", "update"}},
-		"rental.requirements":        {Entity: "rental.requirements", Service: "rentalcore", Input: RequirementCreateInput{}, Required: []string{"job_id|job_query", "product_id|product_query", "quantity"}, Operations: []string{"prepare_create", "create", "prepare_update", "update"}},
+		"warehouse.cases":            {Entity: "warehouse.cases", Service: "warehousecore", Input: WarehouseCaseInput{}, UpdateInput: WarehouseCaseInput{}, LifecycleInput: WarehouseCaseInput{}, Required: []string{"name"}, Operations: []string{"prepare_create", "create", "prepare_update", "update", "prepare_archive", "archive", "prepare_restore", "restore", "audit_history"}, Notes: []string{"Exact case version covers metadata, contents, templates and nesting. Administrator/create-update-archive scope, explicit confirmation, durable idempotency and atomic audit required. Lifecycle blocks contents, jobs, tasks, nesting and active workflow; barcode identities remain reserved while archived."}},
+		"rental.jobs":                {Entity: "rental.jobs", Service: "rentalcore", Input: JobCreateInput{}, UpdateInput: JobUpdateInput{}, Required: []string{"description", "customer_id|customer_query", "start_date", "end_date"}, Operations: []string{"prepare_create", "create", "prepare_update", "update"}},
+		"rental.requirements":        {Entity: "rental.requirements", Service: "rentalcore", Input: RequirementCreateInput{}, UpdateInput: RequirementUpdateInput{}, Required: []string{"job_id|job_query", "product_id|product_query", "quantity"}, Operations: []string{"prepare_create", "create", "prepare_update", "update"}},
 		"rental.device_assignments":  {Entity: "rental.device_assignments", Service: "rentalcore", Input: JobDeviceAssignInput{}, Required: []string{"job_id|job_query", "device_id"}, Operations: []string{"prepare_assign", "assign"}},
 		"warehouse.devices":          {Entity: "warehouse.devices", Service: "warehousecore", Input: WarehouseDeviceCreateInput{}, UpdateInput: WarehouseDeviceUpdateInput{}, LifecycleInput: WarehouseDeviceLifecycleInput{}, RevertInput: WarehouseDeviceRevertInput{}, Required: []string{"product_id"}, Operations: []string{"prepare_create", "create", "prepare_update", "update", "prepare_archive", "archive", "prepare_restore", "restore", "prepare_revert_update", "revert_update", "audit_history", "prepare_update_status", "update_status"}, Notes: []string{"Admin and matching create/update/archive scope required. Single-device creation only; scan codes and serial numbers remain reserved while archived. Exact full-device version covers every writer. Lifecycle changes require dependency review and a device-bound phrase. Revert is limited to the current user latest unchanged MCP device.update audit; an inverse diff and audit-bound confirmation are required. Physical movements, condition and maintenance workflows are separate. Audit history excludes notes, IP and raw JSON."}},
 		"warehouse.packages":         {Entity: "warehouse.packages", Service: "warehousecore", Input: WarehousePackageCreateInput{}, UpdateInput: WarehousePackageUpdateInput{}, LifecycleInput: WarehousePackageLifecycleInput{}, ItemInput: WarehousePackageItem{}, Required: []string{"name", "items"}, Operations: []string{"prepare_create", "create", "prepare_update", "update", "prepare_archive", "archive", "prepare_restore", "restore", "audit_history"}, Notes: []string{"Admin and matching create/update/archive scope required. Lifecycle requires full version, job/reservation review and package-bound confirmation. Restore validates all products. Both lifecycle actions disable website visibility; history and item row IDs remain. Code and ID are immutable. Package and all product lines are committed atomically with audit and idempotency. Exact version covers metadata and contents. Prices and contents used in any job are protected; create a new package instead. No stock movement, mirror product or file upload."}},
-		"warehouse.products":         {Entity: "warehouse.products", Service: "warehousecore", Input: WarehouseProductCreateInput{}, UpdateInput: WarehouseProductUpdateInput{}, Required: []string{"name", "category_id|category_name", "manufacturer_id|manufacturer_name"}, Operations: []string{"prepare_create", "create", "prepare_update", "update", "prepare_archive", "archive", "prepare_restore", "restore", "prepare_link_relation", "link_relation"}, Notes: []string{"Missing master data is created only when its create_* flag is explicitly true.", "Manufacturer, brand, category hierarchy, product, initial stock and initial devices are committed atomically.", "prepare_update and update accept WarehouseProductUpdateInput; call prepare_update to see its full diff and exact expected_updated_at.", "Lifecycle operations accept WarehouseProductLifecycleInput and require a dedicated archive scope, version, dependency preview and record-bound confirmation.", "Product relationships accept WarehouseProductRelationInput and use a versioned, audited upsert."}},
+		"warehouse.products":         {Entity: "warehouse.products", Service: "warehousecore", Input: WarehouseProductCreateInput{}, UpdateInput: WarehouseProductUpdateInput{}, LifecycleInput: WarehouseProductLifecycleInput{}, Required: []string{"name", "category_id|category_name", "manufacturer_id|manufacturer_name"}, Operations: []string{"prepare_create", "create", "prepare_update", "update", "prepare_archive", "archive", "prepare_restore", "restore", "prepare_link_relation", "link_relation"}, Notes: []string{"Missing master data is created only when its create_* flag is explicitly true.", "Manufacturer, brand, category hierarchy, product, initial stock and initial devices are committed atomically.", "prepare_update and update accept WarehouseProductUpdateInput; call prepare_update to see its full diff and exact expected_updated_at.", "Lifecycle operations accept WarehouseProductLifecycleInput and require a dedicated archive scope, version, dependency preview and record-bound confirmation.", "Product relationships accept WarehouseProductRelationInput and use a versioned, audited upsert."}},
 		"warehouse.manufacturers":    {Entity: "warehouse.manufacturers", Service: "warehousecore", Input: WarehouseManufacturerCreateInput{}, UpdateInput: WarehouseManufacturerUpdateInput{}, Required: []string{"name"}, Operations: []string{"resolve", "prepare_create", "create", "prepare_update", "update", "resolve_or_create_via_product"}, Notes: []string{"Standalone creation returns manufacturer_id for warehouse.brands.create and warehouse.products.update. Updates support name and website (empty clears), full diff, exact version, administrator permission, confirmation and idempotency."}},
 		"warehouse.brands":           {Entity: "warehouse.brands", Service: "warehousecore", Input: WarehouseBrandCreateInput{}, UpdateInput: WarehouseBrandUpdateInput{}, Required: []string{"name", "manufacturer_id"}, Operations: []string{"resolve", "prepare_create", "create", "prepare_update", "update", "resolve_or_create_via_product"}, Notes: []string{"Standalone creation requires an existing manufacturer and returns brand_id for warehouse.products.update. Updates support name and manufacturer reassociation; clear_manufacturer explicitly removes the association. Linked products must already use the proposed manufacturer. Exact version, administrator permission, full diff, confirmation and idempotency are required."}},
 		"warehouse.categories":       {Entity: "warehouse.categories", Service: "warehousecore", Input: WarehouseCategoryCreateInput{}, UpdateInput: WarehouseCategoryUpdateInput{}, DeleteInput: WarehouseCategoryDeleteInput{}, Required: []string{"name", "abbreviation"}, Operations: []string{"resolve", "prepare_create", "create", "prepare_update", "update", "prepare_delete", "delete", "resolve_or_create_via_product"}, Notes: []string{"Permanent removal is limited to unused categories without children; dedicated delete scope, unchanged version, explicit confirmation and exact record-bound phrase are required. No cascade; audit history remains.", "Updates preserve IDs, preview the complete diff and linked record counts, and require admin/update scope, exact version, confirmation and idempotency. Conflicting product assignments block parent changes."}},
@@ -111,6 +112,16 @@ func renderWritableFields(input any, requiredFields []string) []map[string]any {
 	fields := make([]map[string]any, 0, typeOf.NumField())
 	for index := 0; index < typeOf.NumField(); index++ {
 		field := typeOf.Field(index)
+		if field.Anonymous {
+			embedded := field.Type
+			for embedded.Kind() == reflect.Pointer {
+				embedded = embedded.Elem()
+			}
+			if embedded.Kind() == reflect.Struct {
+				fields = append(fields, renderWritableFields(reflect.New(embedded).Elem().Interface(), requiredFields)...)
+			}
+			continue
+		}
 		name := strings.Split(field.Tag.Get("json"), ",")[0]
 		if name == "" || name == "-" {
 			continue
@@ -121,6 +132,22 @@ func renderWritableFields(input any, requiredFields []string) []map[string]any {
 		}
 		if description := field.Tag.Get("jsonschema"); description != "" {
 			entry["validation"] = description
+		}
+		nested := field.Type
+		for nested.Kind() == reflect.Pointer {
+			nested = nested.Elem()
+		}
+		if nested.Kind() == reflect.Struct {
+			entry["fields"] = renderWritableFields(reflect.New(nested).Elem().Interface(), nil)
+		}
+		if nested.Kind() == reflect.Slice || nested.Kind() == reflect.Array {
+			item := nested.Elem()
+			for item.Kind() == reflect.Pointer {
+				item = item.Elem()
+			}
+			if item.Kind() == reflect.Struct {
+				entry["item_fields"] = renderWritableFields(reflect.New(item).Elem().Interface(), nil)
+			}
 		}
 		fields = append(fields, entry)
 	}

@@ -14,7 +14,7 @@ import (
 	"github.com/nbt4/cores-mcp/internal/store"
 )
 
-const Version = "1.5.26"
+const Version = "1.5.27"
 
 func New(cfg config.Config, db *store.Store, logger *slog.Logger) *mcp.Server {
 	description := "Read-only operational context and safe cross-core queries for RentalCore, WarehouseCore, PlannerCore and ProcurementCore."
@@ -36,6 +36,7 @@ func New(cfg config.Config, db *store.Store, logger *slog.Logger) *mcp.Server {
 	registerWarehouseDeviceAuditTool(server, db)
 	registerWarehousePackageAuditTool(server, db)
 	registerWarehouseLocationAuditTool(server, db)
+	registerWarehouseCaseReadTools(server, db)
 	registerWarehouseMasterTools(server, db)
 	registerMasterDataTools(server, db)
 	registerPlannerTools(server, db)
@@ -67,6 +68,7 @@ func New(cfg config.Config, db *store.Store, logger *slog.Logger) *mcp.Server {
 		registerWarehousePackageTools(server, cfg, db)
 		registerWarehousePackageLifecycleTools(server, cfg, db)
 		registerWarehouseDeviceTools(server, cfg, db)
+		registerWarehouseCaseTools(server, cfg, db)
 		registerWarehouseMasterUpdateTools(server, cfg, db)
 		registerOperationalCreateTools(server, cfg, db)
 		registerWorkflowTools(server, cfg, db)
@@ -107,6 +109,10 @@ func auditMiddleware(logger *slog.Logger) mcp.Middleware {
 }
 
 var mutationTools = map[string]struct{}{
+	"warehouse.cases.create":          {},
+	"warehouse.cases.update":          {},
+	"warehouse.cases.archive":         {},
+	"warehouse.cases.restore":         {},
 	"warehouse.devices.create":        {},
 	"warehouse.devices.update":        {},
 	"warehouse.devices.archive":       {},

@@ -1,5 +1,30 @@
 # Cores MCP
 
+## MCP-Cases — WarehouseCore 5.9.97 / Cores MCP 1.5.27
+
+Cases unterstützen prepare_create/create, prepare_update/update,
+prepare_archive/archive, prepare_restore/restore und redigierte audit_history.
+warehouse.case_models.search liefert vorhandene Modelle. Vollständige Vorschau,
+Diff, Warehouse-Admin und create/update/archive-Scope, explizite confirm_change,
+Idempotenz und exakte Mikrosekunden-Version sind erforderlich; Lifecycle verlangt
+zusätzlich ARCHIVE|RESTORE WAREHOUSE CASE <ID>. Keine Bestandsbewegung oder
+endgültige Löschung. Nullbare Felder sind über clear_fields ausdrücklich leerbar.
+
+Migration Warehouse 052 / Umbrella 025 versioniert Metadaten, Inhalte, Templates
+und verschachtelte Cases aller Schreibpfade. Archivierte Cases behalten IDs,
+Metadaten und Vorlagen; aktive Inhalte, Jobs, Aufgaben und Lagerabläufe sperren.
+Scannerkennungen werden deaktiviert und bleiben reserviert. Restore prüft
+Modell, Lagerhierarchie, Profil, Kapazität und aktive Template-Produkte erneut.
+Mutation, Vorher/Nachher-Audit mit MCP/AI und dauerhafter Replay-Beleg sind atomar.
+
+Schema-Discovery liefert auch eingebettete Dry-run-/Idempotenzfelder und
+verschachtelte Eingaben wie Bestellpositionen. Bestehende Rental-Updates und
+Warehouse-Produkt-Lifecycle haben ausdrückliche Eingabeschemas.
+
+193 Tools: 69 Abfragen, 62 Vorschauen, 62 Ausführungen. Keine neue Konfiguration.
+Vollständiger Restumfang von #4/#5: [MCP-Abschlusscheck](docs/ISSUE_COMPLETION.md).
+
+
 ## Lagerplätze archivieren und wiederherstellen ab 1.5.26
 
 Lagerplätze können über `warehouse.locations.prepare_archive`/`archive` und
@@ -689,7 +714,7 @@ Markdown-, Text-, CSV- und JSON-Dateien unter `MCP_KNOWLEDGE_DIRS` werden als MC
 
 ```bash
 make check
-docker build -t nobentie/cores-mcp:1.5.26 -t nobentie/cores-mcp:latest .
+docker build -t nobentie/cores-mcp:1.5.27 -t nobentie/cores-mcp:latest .
 ```
 
 Die Umbrella-Compose-Datei der Cores Suite bindet den Dienst intern ein. Der Cores-Dashboard-Reverse-Proxy veröffentlicht MCP und OAuth auf derselben Domain, damit der bestehende Suite-Login genutzt werden kann.

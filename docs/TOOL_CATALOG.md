@@ -495,3 +495,40 @@ jetzt ebenfalls die Ergebnisversion in den Audit. `cores.entities.schema` für
 `warehouse.locations` enthält `lifecycle_fields`. WarehouseCore prüft erneut und
 speichert Mutation, Audit und Replay atomar. Migration `046` / Umbrella `019`
 versioniert bereits alle Lagerplatz-Schreiber; keine neue Migration erforderlich.
+
+
+### Warehouse-Cases ab 1.5.27
+
+| Werkzeug | Vertrag |
+| --- | --- |
+| `warehouse.case_models.search` | Vorhandene Modelle anhand Name/ID auflösen |
+| `warehouse.cases.prepare_create` / `create` | Leeres Case vollständig anlegen, ähnlich benannte Cases ausdrücklich bestätigen |
+| `warehouse.cases.prepare_update` / `update` | Metadaten mit exakter Inhalts-/Metadatenversion und vollständigem Diff pflegen |
+| `warehouse.cases.prepare_archive` / `archive` | Leeres, ungebundenes Case mit datensatzgebundener Phrase archivieren |
+| `warehouse.cases.prepare_restore` / `restore` | Referenzen, Scanneridentität, Vorlagen und Lagerhierarchie erneut prüfen und wiederherstellen |
+| `warehouse.cases.audit_history` | Redigierte Audit-Metadaten ohne Beschreibungen und Roh-JSON |
+
+Schema: `cores.entities.schema(entity="warehouse.cases")`. Eingaben sind Name,
+Beschreibung, Typ (dynamic/fixed/hybrid), vorhandenes Modell, Maße in cm, Gewicht
+und maximales Gesamtgewicht in kg, initialer Lagerplatz, Heimatplatz, Barcode
+und RFID. Ausgelassene Updatefelder bleiben erhalten; `clear_fields` leert
+nullable Felder ausdrücklich. Ein Update bewegt kein Case und verändert keine
+Inhalte, Vorlagen oder Prozesszustände. Identitäts-/Geometrieänderungen sind
+bei aktiven Abhängigkeiten gesperrt.
+
+Admin/create-update-archive-Scope, `confirm_change`, Idempotenz und beim Update/
+Lifecycle exakte Version sind erforderlich. Dry-run und Prepare führen auch
+bei gesetzter Bestätigung keinen Schreibvorgang aus. Lifecycle benötigt die
+exakte Phrase `ARCHIVE|RESTORE WAREHOUSE CASE <ID>` und blockiert aktive Inhalte,
+Verschachtelung, Aufgaben, Jobs und Prozesse. Alle Alias-Kennungen folgen dem
+Lifecycle; archivierte IDs bleiben reserviert. Restore validiert aktive
+Template-Produkte, Modell, Heimatplatz, sämtliche Lagereltern, Profil und
+Kapazität. API-Validierung, Case, Audit und Replay erfolgen in einer Transaktion.
+
+Der [Abschlusscheck](ISSUE_COMPLETION.md) dokumentiert den verbleibenden Umfang
+von #4 und #5; die Issues sind mit diesem Teilrelease noch nicht abschließbar.
+
+Schema-Discovery umfasst außerdem eingebettete `dry_run`-/Idempotenzfelder und
+verschachtelte Objekt-/Zeilenfelder (`fields` bzw. `item_fields`), einschließlich
+Bestellpositionen. Bestehende Rental-Job-/Requirement-Updates und Warehouse-
+Produkt-Lifecycle liefern ihre jeweiligen Eingabefelder ebenfalls ausdrücklich.

@@ -167,7 +167,7 @@ func registerWarehouseTools(server *mcp.Server, db *store.Store) {
 	})
 
 	rowsTool(server, db, "warehouse.cases.search", "Search handling units", "Search cases and handling units with workflow, location, current job and content counts.", "warehousecore", "case", func(input SearchInput) (string, []any) {
-		return `SELECT c.caseid AS case_id,c.name,c.barcode,c.rfid_tag,c.case_type,c.status,c.workflow_status,z.code AS zone_code,z.name AS zone,
+		return `SELECT c.caseid AS case_id,c.name,c.barcode,c.rfid_tag,c.case_type,c.status,c.workflow_status,c.lifecycle_status,z.code AS zone_code,z.name AS zone,
 		               c.current_job_id,c.sealed_at,c.weight,c.max_weight_kg,
 		               (SELECT count(*) FROM devices dc WHERE dc.current_case_id=c.caseid) AS devices,
 		               (SELECT COALESCE(sum(cpc.quantity),0) FROM case_product_contents cpc WHERE cpc.case_id=c.caseid) AS quantity_items,
