@@ -1,5 +1,28 @@
 # Cores MCP
 
+## Atomare MCP-Gerätestapel — WarehouseCore 5.9.98 / Cores MCP 1.5.28
+
+`warehouse.devices.prepare_bulk_create` und `warehouse.devices.bulk_create`
+verarbeiten 1–100 vollständige Geräteentwürfe. Die Vorschau prüft aktive,
+einzeln geführte Produkte, alle Metadaten, reservierte Serien-/Scan-Kennungen,
+Duplikate innerhalb des Stapels sowie die gesamte Belegung jedes Lagerplatzes.
+Lagerprofil und vollständige Hierarchie werden geprüft. Vorschauen erzeugen
+keine Geräte, Kennungen, Audits oder Replay-Belege.
+
+Ausführung benötigt Warehouse-Admin, `cores:warehouse:create` (oder Legacy
+`cores:write`), `confirm_creation`, `idempotency_key` und die exakte
+`confirmation_text` aus der Vorschau. Die zusätzliche Phrase enthält Anzahl
+und Fingerprint aller normalisierten Gerätefelder; Änderungen benötigen eine
+neue Vorschau und Bestätigung. `dry_run` verhindert die Ausführung.
+Geräte, Kennungen, ein Vorher/Nachher-Audit pro Gerät und dauerhafter Replay-Beleg
+werden gemeinsam gespeichert oder vollständig zurückgerollt. Keine Etiketten-
+oder Dateierzeugung. Automatische IDs werden erst bei Ausführung vergeben.
+`cores.entities.schema` liefert das Schema `warehouse.device_batches` inklusive
+aller Gerätefelder. `warehouse.devices.audit_history` zeigt auch Stapelereignisse.
+
+195 Tools: 69 Abfragen, 63 Vorschauen, 63 Ausführungen. Keine neue Konfiguration.
+Die Issues #4/#5 bleiben bis zum vollständigen [Abschlusscheck](https://github.com/nbt4/cores-mcp/blob/main/docs/ISSUE_COMPLETION.md) offen.
+
 ## MCP-Cases — WarehouseCore 5.9.97 / Cores MCP 1.5.27
 
 Cases unterstützen prepare_create/create, prepare_update/update,
@@ -714,7 +737,7 @@ Markdown-, Text-, CSV- und JSON-Dateien unter `MCP_KNOWLEDGE_DIRS` werden als MC
 
 ```bash
 make check
-docker build -t nobentie/cores-mcp:1.5.27 -t nobentie/cores-mcp:latest .
+docker build -t nobentie/cores-mcp:1.5.28 -t nobentie/cores-mcp:latest .
 ```
 
 Die Umbrella-Compose-Datei der Cores Suite bindet den Dienst intern ein. Der Cores-Dashboard-Reverse-Proxy veröffentlicht MCP und OAuth auf derselben Domain, damit der bestehende Suite-Login genutzt werden kann.

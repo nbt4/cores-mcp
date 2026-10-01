@@ -532,3 +532,19 @@ Schema-Discovery umfasst außerdem eingebettete `dry_run`-/Idempotenzfelder und
 verschachtelte Objekt-/Zeilenfelder (`fields` bzw. `item_fields`), einschließlich
 Bestellpositionen. Bestehende Rental-Job-/Requirement-Updates und Warehouse-
 Produkt-Lifecycle liefern ihre jeweiligen Eingabefelder ebenfalls ausdrücklich.
+
+### Atomare Gerätestapel ab 1.5.28
+
+`warehouse.devices.prepare_bulk_create` → vollständige Liste und Auswirkungen
+zeigen → Warehouse-Admin bestätigt → `warehouse.devices.bulk_create`.
+1–100 Items mit allen Feldern von `WarehouseDeviceBulkItem`; Schema
+`warehouse.device_batches`. Passender create-Scope, `confirm_creation=true`,
+`idempotency_key` und exakte batchgebundene `confirmation_text` aus der Vorschau.
+Die Phrase bindet alle normalisierten Felder und die Anzahl. Keine Teilanlage:
+Geräte, Scan-Kennungen, pro Gerät `device.bulk_create`-Audit und dauerhafter Replay
+werden im WarehouseCore gemeinsam gespeichert. Vorschau und `dry_run` schreiben
+nichts. Seriennummern und Scan-Codes müssen innerhalb des Stapels und gegenüber
+aktiven/archivierten Beständen eindeutig sein. Kombinierte Lagerkapazität,
+Lagerprofile und zyklusfreie aktive Hierarchie werden erneut geprüft. IDs und
+fehlende Kennungen entstehen bei Ausführung; keine Etiketten oder Anhänge.
+`warehouse.devices.audit_history` liefert die redigierten Stapelereignisse.

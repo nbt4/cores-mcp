@@ -11,7 +11,7 @@ and production verification. Optional event streams are separate follow-up work.
 | Warehouse categories | Three hierarchy levels: resolve/create/update; authorized dependency-checked removal | Soft archive/restore where referenced history must remain |
 | Warehouse locations | Create/update/archive/restore, audit | — |
 | Warehouse packages | Atomic lines/create/update/archive/restore, audit | — |
-| Warehouse devices | Create/update/archive/restore, audit, own last-update revert | Atomic bulk creation |
+| Warehouse devices | Create/update/archive/restore, audit, own last-update revert, atomic bulk creation | — |
 | Warehouse cases | Create/update/archive/restore, models search, audit | Template/content workflow tools |
 | Warehouse maintenance/defects | Read context, condition changes | Guided plans/orders/defects create/update/complete/lifecycle |
 | Warehouse inventory | Variance reads, physical movements | Guided count/line/review/approve/cancel with atomic audit |

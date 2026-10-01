@@ -180,7 +180,7 @@ func requiredMutationScope(tool string) string {
 		return coresauth.ServiceWriteScope("rental", "create")
 	case "rental.jobs.assign_device", "rental.jobs.update", "rental.requirements.update":
 		return coresauth.ServiceWriteScope("rental", "update")
-	case "warehouse.cases.create", "warehouse.devices.create", "warehouse.packages.create", "warehouse.tasks.create", "warehouse.products.create", "warehouse.manufacturers.create", "warehouse.brands.create", "warehouse.categories.create", "warehouse.subcategories.create", "warehouse.third_categories.create", "warehouse.locations.create":
+	case "warehouse.cases.create", "warehouse.devices.create", "warehouse.devices.bulk_create", "warehouse.packages.create", "warehouse.tasks.create", "warehouse.products.create", "warehouse.manufacturers.create", "warehouse.brands.create", "warehouse.categories.create", "warehouse.subcategories.create", "warehouse.third_categories.create", "warehouse.locations.create":
 		return coresauth.ServiceWriteScope("warehouse", "create")
 	case "warehouse.cases.update", "warehouse.devices.update", "warehouse.devices.revert_update", "warehouse.packages.update", "warehouse.movements.create", "warehouse.devices.update_status", "warehouse.products.update", "warehouse.products.link_relation", "warehouse.locations.update", "warehouse.manufacturers.update", "warehouse.brands.update", "warehouse.categories.update", "warehouse.subcategories.update", "warehouse.third_categories.update":
 		return coresauth.ServiceWriteScope("warehouse", "update")
