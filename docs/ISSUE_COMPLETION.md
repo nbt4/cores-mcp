@@ -8,7 +8,7 @@ and production verification. Optional event streams are separate follow-up work.
 | --- | --- | --- |
 | Warehouse products | Atomic master resolution/create, metadata update, archive/restore, typed relations | URL/bulk imports, complete relation lifecycle |
 | Warehouse manufacturers/brands | Resolve, create, update with diff/version, archive/restore, retained redacted per-entity audit | — |
-| Warehouse categories | Three hierarchy levels: resolve/create/update; authorized dependency-checked removal | Soft archive/restore where referenced history must remain |
+| Warehouse categories | Three hierarchy levels: resolve/create/update/archive/restore, exact record/dependency protection, atomic audit/replay, redacted history; authorized dependency-checked removal | — |
 | Warehouse locations | Create/update/archive/restore, audit | — |
 | Warehouse packages | Atomic lines/create/update/archive/restore, audit | — |
 | Warehouse devices | Create/update/archive/restore, audit, own last-update revert, atomic bulk creation | — |
@@ -60,3 +60,13 @@ explicit missing-item review, correction, packed-case/device/quantity effects,
 final-audit rollback, same-key retry, restart replay, history and lifecycle.
 Production publication is tracked in the umbrella deployment docs. Parent issues
 remain open until every remaining area above is complete.
+
+## Category lifecycle verification
+
+WarehouseCore 5.9.104 / Cores MCP 1.5.34 adds 15 tools: 304 total
+(86 reads / 109 preparations / 109 executions), Warehouse 058 / umbrella 031.
+Tests cover active descendant blockers, retained product/hierarchy history,
+parent-first restoration, precise record and reference versions, privileged
+confirmation, all-writer archive/reference/deletion guards, final-audit rollback,
+same-key retry and restart replay. Production deployment is tracked in the
+umbrella docs. Parent issues remain open for the remaining areas above.

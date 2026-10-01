@@ -110,17 +110,17 @@ func prepareWarehouseCategoryUpdate(ctx context.Context, db *store.Store, kind s
 	switch kind {
 	case "category":
 		idField = "category_id"
-		query = `SELECT categoryid AS id,name,abbreviation,to_char(updated_at,'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS updated_at FROM categories WHERE categoryid=$1`
+		query = `SELECT categoryid AS id,name,abbreviation,lifecycle_status,to_char(updated_at,'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS updated_at FROM categories WHERE categoryid=$1`
 		duplicateQuery = `SELECT categoryid AS id,name FROM categories WHERE categoryid<>$1 AND lower(trim(name))=lower($2) LIMIT 10`
 		usageQuery = `SELECT (SELECT COUNT(*) FROM products WHERE categoryid=$1 OR subcategoryid IN (SELECT subcategoryid FROM subcategories WHERE categoryid=$1) OR subbiercategoryid IN (SELECT t.subbiercategoryid FROM subbiercategories t JOIN subcategories s ON s.subcategoryid=t.subcategoryid WHERE s.categoryid=$1)) AS product_count,(SELECT COUNT(*) FROM subcategories WHERE categoryid=$1) AS subcategory_count,(SELECT COUNT(*) FROM subbiercategories t JOIN subcategories s ON s.subcategoryid=t.subcategoryid WHERE s.categoryid=$1) AS third_category_count`
 	case "subcategory":
 		idField, parentField = "subcategory_id", "category_id"
-		query = `SELECT subcategoryid AS id,name,abbreviation,categoryid AS category_id,to_char(updated_at,'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS updated_at FROM subcategories WHERE subcategoryid=$1`
+		query = `SELECT subcategoryid AS id,name,abbreviation,lifecycle_status,categoryid AS category_id,to_char(updated_at,'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS updated_at FROM subcategories WHERE subcategoryid=$1`
 		duplicateQuery = `SELECT subcategoryid AS id,name FROM subcategories WHERE subcategoryid<>$1 AND lower(trim(name))=lower($2) AND categoryid=$3 LIMIT 10`
 		usageQuery = `SELECT (SELECT COUNT(*) FROM products WHERE subcategoryid=$1 OR subbiercategoryid IN (SELECT subbiercategoryid FROM subbiercategories WHERE subcategoryid=$1)) AS product_count,(SELECT COUNT(*) FROM subbiercategories WHERE subcategoryid=$1) AS third_category_count`
 	case "third_category":
 		idField, parentField = "third_category_id", "subcategory_id"
-		query = `SELECT subbiercategoryid AS id,name,abbreviation,subcategoryid AS subcategory_id,to_char(updated_at,'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS updated_at FROM subbiercategories WHERE subbiercategoryid=$1`
+		query = `SELECT subbiercategoryid AS id,name,abbreviation,lifecycle_status,subcategoryid AS subcategory_id,to_char(updated_at,'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS updated_at FROM subbiercategories WHERE subbiercategoryid=$1`
 		duplicateQuery = `SELECT subbiercategoryid AS id,name FROM subbiercategories WHERE subbiercategoryid<>$1 AND lower(trim(name))=lower($2) AND subcategoryid=$3 LIMIT 10`
 		usageQuery = `SELECT COUNT(*) AS product_count FROM products WHERE subbiercategoryid=$1`
 	default:
@@ -141,6 +141,9 @@ func prepareWarehouseCategoryUpdate(ctx context.Context, db *store.Store, kind s
 		return p, nil
 	}
 	p.Current = rows[0]
+	if p.Current["lifecycle_status"] != "active" {
+		p.require("lifecycle_status", "Archivierte Kategorie zuerst wiederherstellen.", nil)
+	}
 	version := nullableText(p.Current["updated_at"])
 	p.Draft["name"], p.Draft["abbreviation"] = p.Current["name"], p.Current["abbreviation"]
 	if parentField != "" {
@@ -195,9 +198,9 @@ func prepareWarehouseCategoryUpdate(ctx context.Context, db *store.Store, kind s
 	}
 	args := []any{id, p.Draft["name"]}
 	if parentField != "" {
-		parentQuery := `SELECT categoryid AS id,name,categoryid AS category_id,'category'::text AS entity FROM categories WHERE categoryid=$1`
+		parentQuery := `SELECT categoryid AS id,name,categoryid AS category_id,'category'::text AS entity FROM categories WHERE categoryid=$1 AND lifecycle_status='active'`
 		if kind == "third_category" {
-			parentQuery = `SELECT s.subcategoryid AS id,s.name,s.categoryid AS category_id,'subcategory'::text AS entity FROM subcategories s JOIN categories c ON c.categoryid=s.categoryid WHERE s.subcategoryid=$1`
+			parentQuery = `SELECT s.subcategoryid AS id,s.name,s.categoryid AS category_id,'subcategory'::text AS entity FROM subcategories s JOIN categories c ON c.categoryid=s.categoryid WHERE s.subcategoryid=$1 AND s.lifecycle_status='active' AND c.lifecycle_status='active'`
 		}
 		parents, err := db.Query(ctx, parentQuery, p.Draft[parentField])
 		if err != nil {

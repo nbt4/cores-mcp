@@ -1,5 +1,49 @@
 # Tool-Katalog
 
+## Kategorie-Lifecycle — WarehouseCore 5.9.104 / Cores MCP 1.5.34
+
+Alle drei Ebenen (`warehouse.categories`, `warehouse.subcategories`,
+`warehouse.third_categories`) bieten `prepare_archive/archive`,
+`prepare_restore/restore` und redigierte `audit_history`. Der Katalog enthält
+304 Werkzeuge (86 Abfragen / 109 Vorschauen / 109 Ausführungen).
+
+Archivierung erhält IDs, Namen, Abkürzungen, Elternzuordnung und historische
+Produktbeziehungen. Aktive Produkte oder Unterkategorien blockieren sie,
+auch über die gesamte untergeordnete Hierarchie. Zuerst Produkte und untere
+Ebenen archivieren. Restore verlangt aktive Eltern und passende, eindeutige
+Stammdaten; zuerst die Hauptkategorie, dann Unterkategorie und dritte Ebene
+wiederherstellen. Restore ändert ausschließlich den Lifecycle. Archivierte
+Datensätze vor Metadatenpflege wiederherstellen. Normale Core-Auswahllisten
+bieten aktive Hierarchien; MCP-Auflösung zeigt Archive und verlangt deren
+Wiederherstellung statt stiller Neuanlage.
+
+Vorschauen zeigen sämtliche gespeicherten Felder, Lifecycle-Diff, Eltern und
+aktive/historische Abhängigkeiten. Ausführung benötigt tatsächliche aktuelle
+Warehouse-Adminrechte, archive-Scope, `confirm_lifecycle`, Idempotenz, die genaue
+`expected_updated_at` und `expected_dependencies` aus der letzten Vorschau sowie
+`ARCHIVE|RESTORE WAREHOUSE CATEGORY|SUBCATEGORY|THIRD_CATEGORY <ID>`.
+Hauptkategorie-IDs sind kanonische positive Integer-Strings; beide unteren
+Ebenen behalten ihre exakten String-IDs (höchstens 50 Zeichen).
+
+Der SHA-256-Abhängigkeitskontext bindet auch archivierte Produkte,
+Unterkategorien und Elternversionen. Änderungen nach der Vorschau verlangen
+neue Prüfung. Eigentümer-API `/api/v1/admin/mcp/{entity}/{archive|restore}` friert
+alle beteiligten Tabellen während der Validierung ein. Lifecycle, vollständiger
+Vorher/Nachher-MCP/AI-Audit und dauerhafter Replay sind eine Transaktion.
+Auditfehler rollen alles zurück; derselbe Schlüssel kann anschließend erneut
+versucht werden. Erfolgreiche Wiederholung bleibt auch nach Neustart identisch.
+
+Warehouse `058` / Umbrella `031` schützen auch bestehende UI-Schreiber gegen
+Archivbearbeitung, Referenzen auf inaktive Hierarchien, widersprüchliche aktive
+Produktpfade und das Löschen referenzierter Historie. Die ausdrücklich erlaubte
+Löschung unbenutzter Kategorien bleibt als getrennte delete-Scope-Aktion mit
+Version, Abhängigkeitsprüfung und recordgebundener Bestätigung erhalten.
+Die neuen Historien liefern ausschließlich ausgewählte Metadaten und keine
+rohen Audit-JSONs. Vollständige Race-/PostgreSQL-Tests, Vet/Build und frische
+Streamable-HTTP-Prüfung gehören zur Release-Verifikation. Issues #4/#5 bleiben
+bis zum Abschluss sämtlicher Bereiche der Completion-Liste offen.
+
+
 ## Geführte MCP-Inventur — WarehouseCore 5.9.103 / Cores MCP 1.5.33
 
 Die Implementierung ergänzt `warehouse.inventory_counts` mit `search`,

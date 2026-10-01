@@ -14,7 +14,7 @@ import (
 	"github.com/nbt4/cores-mcp/internal/store"
 )
 
-const Version = "1.5.33"
+const Version = "1.5.34"
 
 func New(cfg config.Config, db *store.Store, logger *slog.Logger) *mcp.Server {
 	description := "Read-only operational context and safe cross-core queries for RentalCore, WarehouseCore, PlannerCore and ProcurementCore."
@@ -35,6 +35,7 @@ func New(cfg config.Config, db *store.Store, logger *slog.Logger) *mcp.Server {
 	registerWarehouseAuditTool(server, db)
 	registerWarehouseDeviceAuditTool(server, db)
 	registerWarehouseMasterAuditTools(server, db)
+	registerWarehouseCategoryAuditTools(server, db)
 	registerWarehouseMaintenancePlanReadTools(server, db)
 	registerWarehouseMaintenanceOrderReadTools(server, db)
 	registerWarehouseTaskReadTools(server, db)
@@ -77,6 +78,7 @@ func New(cfg config.Config, db *store.Store, logger *slog.Logger) *mcp.Server {
 		registerWarehouseCaseTools(server, cfg, db)
 		registerWarehouseMasterUpdateTools(server, cfg, db)
 		registerWarehouseMasterLifecycleTools(server, cfg)
+		registerWarehouseCategoryLifecycleTools(server, cfg)
 		registerWarehouseMaintenancePlanTools(server, cfg)
 		registerWarehouseMaintenanceOrderTools(server, cfg)
 		registerWarehouseTaskTools(server, cfg)
@@ -156,6 +158,12 @@ var mutationTools = map[string]struct{}{
 	"warehouse.maintenance_plans.update":             {},
 	"warehouse.maintenance_plans.archive":            {},
 	"warehouse.maintenance_plans.restore":            {},
+	"warehouse.categories.archive":                   {},
+	"warehouse.categories.restore":                   {},
+	"warehouse.subcategories.archive":                {},
+	"warehouse.subcategories.restore":                {},
+	"warehouse.third_categories.archive":             {},
+	"warehouse.third_categories.restore":             {},
 	"warehouse.manufacturers.archive":                {}, "warehouse.manufacturers.restore": {}, "warehouse.brands.archive": {}, "warehouse.brands.restore": {},
 	"warehouse.cases.create":          {},
 	"warehouse.cases.update":          {},

@@ -288,7 +288,7 @@ func checkWarehouseProductUpdateRelations(ctx context.Context, db *store.Store, 
 		field   string
 		query   string
 	}{
-		{input.CategoryID != nil, "category_id", `SELECT categoryid AS id FROM categories WHERE categoryid=$1`},
+		{input.CategoryID != nil, "category_id", `SELECT categoryid AS id FROM categories WHERE categoryid=$1 AND lifecycle_status='active'`},
 		{input.ManufacturerID != nil, "manufacturer_id", `SELECT manufacturerid AS id FROM manufacturer WHERE manufacturerid=$1 AND lifecycle_status='active'`},
 		{input.CountTypeID != nil, "count_type_id", `SELECT count_type_id AS id FROM count_types WHERE count_type_id=$1`},
 	} {
@@ -315,7 +315,7 @@ func checkWarehouseProductUpdateRelations(ctx context.Context, db *store.Store, 
 		}
 	}
 	if (input.SubcategoryID != nil || input.CategoryID != nil) && p.Draft["subcategory_id"] != nil {
-		rows, err := db.Query(ctx, `SELECT subcategoryid AS id,categoryid AS category_id FROM subcategories WHERE subcategoryid=$1`, p.Draft["subcategory_id"])
+		rows, err := db.Query(ctx, `SELECT subcategoryid AS id,categoryid AS category_id FROM subcategories WHERE subcategoryid=$1 AND lifecycle_status='active'`, p.Draft["subcategory_id"])
 		if err != nil {
 			return err
 		}
@@ -324,7 +324,7 @@ func checkWarehouseProductUpdateRelations(ctx context.Context, db *store.Store, 
 		}
 	}
 	if (input.ThirdCategoryID != nil || input.SubcategoryID != nil) && p.Draft["subbiercategory_id"] != nil {
-		rows, err := db.Query(ctx, `SELECT subbiercategoryid AS id,subcategoryid AS subcategory_id FROM subbiercategories WHERE subbiercategoryid=$1`, p.Draft["subbiercategory_id"])
+		rows, err := db.Query(ctx, `SELECT subbiercategoryid AS id,subcategoryid AS subcategory_id FROM subbiercategories WHERE subbiercategoryid=$1 AND lifecycle_status='active'`, p.Draft["subbiercategory_id"])
 		if err != nil {
 			return err
 		}

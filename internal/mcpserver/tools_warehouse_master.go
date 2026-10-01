@@ -41,6 +41,9 @@ func registerWarehouseMasterTools(server *mcp.Server, db *store.Store) {
 		case len(candidates) > 1:
 			resolution = "ambiguous"
 		}
+		if selected != nil && (input.Entity == "category" || input.Entity == "subcategory" || input.Entity == "third_category") && (selected["lifecycle_status"] != "active" || selected["parent_lifecycle"] != nil && selected["parent_lifecycle"] != "active" || selected["category_lifecycle"] != nil && selected["category_lifecycle"] != "active") {
+			resolution, selected = "restoration_required", nil
+		}
 		sources := make([]Source, 0, len(candidates))
 		for _, candidate := range candidates {
 			sources = append(sources, Source{Service: "warehousecore", Entity: strings.TrimSpace(input.Entity), ID: fmt.Sprint(candidate["id"])})
@@ -65,11 +68,11 @@ func warehouseMasterCandidates(ctx context.Context, db *store.Store, entity, que
 	case "brand":
 		statement = `SELECT b.brandid AS id,b.name,b.lifecycle_status,concat_ws(' · ',m.name,b.manufacturerid::text) AS context,b.manufacturerid AS manufacturer_id,m.name AS manufacturer FROM brands b LEFT JOIN manufacturer m ON m.manufacturerid=b.manufacturerid ORDER BY b.name LIMIT 500`
 	case "category":
-		statement = `SELECT categoryid AS id,name,abbreviation AS context,abbreviation FROM categories ORDER BY name LIMIT 500`
+		statement = `SELECT categoryid AS id,name,lifecycle_status,abbreviation AS context,abbreviation FROM categories ORDER BY name LIMIT 500`
 	case "subcategory":
-		statement = `SELECT s.subcategoryid AS id,s.name,concat_ws(' · ',c.name,s.abbreviation) AS context,s.abbreviation,s.categoryid AS category_id,c.name AS category FROM subcategories s JOIN categories c ON c.categoryid=s.categoryid ORDER BY s.name LIMIT 500`
+		statement = `SELECT s.subcategoryid AS id,s.name,s.lifecycle_status,c.lifecycle_status AS parent_lifecycle,concat_ws(' · ',c.name,s.abbreviation) AS context,s.abbreviation,s.categoryid AS category_id,c.name AS category FROM subcategories s JOIN categories c ON c.categoryid=s.categoryid ORDER BY s.name LIMIT 500`
 	case "third_category":
-		statement = `SELECT t.subbiercategoryid AS id,t.name,concat_ws(' · ',c.name,s.name,t.abbreviation) AS context,t.abbreviation,t.subcategoryid AS subcategory_id,s.name AS subcategory,s.categoryid AS category_id,c.name AS category FROM subbiercategories t JOIN subcategories s ON s.subcategoryid=t.subcategoryid JOIN categories c ON c.categoryid=s.categoryid ORDER BY t.name LIMIT 500`
+		statement = `SELECT t.subbiercategoryid AS id,t.name,t.lifecycle_status,s.lifecycle_status AS parent_lifecycle,c.lifecycle_status AS category_lifecycle,concat_ws(' · ',c.name,s.name,t.abbreviation) AS context,t.abbreviation,t.subcategoryid AS subcategory_id,s.name AS subcategory,s.categoryid AS category_id,c.name AS category FROM subbiercategories t JOIN subcategories s ON s.subcategoryid=t.subcategoryid JOIN categories c ON c.categoryid=s.categoryid ORDER BY t.name LIMIT 500`
 	case "count_type":
 		statement = `SELECT count_type_id AS id,name,abbreviation AS context,abbreviation FROM count_types ORDER BY name LIMIT 500`
 	case "zone":

@@ -248,6 +248,9 @@ func prepareWarehouseProductMasters(ctx context.Context, db *store.Store, input 
 		return err
 	}
 	if category != nil {
+		if category["lifecycle_status"] == "archived" {
+			prepared.require("category", "Archivierte Kategorie zuerst wiederherstellen.", categoryOptions)
+		}
 		prepared.Draft["category_id"] = category["id"]
 		prepared.MasterDataPlan = append(prepared.MasterDataPlan, masterPlan("category", "reference", category))
 	} else if strings.TrimSpace(input.CategoryName) != "" && input.CreateCategory {
@@ -277,6 +280,9 @@ func prepareOptionalCategoryLevel(ctx context.Context, db *store.Store, entity, 
 		return err
 	}
 	if selected != nil {
+		if selected["lifecycle_status"] == "archived" || selected["parent_lifecycle"] == "archived" || selected["category_lifecycle"] == "archived" {
+			prepared.require(entity, "Archivierte Kategoriehierarchie zuerst wiederherstellen.", options)
+		}
 		prepared.Draft[idKey] = selected["id"]
 		prepared.MasterDataPlan = append(prepared.MasterDataPlan, masterPlan(entity, "reference", selected))
 		if entity == "subcategory" && prepared.Draft["category_id"] != nil && fmt.Sprint(prepared.Draft["category_id"]) != fmt.Sprint(selected["category_id"]) {
@@ -455,11 +461,11 @@ func warehouseMasterByID(ctx context.Context, db *store.Store, entity, id string
 	case "brand":
 		statement = `SELECT b.brandid AS id,b.name,b.lifecycle_status,COALESCE(m.name,'') AS context,b.manufacturerid AS manufacturer_id,m.name AS manufacturer FROM brands b LEFT JOIN manufacturer m ON m.manufacturerid=b.manufacturerid WHERE b.brandid::text=$1`
 	case "category":
-		statement = `SELECT categoryid AS id,name,abbreviation AS context,abbreviation FROM categories WHERE categoryid::text=$1`
+		statement = `SELECT categoryid AS id,name,lifecycle_status,abbreviation AS context,abbreviation FROM categories WHERE categoryid::text=$1`
 	case "subcategory":
-		statement = `SELECT s.subcategoryid AS id,s.name,concat_ws(' · ',c.name,s.abbreviation) AS context,s.categoryid AS category_id,c.name AS category FROM subcategories s JOIN categories c ON c.categoryid=s.categoryid WHERE s.subcategoryid::text=$1`
+		statement = `SELECT s.subcategoryid AS id,s.name,s.lifecycle_status,c.lifecycle_status AS parent_lifecycle,concat_ws(' · ',c.name,s.abbreviation) AS context,s.categoryid AS category_id,c.name AS category FROM subcategories s JOIN categories c ON c.categoryid=s.categoryid WHERE s.subcategoryid::text=$1`
 	case "third_category":
-		statement = `SELECT t.subbiercategoryid AS id,t.name,concat_ws(' · ',c.name,s.name,t.abbreviation) AS context,t.subcategoryid AS subcategory_id,s.name AS subcategory,s.categoryid AS category_id,c.name AS category FROM subbiercategories t JOIN subcategories s ON s.subcategoryid=t.subcategoryid JOIN categories c ON c.categoryid=s.categoryid WHERE t.subbiercategoryid::text=$1`
+		statement = `SELECT t.subbiercategoryid AS id,t.name,t.lifecycle_status,s.lifecycle_status AS parent_lifecycle,c.lifecycle_status AS category_lifecycle,concat_ws(' · ',c.name,s.name,t.abbreviation) AS context,t.subcategoryid AS subcategory_id,s.name AS subcategory,s.categoryid AS category_id,c.name AS category FROM subbiercategories t JOIN subcategories s ON s.subcategoryid=t.subcategoryid JOIN categories c ON c.categoryid=s.categoryid WHERE t.subbiercategoryid::text=$1`
 	case "count_type":
 		statement = `SELECT count_type_id AS id,name,abbreviation AS context,abbreviation FROM count_types WHERE count_type_id::text=$1`
 	case "zone":

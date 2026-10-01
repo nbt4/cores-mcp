@@ -112,7 +112,7 @@ func executeMutationTool[In any](ctx context.Context, name, permissionLabel stri
 		}, nil
 	}
 
-	if strings.HasPrefix(name, "warehouse.maintenance_orders.") || strings.HasPrefix(name, "warehouse.defects.") || strings.HasPrefix(name, "warehouse.tasks.") || strings.HasPrefix(name, "warehouse.inventory_counts.") {
+	if strings.HasPrefix(name, "warehouse.categories.") || strings.HasPrefix(name, "warehouse.subcategories.") || strings.HasPrefix(name, "warehouse.third_categories.") || strings.HasPrefix(name, "warehouse.maintenance_orders.") || strings.HasPrefix(name, "warehouse.defects.") || strings.HasPrefix(name, "warehouse.tasks.") || strings.HasPrefix(name, "warehouse.inventory_counts.") {
 		permissionErr = requireWarehouseMasterAdmin(ctx)
 		raw, _ := json.Marshal(input)
 		fields := map[string]any{}
@@ -238,7 +238,7 @@ func requiredMutationScope(tool string) string {
 		return coresauth.ServiceWriteScope("warehouse", "update")
 	case "warehouse.categories.delete", "warehouse.subcategories.delete", "warehouse.third_categories.delete":
 		return coresauth.ServiceWriteScope("warehouse", "delete")
-	case "warehouse.maintenance_plans.archive", "warehouse.maintenance_plans.restore", "warehouse.manufacturers.archive", "warehouse.manufacturers.restore", "warehouse.brands.archive", "warehouse.brands.restore", "warehouse.cases.archive", "warehouse.cases.restore", "warehouse.locations.archive", "warehouse.locations.restore", "warehouse.packages.archive", "warehouse.packages.restore", "warehouse.devices.archive", "warehouse.devices.restore", "warehouse.products.archive", "warehouse.products.restore":
+	case "warehouse.categories.archive", "warehouse.categories.restore", "warehouse.subcategories.archive", "warehouse.subcategories.restore", "warehouse.third_categories.archive", "warehouse.third_categories.restore", "warehouse.maintenance_plans.archive", "warehouse.maintenance_plans.restore", "warehouse.manufacturers.archive", "warehouse.manufacturers.restore", "warehouse.brands.archive", "warehouse.brands.restore", "warehouse.cases.archive", "warehouse.cases.restore", "warehouse.locations.archive", "warehouse.locations.restore", "warehouse.packages.archive", "warehouse.packages.restore", "warehouse.devices.archive", "warehouse.devices.restore", "warehouse.products.archive", "warehouse.products.restore":
 		return coresauth.ServiceWriteScope("warehouse", "archive")
 	case "planner.plans.create", "planner.tasks.create":
 		return coresauth.ServiceWriteScope("planner", "create")

@@ -117,14 +117,14 @@ func prepareWarehouseCategoryCreate(ctx context.Context, db *store.Store, kind, 
 		if numericID(parent) <= 0 {
 			p.require(parentField, "Welche vorhandene Hauptkategorie-ID gilt?", nil)
 		}
-		parentQuery = `SELECT categoryid AS id,name FROM categories WHERE categoryid=$1`
+		parentQuery = `SELECT categoryid AS id,name FROM categories WHERE categoryid=$1 AND lifecycle_status='active'`
 		duplicateQuery = `SELECT subcategoryid AS id,name,abbreviation,categoryid AS category_id FROM subcategories WHERE categoryid=$2 AND lower(trim(name))=lower($1) LIMIT 10`
 	case "third_category":
 		parentField = "subcategory_id"
 		if strings.TrimSpace(fmt.Sprint(parent)) == "" {
 			p.require(parentField, "Welche vorhandene Unterkategorie-ID gilt?", nil)
 		}
-		parentQuery = `SELECT subcategoryid AS id,name,categoryid AS category_id FROM subcategories WHERE subcategoryid=$1`
+		parentQuery = `SELECT s.subcategoryid AS id,s.name,s.categoryid AS category_id FROM subcategories s JOIN categories c ON c.categoryid=s.categoryid WHERE s.subcategoryid=$1 AND s.lifecycle_status='active' AND c.lifecycle_status='active'`
 		duplicateQuery = `SELECT subbiercategoryid AS id,name,abbreviation,subcategoryid AS subcategory_id FROM subbiercategories WHERE subcategoryid=$2 AND lower(trim(name))=lower($1) LIMIT 10`
 	default:
 		return p, fmt.Errorf("unsupported warehouse category level")

@@ -46,9 +46,9 @@ func TestWarehouseStandaloneMasterPreparations(t *testing.T) {
 		`CREATE TABLE manufacturer(manufacturerid SERIAL PRIMARY KEY,name TEXT,website TEXT,updated_at TIMESTAMP DEFAULT '2026-09-30 10:15:00.123456',lifecycle_status TEXT DEFAULT 'active')`,
 		`CREATE TABLE brands(brandid SERIAL PRIMARY KEY,name TEXT,manufacturerid INT,updated_at TIMESTAMP DEFAULT '2026-09-30 10:15:00.123456',lifecycle_status TEXT DEFAULT 'active')`,
 		`CREATE TABLE products(productid SERIAL PRIMARY KEY,name TEXT,manufacturerid INT,brandid INT,categoryid INT,subcategoryid TEXT,subbiercategoryid TEXT)`,
-		`CREATE TABLE categories(categoryid SERIAL PRIMARY KEY,name TEXT,abbreviation TEXT,updated_at TIMESTAMP DEFAULT '2026-09-30 10:15:00.123456')`,
-		`CREATE TABLE subcategories(subcategoryid TEXT PRIMARY KEY,name TEXT,abbreviation TEXT,categoryid INT,updated_at TIMESTAMP DEFAULT '2026-09-30 10:15:00.123456')`,
-		`CREATE TABLE subbiercategories(subbiercategoryid TEXT PRIMARY KEY,name TEXT,abbreviation TEXT,subcategoryid TEXT,updated_at TIMESTAMP DEFAULT '2026-09-30 10:15:00.123456')`,
+		`CREATE TABLE categories(categoryid SERIAL PRIMARY KEY,name TEXT,abbreviation TEXT,lifecycle_status TEXT DEFAULT 'active',updated_at TIMESTAMP DEFAULT '2026-09-30 10:15:00.123456')`,
+		`CREATE TABLE subcategories(subcategoryid TEXT PRIMARY KEY,name TEXT,abbreviation TEXT,categoryid INT,lifecycle_status TEXT DEFAULT 'active',updated_at TIMESTAMP DEFAULT '2026-09-30 10:15:00.123456')`,
+		`CREATE TABLE subbiercategories(subbiercategoryid TEXT PRIMARY KEY,name TEXT,abbreviation TEXT,subcategoryid TEXT,lifecycle_status TEXT DEFAULT 'active',updated_at TIMESTAMP DEFAULT '2026-09-30 10:15:00.123456')`,
 		`CREATE TABLE storage_zones(zone_id SERIAL PRIMARY KEY,code TEXT,barcode TEXT,name TEXT,location TEXT,process_role TEXT,operational_status TEXT,is_active BOOLEAN,parent_zone_id INT,type TEXT DEFAULT 'other',location_kind TEXT DEFAULT 'area',description TEXT,capacity INT,capacity_mode TEXT DEFAULT 'item_count',is_storable BOOLEAN DEFAULT TRUE,pick_sequence INT,max_weight_kg NUMERIC,max_volume_m3 NUMERIC,inventory_frequency_days INT,updated_at TIMESTAMP DEFAULT '2026-09-30 10:15:00.123456')`,
 		`CREATE TABLE devices(deviceid TEXT,zone_id INT,lifecycle_status TEXT,status TEXT)`,
 		`CREATE TABLE cases(caseid INT,zone_id INT)`,
@@ -482,6 +482,32 @@ func TestWarehouseStandaloneMasterPreparations(t *testing.T) {
 	for _, kind := range []string{"category", "subcategory", "third_category"} {
 		if _, err := prepareWarehouseCategoryDelete(context.Background(), nil, kind, nil, "", false); err == nil {
 			t.Fatal("unauthenticated category deletion preview accepted")
+		}
+	}
+
+	if _, err := database.Exec(`UPDATE categories SET lifecycle_status='archived' WHERE categoryid=1;UPDATE subcategories SET lifecycle_status='archived' WHERE subcategoryid='sub-1';UPDATE subbiercategories SET lifecycle_status='archived' WHERE subbiercategoryid='third-1'`); err != nil {
+		t.Fatal(err)
+	}
+	p = categoryPreview("category", int64(1), &duplicateName, nil, nil, "", false, true)
+	if p.Ready || !containsString(p.Missing, "lifecycle_status") {
+		t.Fatalf("archived update accepted: %#v", p)
+	}
+	p, err = run(func(ctx context.Context) (preparedMutation, error) {
+		return prepareWarehouseCategoryCreate(ctx, db, "subcategory", "New under archive", "", int64(1), true)
+	})
+	if err != nil || p.Ready || !containsString(p.Missing, "category_id") {
+		t.Fatalf("inactive parent accepted: %#v %v", p, err)
+	}
+	p, err = run(func(ctx context.Context) (preparedMutation, error) {
+		return prepareWarehouseCategoryCreate(ctx, db, "third_category", "New under archive", "", "sub-1", true)
+	})
+	if err != nil || p.Ready || !containsString(p.Missing, "subcategory_id") {
+		t.Fatalf("inactive ancestry accepted: %#v %v", p, err)
+	}
+	for _, level := range []struct{ kind, id string }{{"category", "1"}, {"subcategory", "sub-1"}, {"third_category", "third-1"}} {
+		record, err := warehouseMasterByID(context.Background(), db, level.kind, level.id)
+		if err != nil || record["lifecycle_status"] != "archived" {
+			t.Fatalf("archived identity missing: %v %v", record, err)
 		}
 	}
 
