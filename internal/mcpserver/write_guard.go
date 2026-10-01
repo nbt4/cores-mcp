@@ -105,6 +105,9 @@ func prepareWriteInvocation[In any](ctx context.Context, tool string, input In) 
 	if info := auth.TokenInfoFromContext(ctx); info != nil && info.UserID != "" {
 		subject = info.UserID
 	}
+	if strings.HasPrefix(tool, "warehouse.maintenance_orders.") || strings.HasPrefix(tool, "warehouse.defects.") {
+		subject += fmt.Sprintf("/financial=%t", hasWarehouseFinancialScope(ctx))
+	}
 	prepared.ReplayKey = subject + "\x00" + tool + "\x00" + idempotencyKey
 	prepared.Fingerprint = hex.EncodeToString(digest[:])
 	return prepared, nil

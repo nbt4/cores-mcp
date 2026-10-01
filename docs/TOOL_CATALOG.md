@@ -1,5 +1,56 @@
 # Tool-Katalog
 
+## MCP-Wartungsaufträge und Defekte — WarehouseCore 5.9.101 / Cores MCP 1.5.31
+
+`warehouse.maintenance_orders` und `warehouse.defects` unterstützen `search`,
+`prepare_create`/`create`, `prepare_update`/`update`, `prepare_transition`/`transition`,
+`prepare_complete`/`complete`, `prepare_cancel`/`cancel`, `prepare_reopen`/`reopen`,
+`prepare_archive`/`archive`, `prepare_restore`/`restore` und redigierte
+`audit_history` einschließlich Ereignissen. Defektaktionen verwenden kanonische
+`order_id`; `legacy_defect_id` ist eine getrennte historische Referenz. Schemas
+beschreiben Gerät/Plan, Typ, Priorität, Titel, Beschreibung, Termin/Zeit,
+Zuständigkeit, Ergebnis/Abschlussbericht und optionale genaue Dezimalkosten.
+Teilupdates erhalten ausgelassene Felder; `clear_fields` leert optionale Werte.
+Gerät, Typ und Planbezug bleiben unveränderlich.
+
+Admin/create/update/archive-Scope, vollständige Vorschau mit Diff, genaue
+Auftrags-/Geräteversion sowie bei Planbezug die genaue Planversion,
+`confirm_change` und Idempotenz sind erforderlich. `transition` bildet den
+Core-Statusgraphen ab; Abschluss setzt begonnene Arbeit, Ergebnis und Bericht
+voraus. Abschluss, Storno, Wiederöffnung und Lifecycle verlangen zusätzlich
+`COMPLETE|CANCEL|REOPEN|ARCHIVE|RESTORE WAREHOUSE MAINTENANCE ORDER <ID>`.
+Storno/Wiederöffnung benötigen einen Grund. Nur terminale Aufträge lassen sich
+archivieren; Restore erhält Status und Historie, Wiederöffnung erfolgt separat.
+
+Die Vorschau zeigt Gerätezustand/-termine, Planfortschreibung, andere offene
+Aufträge und migrierte Defekte. Auftrag, Ereignis, alle Geräte-/Plan-/Legacy-
+Folgen, Vorher/Nachher-Audits und dauerhafter Replay bilden eine Transaktion.
+Storno eines wiederkehrenden Auftrags überspringt den Zyklus; Abschluss setzt
+den nächsten Plantermin auf das gewählte Datum oder heute plus Intervall.
+Manuelle Sperre/Ausmusterung und physischer Lagerstatus bleiben erhalten.
+Migration Warehouse `055` / Umbrella `028` schützt Archive und versioniert
+Ereignisse und Abhängigkeiten bei allen Schreibern; die normale Auftragsliste
+blendet Archive aus. Historische Legacy-Zeilen und IDs werden erhalten.
+
+Wartungskosten erfordern **zusätzlich ausdrücklich** `cores:warehouse:financial`.
+Legacy `cores:write` erteilt diesen Scope nicht. `cost_amount` ist eine genaue
+Dezimalzeichenfolge bis `9999999999.99`; Kostenlesen erfolgt über
+`warehouse.maintenance_orders.financial_get`. Ohne Financial-Scope enthalten
+Vorschauen, Ergebnisse und Wiederholungen keine Kosten. Flexible Projektionen,
+Filter, Sortierung und Aggregate auf Wartungskosten prüfen denselben Scope;
+Standardabfragen und Geräte-Wartungshistorien lassen Kosten weg.
+OAuth bietet angefragte Wartungskosten als unabhängigen, standardmäßig gesperrten
+Select an, auch bei Read-only-Konfiguration. Ein Clientwunsch allein gewährt
+keinen Kostenzugriff. Änderungen benötigen weiterhin den Aktionsscope und
+Schreibmodus. Bestehende Tokens erhalten keinen zusätzlichen Scope automatisch. Aktuelle
+Adminrechte werden vor jeder authentifizierten MCP-Anfrage erneut gelesen;
+ein Rechteentzug sperrt auch zuvor gecachte Antworten.
+
+252 Tools: 78 Abfragen, 87 Vorschauen, 87 Ausführungen. Keine neue Umgebungsvariable.
+Read-only-Zugriff bleibt unverändert schreibfrei. Race-Tests, saubere Datenbank,
+MCP-HTTP-Kontrollen sowie DE/EN, Light/Dark, responsive Tastaturbedienung sind geprüft.
+Weitere Anforderungen von #4/#5 bleiben im Abschlusscheck offen.
+
 Seit 1.1.1 sind alle Planner-Ergebnisse auf die aktuellen Planmitgliedschaften des
 OAuth-Benutzers beschränkt. Das gilt auch für `cores.search`,
 `cores.operations.overview`, `cores.activity.recent`, `cores.data.quality`,

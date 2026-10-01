@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/rand"
 	"crypto/sha256"
+	_ "embed"
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
@@ -29,6 +30,8 @@ const (
 	readScope  = "cores:read"
 	writeScope = "cores:write"
 )
+
+var granularDataScopes = []string{"cores:warehouse:financial"}
 
 var granularWriteScopes = []string{
 	"cores:rental:create",
@@ -60,6 +63,7 @@ type OAuthServer struct {
 	secret       []byte
 	clients      *clientStore
 	validateUser UserValidator
+	userRights   func(context.Context, uint) (*User, error)
 	enableWrites bool
 	mu           sync.Mutex
 	codes        map[string]authorizationCode
@@ -152,15 +156,29 @@ func (s *OAuthServer) VerifyToken(ctx context.Context, raw string, _ *http.Reque
 			return nil, auth.ErrInvalidToken
 		}
 	}
+	username, isAdmin := claims.Username, claims.IsAdmin
+	if s.userRights != nil {
+		current, lookupErr := s.userRights(ctx, uint(userID))
+		if lookupErr != nil || current == nil || current.ID != uint(userID) {
+			return nil, auth.ErrInvalidToken
+		}
+		username, isAdmin = current.Username, current.IsAdmin
+	}
 	return &auth.TokenInfo{
 		Scopes:     strings.Fields(claims.Scope),
 		Expiration: claims.ExpiresAt.Time,
 		UserID:     claims.Subject,
 		Extra: map[string]any{
-			"username": claims.Username,
-			"is_admin": claims.IsAdmin,
+			"username": username,
+			"is_admin": isAdmin,
 		},
 	}, nil
+}
+
+// SetUserRightsLookup installs a read-only current-user lookup before serving
+// requests. It refreshes role metadata without extending the granted scopes.
+func (s *OAuthServer) SetUserRightsLookup(lookup func(context.Context, uint) (*User, error)) {
+	s.userRights = lookup
 }
 
 func StaticVerifier(tokens map[string]string) auth.TokenVerifier {
@@ -298,12 +316,13 @@ func (s *OAuthServer) authorize(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Security-Policy", httpx.ContentSecurityPolicy(s.issuer, params.Get("redirect_uri")))
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		_ = consentTemplate.Execute(w, map[string]any{
-			"Client":       client.Name,
-			"User":         user.Username,
-			"Params":       authorizationFields(params),
-			"CSRF":         csrf,
-			"EnableWrites": s.enableWrites,
-			"Lang":         consentLanguage(params.Get("lang"), r.Header.Get("Accept-Language")),
+			"Client":           client.Name,
+			"User":             user.Username,
+			"Params":           authorizationFields(params),
+			"CSRF":             csrf,
+			"EnableWrites":     s.enableWrites,
+			"RequestFinancial": contains(strings.Fields(params.Get("scope")), "cores:warehouse:financial"),
+			"Lang":             consentLanguage(params.Get("lang"), r.Header.Get("Accept-Language")),
 		})
 		return
 	}
@@ -316,7 +335,15 @@ func (s *OAuthServer) authorize(w http.ResponseWriter, r *http.Request) {
 		oauthRedirectError(w, r, "access_denied", "user denied access")
 		return
 	}
-	scopes, err := consentScopes(params.Get("scope"), r.PostForm.Get("access_mode"), s.enableWrites)
+	requested := strings.Fields(params.Get("scope"))
+	filtered := []string{}
+	for _, scope := range requested {
+		if contains(granularDataScopes, scope) && r.PostForm.Get("financial_access") != "allow" {
+			continue
+		}
+		filtered = append(filtered, scope)
+	}
+	scopes, err := consentScopes(strings.Join(filtered, " "), r.PostForm.Get("access_mode"), s.enableWrites)
 	if err != nil {
 		oauthRedirectError(w, r, "invalid_scope", err.Error())
 		return
@@ -359,7 +386,7 @@ func (s *OAuthServer) validateAuthorizationRequest(values url.Values) (oauthClie
 		return oauthClient{}, errors.New("invalid resource")
 	}
 	for _, scope := range strings.Fields(values.Get("scope")) {
-		if scope != readScope && (!s.enableWrites || !isWriteScope(scope)) {
+		if scope != readScope && !contains(granularDataScopes, scope) && (!s.enableWrites || !isWriteScope(scope)) {
 			return oauthClient{}, errors.New("unsupported scope")
 		}
 	}
@@ -466,6 +493,11 @@ func (s *OAuthServer) supportedScopes() []string {
 func requestedScopes(raw string, enableWrites bool) []string {
 	requested := strings.Fields(raw)
 	result := []string{readScope}
+	for _, scope := range requested {
+		if contains(granularDataScopes, scope) && !contains(result, scope) {
+			result = append(result, scope)
+		}
+	}
 	if enableWrites {
 		for _, scope := range requested {
 			if isWriteScope(scope) && !contains(result, scope) {
@@ -481,7 +513,7 @@ func requestedScopes(raw string, enableWrites bool) []string {
 func consentScopes(raw, mode string, enableWrites bool) ([]string, error) {
 	switch mode {
 	case "", "read":
-		return []string{readScope}, nil
+		return requestedScopes(raw, false), nil
 	case "write":
 		if !enableWrites {
 			return nil, errors.New("write access is disabled")
@@ -497,7 +529,7 @@ func consentScopes(raw, mode string, enableWrites bool) ([]string, error) {
 }
 
 func SupportedScopes(enableWrites bool) []string {
-	result := []string{readScope}
+	result := append([]string{readScope}, granularDataScopes...)
 	if !enableWrites {
 		return result
 	}
@@ -713,19 +745,23 @@ func consentLanguage(explicit, preferred string) string {
 }
 
 var consentMessages = map[string][2]string{
-	"title":      {"Cores MCP freigeben", "Authorize Cores MCP"},
-	"eyebrow":    {"Sichere Verbindung", "Secure connection"},
-	"heading":    {"Cores MCP verbinden", "Connect Cores MCP"},
-	"client":     {"möchte im Namen von", "would like to access Cores data on behalf of"},
-	"user":       {"auf freigegebene Cores-Daten zugreifen.", "."},
-	"write_help": {"Wähle den Zugriff für diese Verbindung. Lesen verändert keine Daten. Lesen und Schreiben erlaubt die dokumentierten Anlagen und Änderungen sowie freigegebene Archivierungs-, Freigabe- und Wareneingangsworkflows. Jede Schreibaktion braucht eine Vorschau und ausdrückliche Bestätigung; deine Rechte im jeweiligen Core gelten weiterhin.", "Choose access for this connection. Reading does not change data. Read and write enables documented creation and updates, plus supported archiving, approval and receipt workflows. Each write requires a preview and explicit confirmation; your permissions in each Core still apply."},
-	"read_help":  {"Die Verbindung darf Bestände, Jobs, Planungen und Beschaffungsinformationen ausschließlich lesen. Sie kann keine Daten verändern.", "This connection can only read inventory, jobs, planning and procurement information. It cannot change data."},
-	"access":     {"Zugriff erlauben", "Allow access"},
-	"read":       {"Nur Lesen", "Read only"},
-	"write":      {"Lesen und Schreiben", "Read and write"},
-	"deny":       {"Ablehnen", "Deny"},
-	"allow":      {"Ausgewählten Zugriff erlauben", "Allow selected access"},
-	"allow_read": {"Lesenden Zugriff erlauben", "Allow read access"},
+	"financial":       {"Wartungskosten freigeben", "Allow maintenance costs"},
+	"financial_help":  {"Diese Verbindung fragt Wartungskosten an. Du kannst den Zugriff gesondert erlauben. Änderungen erfordern zusätzlich Lesen und Schreiben und die passenden Rechte.", "This connection requests maintenance costs. You can allow this access separately. Changes also require Read and write and the appropriate permissions."},
+	"financial_deny":  {"Kosten nicht freigeben", "Do not allow costs"},
+	"financial_allow": {"Wartungskosten freigeben", "Allow maintenance costs"},
+	"title":           {"Cores MCP freigeben", "Authorize Cores MCP"},
+	"eyebrow":         {"Sichere Verbindung", "Secure connection"},
+	"heading":         {"Cores MCP verbinden", "Connect Cores MCP"},
+	"client":          {"möchte im Namen von", "would like to access Cores data on behalf of"},
+	"user":            {"auf freigegebene Cores-Daten zugreifen.", "."},
+	"write_help":      {"Wähle den Zugriff für diese Verbindung. Lesen verändert keine Daten. Lesen und Schreiben erlaubt die dokumentierten Anlagen und Änderungen sowie freigegebene Archivierungs-, Freigabe- und Wareneingangsworkflows. Jede Schreibaktion braucht eine Vorschau und ausdrückliche Bestätigung; deine Rechte im jeweiligen Core gelten weiterhin.", "Choose access for this connection. Reading does not change data. Read and write enables documented creation and updates, plus supported archiving, approval and receipt workflows. Each write requires a preview and explicit confirmation; your permissions in each Core still apply."},
+	"read_help":       {"Die Verbindung darf Bestände, Jobs, Planungen und Beschaffungsinformationen ausschließlich lesen. Sie kann keine Daten verändern.", "This connection can only read inventory, jobs, planning and procurement information. It cannot change data."},
+	"access":          {"Zugriff erlauben", "Allow access"},
+	"read":            {"Nur Lesen", "Read only"},
+	"write":           {"Lesen und Schreiben", "Read and write"},
+	"deny":            {"Ablehnen", "Deny"},
+	"allow":           {"Ausgewählten Zugriff erlauben", "Allow selected access"},
+	"allow_read":      {"Lesenden Zugriff erlauben", "Allow read access"},
 }
 
 func consentMessage(lang, key string) string {
@@ -736,7 +772,10 @@ func consentMessage(lang, key string) string {
 	return pair[0]
 }
 
-var consentTemplate = template.Must(template.New("consent").Funcs(template.FuncMap{"msg": consentMessage}).Parse(`<!doctype html>
+//go:embed cores-logo.svg
+var consentLogo string
+
+var consentTemplate = template.Must(template.New("consent").Funcs(template.FuncMap{"msg": consentMessage, "logo": func() template.HTML { return template.HTML(consentLogo) }}).Parse(`<!doctype html>
 <html lang="{{.Lang}}">
 <head>
   <meta charset="utf-8">
@@ -746,8 +785,7 @@ var consentTemplate = template.Must(template.New("consent").Funcs(template.FuncM
 </head>
 <body class="suite-auth-page">
   <main class="suite-auth-card">
-    <div class="suite-auth-brand"><img class="suite-auth-logo" src="/logos/cores_white_full.svg" alt="Cores"></div>
-    <p class="suite-auth-eyebrow">{{msg .Lang "eyebrow"}}</p>
+    <div class="suite-auth-brand">{{logo}}</div>
     <h1 class="suite-auth-title">{{msg .Lang "heading"}}</h1>
     <p class="suite-auth-copy"><strong>{{.Client}}</strong> {{msg .Lang "client"}} <strong>{{.User}}</strong> {{msg .Lang "user"}}</p>
     {{if .EnableWrites}}<div class="suite-auth-notice" id="access-help">{{msg .Lang "write_help"}}</div>{{else}}<div class="suite-auth-notice">{{msg .Lang "read_help"}}</div>{{end}}
@@ -757,15 +795,25 @@ var consentTemplate = template.Must(template.New("consent").Funcs(template.FuncM
       <input type="hidden" name="lang" value="{{.Lang}}">
       {{if .EnableWrites}}
       <div class="suite-auth-copy suite-core-switcher">
-        <label class="suite-core-switcher-label" for="access-mode">{{msg .Lang "access"}}</label>
+        <label class="suite-core-switcher-label" style="color:var(--text-secondary)" for="access-mode">{{msg .Lang "access"}}</label>
         <select id="access-mode" name="access_mode" aria-describedby="access-help">
           <option value="read" selected>{{msg .Lang "read"}}</option>
           <option value="write">{{msg .Lang "write"}}</option>
         </select>
       </div>
       {{else}}<input type="hidden" name="access_mode" value="read">{{end}}
+      {{if .RequestFinancial}}
+      <div class="suite-auth-notice" id="financial-help">{{msg .Lang "financial_help"}}</div>
+      <div class="suite-auth-copy suite-core-switcher">
+        <label class="suite-core-switcher-label" style="color:var(--text-secondary)" for="financial-access">{{msg .Lang "financial"}}</label>
+        <select id="financial-access" name="financial_access" aria-describedby="financial-help">
+          <option value="deny" selected>{{msg .Lang "financial_deny"}}</option>
+          <option value="allow">{{msg .Lang "financial_allow"}}</option>
+        </select>
+      </div>
+      {{end}}
       <div class="suite-auth-actions">
-        <button class="suite-button" name="decision" value="deny" type="submit">{{msg .Lang "deny"}}</button>
+        <button class="suite-button" style="color:var(--text-secondary)" name="decision" value="deny" type="submit">{{msg .Lang "deny"}}</button>
         <button class="suite-button suite-button--primary" name="decision" value="allow" type="submit">{{if .EnableWrites}}{{msg .Lang "allow"}}{{else}}{{msg .Lang "allow_read"}}{{end}}</button>
       </div>
     </form>

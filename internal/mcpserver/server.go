@@ -14,7 +14,7 @@ import (
 	"github.com/nbt4/cores-mcp/internal/store"
 )
 
-const Version = "1.5.30"
+const Version = "1.5.31"
 
 func New(cfg config.Config, db *store.Store, logger *slog.Logger) *mcp.Server {
 	description := "Read-only operational context and safe cross-core queries for RentalCore, WarehouseCore, PlannerCore and ProcurementCore."
@@ -36,6 +36,7 @@ func New(cfg config.Config, db *store.Store, logger *slog.Logger) *mcp.Server {
 	registerWarehouseDeviceAuditTool(server, db)
 	registerWarehouseMasterAuditTools(server, db)
 	registerWarehouseMaintenancePlanReadTools(server, db)
+	registerWarehouseMaintenanceOrderReadTools(server, db)
 	registerWarehousePackageAuditTool(server, db)
 	registerWarehouseLocationAuditTool(server, db)
 	registerWarehouseCaseReadTools(server, db)
@@ -75,6 +76,7 @@ func New(cfg config.Config, db *store.Store, logger *slog.Logger) *mcp.Server {
 		registerWarehouseMasterUpdateTools(server, cfg, db)
 		registerWarehouseMasterLifecycleTools(server, cfg)
 		registerWarehouseMaintenancePlanTools(server, cfg)
+		registerWarehouseMaintenanceOrderTools(server, cfg)
 		registerOperationalCreateTools(server, cfg, db)
 		registerWorkflowTools(server, cfg, db)
 		registerProcurementLifecycleTools(server, cfg, db)
@@ -114,11 +116,27 @@ func auditMiddleware(logger *slog.Logger) mcp.Middleware {
 }
 
 var mutationTools = map[string]struct{}{
-	"warehouse.maintenance_plans.create":  {},
-	"warehouse.maintenance_plans.update":  {},
-	"warehouse.maintenance_plans.archive": {},
-	"warehouse.maintenance_plans.restore": {},
-	"warehouse.manufacturers.archive":     {}, "warehouse.manufacturers.restore": {}, "warehouse.brands.archive": {}, "warehouse.brands.restore": {},
+	"warehouse.maintenance_orders.create":     {},
+	"warehouse.maintenance_orders.update":     {},
+	"warehouse.maintenance_orders.transition": {},
+	"warehouse.maintenance_orders.complete":   {},
+	"warehouse.maintenance_orders.cancel":     {},
+	"warehouse.maintenance_orders.reopen":     {},
+	"warehouse.maintenance_orders.archive":    {},
+	"warehouse.maintenance_orders.restore":    {},
+	"warehouse.defects.create":                {},
+	"warehouse.defects.update":                {},
+	"warehouse.defects.transition":            {},
+	"warehouse.defects.complete":              {},
+	"warehouse.defects.cancel":                {},
+	"warehouse.defects.reopen":                {},
+	"warehouse.defects.archive":               {},
+	"warehouse.defects.restore":               {},
+	"warehouse.maintenance_plans.create":      {},
+	"warehouse.maintenance_plans.update":      {},
+	"warehouse.maintenance_plans.archive":     {},
+	"warehouse.maintenance_plans.restore":     {},
+	"warehouse.manufacturers.archive":         {}, "warehouse.manufacturers.restore": {}, "warehouse.brands.archive": {}, "warehouse.brands.restore": {},
 	"warehouse.cases.create":          {},
 	"warehouse.cases.update":          {},
 	"warehouse.cases.archive":         {},

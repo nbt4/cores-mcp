@@ -13,7 +13,7 @@ and production verification. Optional event streams are separate follow-up work.
 | Warehouse packages | Atomic lines/create/update/archive/restore, audit | — |
 | Warehouse devices | Create/update/archive/restore, audit, own last-update revert, atomic bulk creation | — |
 | Warehouse cases | Create/update/archive/restore, models search, audit | Template/content workflow tools |
-| Warehouse maintenance/defects | Plan create/update/archive/restore, due planned-order generation, redacted plan audit, read context, condition changes | Guided manual orders/defects create/update/complete/lifecycle |
+| Warehouse maintenance/defects | Full recurring plans and manual work/defect create/update/transition/complete/cancel/reopen/archive/restore; atomic schedule/condition/legacy effects, events, redacted audits and explicit cost scope | — |
 | Warehouse inventory | Variance reads, physical movements | Guided count/line/review/approve/cancel with atomic audit |
 | Warehouse tasks | Create | Metadata update, complete/cancel/archive/restore |
 | Rental customers/venues | Resolve/search | Complete create/update/archive/restore |
@@ -28,7 +28,7 @@ and production verification. Optional event streams are separate follow-up work.
 | Planner plans/tasks | Create, membership-protected reads | Complete update/archive/restore, durable atomic audit/replay |
 | Planner buckets/labels/dependencies/sprints/goals | Read context | Schema discovery, guided create/update/archive/restore |
 | Business documents | Knowledge references only | Scoped metadata/content, quotation/invoice generation/send, attachments, labels |
-| Permissions | Read-only configuration; service/action scopes; real user, target-Core rights | Documents/financial and remaining named workflow scopes |
+| Permissions | Read-only configuration; service/action scopes; real user, target-Core rights | Documents, financial fields outside maintenance, and remaining named workflow scopes |
 | Write protection | Confirmation, dry-run, bounded requests, rate limits | Verify every legacy writer has target atomic audit/replay and precise versions |
 | Undo | Device field revert and existing restores | Defined remaining field revert paths and per-entity history |
 

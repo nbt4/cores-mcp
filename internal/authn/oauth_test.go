@@ -60,7 +60,7 @@ func TestSupportedScopesIncludeLegacyAndGranularWrites(t *testing.T) {
 			t.Fatalf("supported scopes %v lack %q", got, expected)
 		}
 	}
-	if got := SupportedScopes(false); len(got) != 1 || got[0] != readScope {
+	if got := SupportedScopes(false); len(got) != 2 || got[0] != readScope || got[1] != "cores:warehouse:financial" {
 		t.Fatalf("read-only scopes = %v", got)
 	}
 }
@@ -69,16 +69,20 @@ func TestOAuthAuthorizationCodeFlow(t *testing.T) {
 	for _, tc := range []struct {
 		name, requested, selection, expected string
 		writes                               bool
+		financial                            string
 	}{
-		{"client requests read, user chooses write", readScope, "write", readScope + " " + writeScope, true},
-		{"client requests write, user chooses read", readScope + " " + writeScope, "read", readScope, true},
-		{"missing choice remains read-only", readScope + " " + writeScope, "", readScope, true},
-		{"missing scope remains read-only", "", "read", readScope, true},
-		{"explicit legacy writes", readScope + " " + writeScope, "write", readScope + " " + writeScope, true},
-		{"granular writes remain granular", readScope + " cores:warehouse:update", "write", readScope + " cores:warehouse:update", true},
-		{"writes disabled", readScope, "read", readScope, false},
-		{"cannot enable writes on read-only server", readScope, "write", "invalid_scope", false},
-		{"invalid selection is rejected", readScope, "admin", "invalid_scope", true},
+		{"client requests read, user chooses write", readScope, "write", readScope + " " + writeScope, true, ""},
+		{"client requests write, user chooses read", readScope + " " + writeScope, "read", readScope, true, ""},
+		{"missing choice remains read-only", readScope + " " + writeScope, "", readScope, true, ""},
+		{"missing scope remains read-only", "", "read", readScope, true, ""},
+		{"explicit legacy writes", readScope + " " + writeScope, "write", readScope + " " + writeScope, true, ""},
+		{"granular writes remain granular", readScope + " cores:warehouse:update", "write", readScope + " cores:warehouse:update", true, ""},
+		{"writes disabled", readScope, "read", readScope, false, ""},
+		{"cannot enable writes on read-only server", readScope, "write", "invalid_scope", false, ""},
+		{"invalid selection is rejected", readScope, "admin", "invalid_scope", true, ""},
+		{"financial request defaults denied", readScope + " cores:warehouse:financial", "read", readScope, false, ""},
+		{"read-only financial consent", readScope + " cores:warehouse:financial", "read", readScope + " cores:warehouse:financial", false, "allow"},
+		{"financial and granular update consent", readScope + " cores:warehouse:update cores:warehouse:financial", "write", readScope + " cores:warehouse:financial cores:warehouse:update", true, "allow"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			secret := strings.Repeat("s", 48)
@@ -123,6 +127,13 @@ func TestOAuthAuthorizationCodeFlow(t *testing.T) {
 				t.Fatalf("consent CSP does not allow the validated callback origin: %s", policy)
 			}
 			assertAuthorizationFields(t, consent.Body.String(), query)
+			requestedFinance := strings.Contains(tc.requested, "cores:warehouse:financial")
+			if requestedFinance != strings.Contains(consent.Body.String(), `id="financial-access"`) {
+				t.Fatal("financial consent control visibility wrong")
+			}
+			if requestedFinance && !strings.Contains(consent.Body.String(), `<option value="deny" selected>`) {
+				t.Fatal("financial disclosure must default denied")
+			}
 			if tc.writes != strings.Contains(consent.Body.String(), `<option value="write">`) {
 				t.Fatal("write selection availability differs from server configuration")
 			}
@@ -138,6 +149,7 @@ func TestOAuthAuthorizationCodeFlow(t *testing.T) {
 			form.Set("csrf", csrf.Value)
 			form.Set("decision", "allow")
 			form.Set("access_mode", tc.selection)
+			form.Set("financial_access", tc.financial)
 			approve := httptest.NewRequest(http.MethodPost, "/oauth/authorize", strings.NewReader(form.Encode()))
 			approve.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 			approve.AddCookie(&http.Cookie{Name: "cores_token", Value: suiteToken})
@@ -362,5 +374,33 @@ func TestConsentLanguage(t *testing.T) {
 		if pair[0] == "" || pair[1] == "" {
 			t.Fatalf("missing translation for %s", key)
 		}
+	}
+}
+
+func TestAccessTokenRefreshesCurrentRolesWithoutScopeExpansion(t *testing.T) {
+	secret := strings.Repeat("s", 48)
+	server, err := NewOAuthServer("https://mcp.example.com", "https://cores.example.com", secret, t.TempDir()+"/clients.json", true, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	current := &User{ID: 7, Username: "current-name", IsAdmin: true}
+	server.SetUserRightsLookup(func(context.Context, uint) (*User, error) { return current, nil })
+	claims := tokenClaims{Scope: "cores:read cores:warehouse:financial", Type: "access", Username: "old-name", IsAdmin: true, RegisteredClaims: jwtlib.RegisteredClaims{Issuer: server.issuer, Subject: "7", Audience: []string{server.resource}, ExpiresAt: jwtlib.NewNumericDate(time.Now().Add(time.Hour))}}
+	raw, err := jwtlib.NewWithClaims(jwtlib.SigningMethodHS256, claims).SignedString([]byte(secret))
+	if err != nil {
+		t.Fatal(err)
+	}
+	info, err := server.VerifyToken(context.Background(), raw, nil)
+	if err != nil || info.Extra["is_admin"] != true || info.Extra["username"] != "current-name" {
+		t.Fatal("current identity not resolved", info, err)
+	}
+	current = &User{ID: 7, Username: "current-name", IsAdmin: false}
+	info, err = server.VerifyToken(context.Background(), raw, nil)
+	if err != nil || info.Extra["is_admin"] != false || strings.Join(info.Scopes, " ") != claims.Scope {
+		t.Fatal("role revocation or granted scopes changed", info, err)
+	}
+	current = nil
+	if _, err = server.VerifyToken(context.Background(), raw, nil); err == nil {
+		t.Fatal("missing/inactive user retained access")
 	}
 }

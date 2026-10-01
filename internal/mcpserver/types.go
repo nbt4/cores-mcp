@@ -112,6 +112,25 @@ func executeMutationTool[In any](ctx context.Context, name, permissionLabel stri
 		}, nil
 	}
 
+	if strings.HasPrefix(name, "warehouse.maintenance_orders.") || strings.HasPrefix(name, "warehouse.defects.") {
+		permissionErr = requireWarehouseMasterAdmin(ctx)
+		raw, _ := json.Marshal(input)
+		fields := map[string]any{}
+		_ = json.Unmarshal(raw, &fields)
+		financial := fields["cost_amount"] != nil
+		if keys, ok := fields["clear_fields"].([]any); ok {
+			for _, key := range keys {
+				financial = financial || key == "cost_amount"
+			}
+		}
+		if permissionErr == nil && financial {
+			permissionErr = requireWarehouseFinancialScope(ctx)
+		}
+		if permissionErr != nil {
+			message := permissionErr.Error()
+			return &mcp.CallToolResult{IsError: true, Content: []mcp.Content{&mcp.TextContent{Text: message}}}, Output{AsOf: now(), Summary: message}, nil
+		}
+	}
 	invocation, err := prepareWriteInvocation(ctx, name, input)
 	if err != nil {
 		message := fmt.Sprintf("%s rejected: %v", name, err)
@@ -175,6 +194,16 @@ func authorizeMutation(ctx context.Context, tool string) (context.Context, error
 }
 
 func requiredMutationScope(tool string) string {
+	if strings.HasPrefix(tool, "warehouse.maintenance_orders.") || strings.HasPrefix(tool, "warehouse.defects.") {
+		action := "update"
+		if strings.HasSuffix(tool, ".create") {
+			action = "create"
+		}
+		if strings.HasSuffix(tool, ".archive") || strings.HasSuffix(tool, ".restore") {
+			action = "archive"
+		}
+		return coresauth.ServiceWriteScope("warehouse", action)
+	}
 	switch tool {
 	case "rental.jobs.create", "rental.requirements.create":
 		return coresauth.ServiceWriteScope("rental", "create")

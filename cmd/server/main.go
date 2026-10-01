@@ -91,6 +91,15 @@ func main() {
 			logger.Error("initialize OAuth", "error", oauthErr)
 			os.Exit(1)
 		}
+		oauthServer.SetUserRightsLookup(func(ctx context.Context, userID uint) (*authn.User, error) {
+			rows, queryErr := repository.Query(ctx, `SELECT username,is_admin FROM users WHERE userid=$1 AND is_active LIMIT 1`, userID)
+			if queryErr != nil || len(rows) == 0 {
+				return nil, queryErr
+			}
+			username, _ := rows[0]["username"].(string)
+			admin, _ := rows[0]["is_admin"].(bool)
+			return &authn.User{ID: userID, Username: username, IsAdmin: admin}, nil
+		})
 		oauthServer.Register(mux)
 		verifier := authn.CombinedVerifier(oauthServer.VerifyToken, cfg.StaticTokens)
 		protected = auth.RequireBearerToken(verifier, bearerOptions(cfg))(mcpHandler)

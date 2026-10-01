@@ -172,9 +172,9 @@ var queryEntities = map[string]queryEntitySpec{
 		SearchFields:  []string{"device_id", "product_code", "product", "serial_number", "barcode", "qr_code", "status", "condition_status", "zone_code", "zone", "current_case"},
 	},
 	"warehouse.defects": {
-		Service: "warehousecore", SourceEntity: "defect",
-		BaseSQL: `SELECT dr.defect_id,dr.device_id,d.productid AS product_id,p.name AS product,dr.severity,dr.status,dr.description,dr.created_at,dr.updated_at
-              FROM defect_reports dr JOIN devices d ON d.deviceid=dr.device_id JOIN products p ON p.productid=d.productid`,
+		Service: "warehousecore", SourceEntity: "maintenance_order",
+		BaseSQL: `SELECT dr.order_id AS defect_id,dr.device_id,d.productid AS product_id,p.name AS product,dr.priority AS severity,dr.status,dr.description,dr.created_at,dr.updated_at
+              FROM maintenance_orders dr JOIN devices d ON d.deviceid=dr.device_id JOIN products p ON p.productid=d.productid WHERE dr.order_type='defect'`,
 		Fields:        map[string]queryFieldKind{"defect_id": queryInteger, "device_id": queryString, "product_id": queryInteger, "product": queryString, "severity": queryString, "status": queryString, "description": queryString, "created_at": queryTime, "updated_at": queryTime},
 		DefaultFields: []string{"defect_id", "device_id", "product_id", "product", "severity", "status", "description", "created_at", "updated_at"}, SearchFields: []string{"device_id", "product", "severity", "status", "description"},
 	},
@@ -184,7 +184,7 @@ var queryEntities = map[string]queryEntitySpec{
                    mo.due_at,mo.completed_at,mo.cost,mo.created_at,mo.updated_at
               FROM maintenance_orders mo JOIN devices d ON d.deviceid=mo.device_id JOIN products p ON p.productid=d.productid`,
 		Fields:        map[string]queryFieldKind{"maintenance_id": queryInteger, "device_id": queryString, "product_id": queryInteger, "product": queryString, "title": queryString, "order_type": queryString, "priority": queryString, "status": queryString, "due_at": queryTime, "completed_at": queryTime, "cost": queryNumber, "created_at": queryTime, "updated_at": queryTime},
-		DefaultFields: []string{"maintenance_id", "device_id", "product_id", "product", "title", "order_type", "priority", "status", "due_at", "completed_at", "cost", "updated_at"}, SearchFields: []string{"device_id", "product", "title", "order_type", "priority", "status"},
+		DefaultFields: []string{"maintenance_id", "device_id", "product_id", "product", "title", "order_type", "priority", "status", "due_at", "completed_at", "updated_at"}, SearchFields: []string{"device_id", "product", "title", "order_type", "priority", "status"},
 	},
 	"warehouse.cases": {
 		Service: "warehousecore", SourceEntity: "case",
@@ -315,6 +315,21 @@ func registerQueryTools(server *mcp.Server, db *store.Store) {
 		if !ok {
 			return nil, nil, nil, fmt.Errorf("unknown entity %q; call cores.query.catalog", input.Entity)
 		}
+		if input.Entity == "warehouse.maintenance" {
+			fields := append([]string(nil), input.GroupBy...)
+			for _, metric := range input.Metrics {
+				fields = append(fields, metric.Field)
+			}
+			for _, filter := range input.Filters {
+				fields = append(fields, filter.Field)
+			}
+			for _, sort := range input.Sort {
+				fields = append(fields, sort.Field)
+			}
+			if err := checkMaintenanceFinancialQuery(ctx, fields); err != nil {
+				return nil, nil, nil, err
+			}
+		}
 		query, args, err := buildAggregateQuery(db, spec, input)
 		if err != nil {
 			return nil, nil, nil, err
@@ -399,6 +414,21 @@ func executeRecordQueries(ctx context.Context, db *store.Store, input QueryRecor
 	warnings := make([]string, 0)
 	for _, item := range input.Queries {
 		spec := queryEntities[item.Entity]
+		if item.Entity == "warehouse.maintenance" {
+			fields := append([]string(nil), item.Fields...)
+			for _, filter := range item.Filters {
+				fields = append(fields, filter.Field)
+			}
+			for _, sort := range item.Sort {
+				fields = append(fields, sort.Field)
+			}
+			for key := range requiredFields[item.Alias] {
+				fields = append(fields, key)
+			}
+			if err := checkMaintenanceFinancialQuery(ctx, fields); err != nil {
+				return nil, nil, nil, err
+			}
+		}
 		query, args, err := buildEntityQuery(db, spec, item, requiredFields[item.Alias])
 		if err != nil {
 			return nil, nil, nil, fmt.Errorf("query %s: %w", item.Alias, err)
@@ -846,4 +876,13 @@ func deduplicateSources(input []Source) []Source {
 		}
 	}
 	return result
+}
+
+func checkMaintenanceFinancialQuery(ctx context.Context, fields []string) error {
+	for _, field := range fields {
+		if field == "cost" {
+			return requireWarehouseFinancialScope(ctx)
+		}
+	}
+	return nil
 }
