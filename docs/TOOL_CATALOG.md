@@ -566,3 +566,28 @@ Metadaten benötigen Restore vor Bearbeitung. Die neuen MCP-Aktionen speichern
 Änderung, Vorher/Nachher-Audit und dauerhaften Replay gemeinsam. Audit-Historie
 ist administratorgeschützt und redigiert; keine Rohwerte, Website oder IP.
 Auflösung enthält `lifecycle_status`; archivierte Treffer zuerst restaurieren.
+
+### Wartungspläne ab 1.5.30
+
+`warehouse.maintenance_plans.search` löst vorhandene Pläne inklusive inaktiver
+Historie auf. `prepare_create`/`create`, `prepare_update`/`update`,
+`prepare_archive`/`archive`, `prepare_restore`/`restore` und `audit_history`
+verwenden das vollständige Schema `warehouse.maintenance_plans`.
+
+Warehouse-Admin plus create/update/archive-Scope, vollständige Vorschau,
+`confirm_change=true`, `idempotency_key`, exakte `expected_device_updated_at`
+und für bestehende Pläne `expected_updated_at` sind nötig. Lifecycle verlangt
+zusätzlich `ARCHIVE|RESTORE WAREHOUSE MAINTENANCE PLAN <ID>`; offene Aufträge
+sperren beide Aktionen. Gerätezuordnung ist unveränderlich; Restore prüft
+aktives Produkt/Gerät und Ausmusterung. Intervalle 1–3650 Tage, Vorlauf 0–365
+(Default 14), Typ preventive/inspection/calibration (Default preventive),
+Planname 1–160 Zeichen, Arbeitsanweisung maximal 4000 und gültiges Datum.
+
+Vorschau zeigt alle Felder, Diff, Duplikate, Referenzzahlen, den neuen
+Gerätetermin und einen gegebenenfalls fälligen geplanten Auftrag. Plan,
+Gerätetermin, automatisch fälliger Auftrag, Ereignis, Audits und dauerhafter
+Replay sind atomar. Physischer Ort und Zustand bleiben. Updates ergänzen nur
+angegebene Felder; `clear_fields` unterstützt instructions. `dry_run` schreibt
+nichts. Alle Core-Schreiber versionieren Pläne/Aufträge; Auftragsänderungen
+versionieren auch den referenzierten Plan. Audit-Ausgabe schließt Anweisungen
+und Roh-JSON aus. Manuelle Auftrags- und Defektabläufe folgen getrennt.

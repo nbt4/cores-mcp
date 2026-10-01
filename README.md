@@ -1,5 +1,35 @@
 # Cores MCP
 
+## Atomare MCP-Wartungspläne — WarehouseCore 5.9.100 / Cores MCP 1.5.30
+
+`warehouse.maintenance_plans` bietet `search`, `prepare_create`/`create`,
+`prepare_update`/`update`, `prepare_archive`/`archive`, `prepare_restore`/`restore`
+und redigierte `audit_history`. Alle fachlichen Planfelder sind im Schema
+`warehouse.maintenance_plans` beschrieben. Updates ergänzen nur angegebene
+Felder; `clear_fields=["instructions"]` leert Arbeitsanweisungen ausdrücklich.
+Gerätezuordnung und historische Abschlüsse bleiben erhalten.
+
+Die Vorschau zeigt Plan und Gerät, Diff, Duplikate, offene/historische Aufträge,
+den neuen Gerätetermin und den Entwurf eines gegebenenfalls fälligen Auftrags.
+Admin und create/update/archive-Scope, `confirm_change`, `idempotency_key`,
+exakte `expected_device_updated_at` und bei bestehenden Plänen zusätzlich
+`expected_updated_at` sind erforderlich. Lifecycle verlangt die Phrase
+`ARCHIVE|RESTORE WAREHOUSE MAINTENANCE PLAN <ID>` und keine offenen Aufträge.
+Restore benötigt ein aktives, nicht ausgemustertes Gerät und aktives Produkt.
+Vorschau und `dry_run` schreiben nichts.
+
+Plan, synchronisierter nächster Gerätetermin, automatisch fälliger geplanter
+Auftrag samt Ereignis, Vorher/Nachher-Audits und dauerhafter Replay werden gemeinsam
+gespeichert oder zurückgerollt. Zustand und Lagerort des Geräts werden erhalten.
+Migration Warehouse `054` / Umbrella `027` versioniert alle Plan-/Auftragsschreiber;
+Auftragsänderungen machen auch die Planvorschau ungültig. Neue Umbrella-Datenbanken
+erhalten das kanonische Wartungsschema. Neustarts erzeugen bei vorhandenen
+benutzerdefinierten Plänen keine zusätzlichen Standardpläne.
+
+215 Tools: 73 Abfragen, 71 Vorschauen, 71 Ausführungen. Keine neue Konfiguration.
+Manuelle Auftrags-/Defektprozesse und übrige Anforderungen von #4/#5 sind weiter
+im [Abschlusscheck](https://github.com/nbt4/cores-mcp/blob/main/docs/ISSUE_COMPLETION.md) offen.
+
 ## MCP-Hersteller und Marken — WarehouseCore 5.9.99 / Cores MCP 1.5.29
 
 Hersteller und Marken unterstützen `prepare_archive`/`archive`,
@@ -759,7 +789,7 @@ Markdown-, Text-, CSV- und JSON-Dateien unter `MCP_KNOWLEDGE_DIRS` werden als MC
 
 ```bash
 make check
-docker build -t nobentie/cores-mcp:1.5.29 -t nobentie/cores-mcp:latest .
+docker build -t nobentie/cores-mcp:1.5.30 -t nobentie/cores-mcp:latest .
 ```
 
 Die Umbrella-Compose-Datei der Cores Suite bindet den Dienst intern ein. Der Cores-Dashboard-Reverse-Proxy veröffentlicht MCP und OAuth auf derselben Domain, damit der bestehende Suite-Login genutzt werden kann.

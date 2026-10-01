@@ -13,7 +13,7 @@ and production verification. Optional event streams are separate follow-up work.
 | Warehouse packages | Atomic lines/create/update/archive/restore, audit | — |
 | Warehouse devices | Create/update/archive/restore, audit, own last-update revert, atomic bulk creation | — |
 | Warehouse cases | Create/update/archive/restore, models search, audit | Template/content workflow tools |
-| Warehouse maintenance/defects | Read context, condition changes | Guided plans/orders/defects create/update/complete/lifecycle |
+| Warehouse maintenance/defects | Plan create/update/archive/restore, due planned-order generation, redacted plan audit, read context, condition changes | Guided manual orders/defects create/update/complete/lifecycle |
 | Warehouse inventory | Variance reads, physical movements | Guided count/line/review/approve/cancel with atomic audit |
 | Warehouse tasks | Create | Metadata update, complete/cancel/archive/restore |
 | Rental customers/venues | Resolve/search | Complete create/update/archive/restore |
