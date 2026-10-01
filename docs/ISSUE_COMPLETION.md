@@ -14,7 +14,7 @@ and production verification. Optional event streams are separate follow-up work.
 | Warehouse devices | Create/update/archive/restore, audit, own last-update revert, atomic bulk creation | — |
 | Warehouse cases | Create/update/archive/restore, models search, audit | Template/content workflow tools |
 | Warehouse maintenance/defects | Full recurring plans and manual work/defect create/update/transition/complete/cancel/reopen/archive/restore; atomic schedule/condition/legacy effects, events, redacted audits and explicit cost scope | — |
-| Warehouse inventory | Variance reads, physical movements | Guided count/line/review/approve/cancel with atomic audit |
+| Warehouse inventory | Full guided count/create/update/lines/review/correction/approve/cancel/archive/restore, explicit approve scope, precise context/line/event/start-stock protection, atomic physical adjustments/movements/audits/replay and redacted history | — |
 | Warehouse tasks | Full create/partial update/start/complete/cancel/reopen/archive/restore, exact task/reference versions, atomic events/audits/durable replay and redacted history | — |
 | Rental customers/venues | Resolve/search | Complete create/update/archive/restore |
 | Rental jobs | Create, limited metadata/status updates, device assignment | Complete fields, locking, lifecycle, full atomic audit/replay |
@@ -48,3 +48,15 @@ preserves IDs, templates, metadata and history, deactivates scan aliases and
 blocks physical contents, nesting, active jobs/tasks/workflows. Restore validates
 storage hierarchy/capacity, identities and template product references again.
 Physical movements and case packing remain distinct processes.
+
+## Inventory verification
+
+WarehouseCore 5.9.103 / Cores MCP 1.5.33 adds 21 tools: 289 total
+(83 reads / 103 preparations / 103 executions), Warehouse 057 / umbrella 030.
+Full service tests pass with race detection and disposable PostgreSQL; Vet and
+builds pass. Fresh-volume real Streamable HTTP tests verify blind reads, actual
+suite user/action/approval permissions, dry-run, stale versions/start stock,
+explicit missing-item review, correction, packed-case/device/quantity effects,
+final-audit rollback, same-key retry, restart replay, history and lifecycle.
+Production publication is tracked in the umbrella deployment docs. Parent issues
+remain open until every remaining area above is complete.

@@ -1,5 +1,73 @@
 # Tool-Katalog
 
+## Geführte MCP-Inventur — WarehouseCore 5.9.103 / Cores MCP 1.5.33
+
+Die Implementierung ergänzt `warehouse.inventory_counts` mit `search`,
+`get`, redigierter `audit_history` und neun benannten Vorschau-/Ausführungspaaren:
+`create`, `update`, `set_lines`, `review`, `return_for_counting`, `approve`, `cancel`,
+`archive`, `restore`. Der Katalog enthält damit 289 Werkzeuge
+(83 Abfragen / 103 Vorschauen / 103 Ausführungen).
+
+Alle Änderungen erfordern aktuelle Adminrechte, passenden Aktionsscope,
+`confirm_change`, Idempotenz und den vollständigen `expected_context` aus der
+Vorschau. Bestehende Zählungen zusätzlich die exakte `expected_updated_at`;
+Zeilen und Ereignisse versionieren ihre Zählung bei allen Schreibern.
+Anlage benötigt create, Archiv/Restore archive, übrige Pflege update.
+**Freigabe benötigt ausdrücklich `cores:warehouse:approve`; create/update und
+Legacy `cores:write` erteilen diese Berechtigung nicht.** Die bestehende
+OAuth-Freigabe muss diesen Scope ausdrücklich anfordern und gewähren.
+Review, Freigabe, Storno und Lifecycle benötigen außerdem die recordgebundene
+Phrase `<OPERATION> WAREHOUSE INVENTORY COUNT <ID>`.
+
+`set_lines` ersetzt 1–100 eindeutige Mengen statt Scans zu addieren. Eine Zeile
+nennt `item_type`, exakten `item_key` und entweder `counted_quantity` oder
+`clear_counted`. Mengen sind 0–9999999.999 mit maximal drei Nachkommastellen;
+Geräte und Cases ausschließlich 0 oder 1. Eine Zählung enthält maximal 1000
+Zeilen und einen vollständigen Kontext unter zwei MiB. Der Lagerplatz bleibt
+unveränderlich. `blind_count` (Standard true) und Arbeitsnotizen sind Teilupdates;
+Notizen werden durch einen expliziten leeren String geleert.
+
+Blinde Zählungen verbergen Sollmengen und Differenzen bis zur bestätigten
+Prüfphase, einschließlich der bisherigen Varianzabfrage und verfrühter
+Freigabeversuche. Review setzt fehlende Zeilen nur nach ausdrücklicher
+`mark_uncounted_zero`-Bestätigung auf null Stück; ansonsten müssen alle Zeilen
+gezählt sein. `return_for_counting` erlaubt Korrekturen vor der Freigabe und
+benötigt einen Grund. Zählen/Review/Korrektur buchen keinen Bestand.
+
+Die Freigabe prüft den unveränderten Startbestand und den aktuellen vollständigen
+Kontext, aktive Artikel/Case-Inhalte, verfügbare Ziel-/Quellhierarchien, Aufträge,
+Reservierungen, Packzuordnungen, Wartung/Defekte und Lagerprofile. Ihre Vorschau
+zeigt jede Differenz, Geräte-/Case-Lageränderung und projizierte Stück-, Gewichts-
+und Volumenbelegung. Produkt-/Case-Maße sind Zentimeter, Gewicht Kilogramm.
+Gepackte Cases belegen ihren äußeren Raum; Gewichte enthalten alle verschachtelten
+Cases, Geräte und Mengenartikel. Fehlende Maße/Gewichte blockieren gesetzte
+physische Limits. Nur das bestehende Kapazitätsmodell `item_count` ist erlaubt.
+Ein geänderter Startbestand verlangt Storno und eine neue Zählung.
+
+Erst die gesonderte bestätigte Freigabe schreibt Mengenbestände, Gerätebewegungen,
+Case-Ereignisse und ein Differenzjournal. Gepackte Inhalte bleiben gepackt und
+folgen der Wurzelposition; Gerätezustände (`condition_status`) sowie Pack-/Jobzuordnungen bleiben erhalten.
+Ein unerwarteter Artikel mit null gezählten Stück bleibt an seinem Quellort.
+Bestand, globale Mengensummen, Zählung, Lagertermin, Ereignisse, Vorher/Nachher-
+Audits und dauerhafter Replay sind eine Transaktion. Storno benötigt einen Grund
+und löst ausschließlich den Zählstatus. Nur abgeschlossene/stornierte Zählungen
+können archiviert werden. Restore erhält den terminalen Status und sämtliche
+Historie; eine erneute Inventur ist eine neue Zählung.
+
+Warehouse-Startup/Migration `057` und Umbrella `030` ergänzen das kanonische
+Schema und schützen Versionen, Zeilen, Archive und unveränderliche Startbestände.
+Die bisherige UI kann eine MCP-Zählung lesen und zählen; ihre alte, ungeprüfte
+Freigabe ist für solche Zählungen blockiert. Dafür den neuen geprüften MCP-Pfad
+verwenden. Bestehende UI-Zählungen ohne Startbaseline benötigen für MCP-Abgleich
+Storno und Neuanlage. Normale Zähllisten blenden Archive aus.
+
+Gezielte Race-Tests prüfen Autorisierung, Feldweiterleitung, Dry-run und
+Wiederholung nach Auditfehlern. Der PostgreSQL-Integrationstest prüft Konflikte,
+blinde Zählung, physische Freigabefolgen, vollständigen Rollback bei der letzten
+Auditbuchung, identische Wiederholung und Archive/Restore. Vollständige Go-Tests,
+Vet/Build und eine neue Datenbank mit dem echten MCP-Endpunkt gehören zur
+Release-Prüfung. Die Parent-Issues #4 und #5 bleiben für weitere Bereiche offen.
+
 ## Atomare MCP-Lageraufgaben — WarehouseCore 5.9.102 / Cores MCP 1.5.32
 
 `warehouse.tasks` unterstützt vollständige Anlage und Teilupdates, `start`,

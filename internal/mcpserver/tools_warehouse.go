@@ -190,7 +190,7 @@ func registerWarehouseTools(server *mcp.Server, db *store.Store) {
 		return `SELECT ic.count_id,ic.status,ic.blind_count,z.code AS zone_code,z.name AS zone,icl.item_type,icl.item_key,
                        icl.expected_quantity,icl.counted_quantity,icl.counted_quantity-icl.expected_quantity AS variance,ic.started_at,ic.completed_at
                   FROM inventory_count_lines icl JOIN inventory_counts ic ON ic.count_id=icl.count_id LEFT JOIN storage_zones z ON z.zone_id=ic.zone_id
-                 WHERE icl.counted_quantity IS NOT NULL AND icl.counted_quantity<>icl.expected_quantity
+                 WHERE NOT (ic.blind_count AND ic.status IN ('open','counting')) AND icl.counted_quantity IS NOT NULL AND icl.counted_quantity<>icl.expected_quantity
                    AND ($1='' OR z.name ILIKE $2 OR z.code ILIKE $2 OR icl.item_key ILIKE $2 OR icl.item_type ILIKE $2)
                  ORDER BY COALESCE(ic.completed_at,ic.started_at) DESC,abs(icl.counted_quantity-icl.expected_quantity) DESC LIMIT $3 OFFSET $4`, []any{input.Query, searchPattern(input.Query), db.Limit(input.Limit), cleanOffset(input.Offset)}
 	})

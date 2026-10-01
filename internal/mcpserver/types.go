@@ -106,13 +106,13 @@ func executeMutationTool[In any](ctx context.Context, name, permissionLabel stri
 	var permissionErr error
 	ctx, permissionErr = authorizeMutation(ctx, name)
 	if permissionErr != nil {
-		message := name + " requires " + requiredMutationScope(name) + " (or legacy cores:write). Reconnect the Cores MCP connector, choose Read and write (Lesen und Schreiben) in the Cores authorization dialog and confirm the selected access."
+		message := mutationPermissionMessage(name)
 		return &mcp.CallToolResult{IsError: true, Content: []mcp.Content{&mcp.TextContent{Text: message}}}, Output{
 			AsOf: now(), Summary: message, Warnings: []string{"No data was changed."},
 		}, nil
 	}
 
-	if strings.HasPrefix(name, "warehouse.maintenance_orders.") || strings.HasPrefix(name, "warehouse.defects.") || strings.HasPrefix(name, "warehouse.tasks.") {
+	if strings.HasPrefix(name, "warehouse.maintenance_orders.") || strings.HasPrefix(name, "warehouse.defects.") || strings.HasPrefix(name, "warehouse.tasks.") || strings.HasPrefix(name, "warehouse.inventory_counts.") {
 		permissionErr = requireWarehouseMasterAdmin(ctx)
 		raw, _ := json.Marshal(input)
 		fields := map[string]any{}
@@ -187,16 +187,36 @@ func mutationControlsKey(input any) string {
 	return strings.TrimSpace(key)
 }
 
+func mutationPermissionMessage(tool string) string {
+	if tool == "warehouse.inventory_counts.approve" {
+		return tool + " requires the explicit cores:warehouse:approve scope and current administrator rights. Legacy cores:write, create and update access do not grant inventory approval. Reconnect and explicitly grant the approval scope."
+	}
+	return tool + " requires " + requiredMutationScope(tool) + " (or legacy cores:write). Reconnect the Cores MCP connector, choose Read and write (Lesen und Schreiben) in the Cores authorization dialog and confirm the selected access."
+}
+
 func authorizeMutation(ctx context.Context, tool string) (context.Context, error) {
 	info := auth.TokenInfoFromContext(ctx)
 	required := requiredMutationScope(tool)
-	if info == nil || (!containsString(info.Scopes, coresauth.WriteScope()) && !containsString(info.Scopes, required)) {
+	if info == nil || tool == "warehouse.inventory_counts.approve" && !containsString(info.Scopes, required) || (!containsString(info.Scopes, coresauth.WriteScope()) && !containsString(info.Scopes, required)) {
 		return ctx, errorsNew("mutation scope is required")
 	}
 	return withMutationPermission(ctx, required), nil
 }
 
 func requiredMutationScope(tool string) string {
+	if strings.HasPrefix(tool, "warehouse.inventory_counts.") {
+		action := "update"
+		if strings.HasSuffix(tool, ".create") {
+			action = "create"
+		}
+		if strings.HasSuffix(tool, ".approve") {
+			action = "approve"
+		}
+		if strings.HasSuffix(tool, ".archive") || strings.HasSuffix(tool, ".restore") {
+			action = "archive"
+		}
+		return coresauth.ServiceWriteScope("warehouse", action)
+	}
 	if strings.HasPrefix(tool, "warehouse.maintenance_orders.") || strings.HasPrefix(tool, "warehouse.defects.") || strings.HasPrefix(tool, "warehouse.tasks.") {
 		action := "update"
 		if strings.HasSuffix(tool, ".create") {
@@ -251,7 +271,7 @@ func addWritePreparationTool[In any](server *mcp.Server, name, title, descriptio
 		var permissionErr error
 		ctx, permissionErr = authorizeMutation(ctx, executionTool)
 		if permissionErr != nil {
-			message := name + " requires " + requiredMutationScope(executionTool) + " (or legacy cores:write). Reconnect the Cores MCP connector and grant write access."
+			message := mutationPermissionMessage(executionTool)
 			return &mcp.CallToolResult{IsError: true, Content: []mcp.Content{&mcp.TextContent{Text: message}}}, Output{AsOf: time.Now().UTC().Format(time.RFC3339), Summary: message}, nil
 		}
 		data, sources, warnings, err := fn(ctx, input)
