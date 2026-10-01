@@ -203,6 +203,9 @@ func prepareWarehouseProductMasters(ctx context.Context, db *store.Store, input 
 		return err
 	}
 	if manufacturer != nil {
+		if manufacturer["lifecycle_status"] == "archived" {
+			prepared.require("manufacturer_restore", "Hersteller ist archiviert; zuerst wiederherstellen oder aktiven Hersteller wählen.", manufacturer)
+		}
 		prepared.Draft["manufacturer_id"] = manufacturer["id"]
 		prepared.MasterDataPlan = append(prepared.MasterDataPlan, masterPlan("manufacturer", "reference", manufacturer))
 	} else if strings.TrimSpace(input.ManufacturerName) != "" && input.CreateManufacturer {
@@ -220,6 +223,9 @@ func prepareWarehouseProductMasters(ctx context.Context, db *store.Store, input 
 		return err
 	}
 	if brand != nil {
+		if brand["lifecycle_status"] == "archived" {
+			prepared.require("brand_restore", "Marke ist archiviert; zuerst wiederherstellen oder aktive Marke wählen.", brand)
+		}
 		prepared.Draft["brand_id"] = brand["id"]
 		prepared.MasterDataPlan = append(prepared.MasterDataPlan, masterPlan("brand", "reference", brand))
 		if prepared.Draft["manufacturer_id"] == nil && brand["manufacturer_id"] != nil {
@@ -445,9 +451,9 @@ func warehouseMasterByID(ctx context.Context, db *store.Store, entity, id string
 	var statement string
 	switch entity {
 	case "manufacturer":
-		statement = `SELECT manufacturerid AS id,name,COALESCE(website,'') AS context FROM manufacturer WHERE manufacturerid::text=$1`
+		statement = `SELECT manufacturerid AS id,name,lifecycle_status,COALESCE(website,'') AS context FROM manufacturer WHERE manufacturerid::text=$1`
 	case "brand":
-		statement = `SELECT b.brandid AS id,b.name,COALESCE(m.name,'') AS context,b.manufacturerid AS manufacturer_id,m.name AS manufacturer FROM brands b LEFT JOIN manufacturer m ON m.manufacturerid=b.manufacturerid WHERE b.brandid::text=$1`
+		statement = `SELECT b.brandid AS id,b.name,b.lifecycle_status,COALESCE(m.name,'') AS context,b.manufacturerid AS manufacturer_id,m.name AS manufacturer FROM brands b LEFT JOIN manufacturer m ON m.manufacturerid=b.manufacturerid WHERE b.brandid::text=$1`
 	case "category":
 		statement = `SELECT categoryid AS id,name,abbreviation AS context,abbreviation FROM categories WHERE categoryid::text=$1`
 	case "subcategory":

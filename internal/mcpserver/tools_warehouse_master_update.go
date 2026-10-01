@@ -83,9 +83,9 @@ func prepareWarehouseMasterUpdate(ctx context.Context, db *store.Store, entity s
 		p.finish()
 		return p, nil
 	}
-	query := `SELECT manufacturerid AS id,name,website,to_char(updated_at,'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS updated_at FROM manufacturer WHERE manufacturerid=$1`
+	query := `SELECT manufacturerid AS id,name,website,lifecycle_status,to_char(updated_at,'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS updated_at FROM manufacturer WHERE manufacturerid=$1`
 	if entity == "brand" {
-		query = `SELECT brandid AS id,name,manufacturerid AS manufacturer_id,to_char(updated_at,'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS updated_at FROM brands WHERE brandid=$1`
+		query = `SELECT brandid AS id,name,lifecycle_status,manufacturerid AS manufacturer_id,to_char(updated_at,'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS updated_at FROM brands WHERE brandid=$1`
 	}
 	rows, err := db.Query(ctx, query, id)
 	if err != nil {
@@ -97,6 +97,9 @@ func prepareWarehouseMasterUpdate(ctx context.Context, db *store.Store, entity s
 		return p, nil
 	}
 	p.Current = rows[0]
+	if p.Current["lifecycle_status"] == "archived" {
+		p.require("restore_required", "Archivierten Stammdatensatz zuerst wiederherstellen.", nil)
+	}
 	version := nullableText(p.Current["updated_at"])
 	p.Draft["name"] = p.Current["name"]
 	if entity == "manufacturer" {
@@ -163,7 +166,7 @@ func prepareWarehouseMasterUpdate(ctx context.Context, db *store.Store, entity s
 				p.finish()
 				return p, nil
 			} else {
-				parents, err := db.Query(ctx, `SELECT manufacturerid AS id,name FROM manufacturer WHERE manufacturerid=$1`, parent)
+				parents, err := db.Query(ctx, `SELECT manufacturerid AS id,name FROM manufacturer WHERE manufacturerid=$1 AND lifecycle_status='active'`, parent)
 				if err != nil {
 					return p, err
 				}

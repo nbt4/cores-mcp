@@ -61,9 +61,9 @@ func warehouseMasterCandidates(ctx context.Context, db *store.Store, entity, que
 	var statement string
 	switch entity {
 	case "manufacturer":
-		statement = `SELECT manufacturerid AS id,name,COALESCE(website,'') AS context FROM manufacturer ORDER BY name LIMIT 500`
+		statement = `SELECT manufacturerid AS id,name,lifecycle_status,COALESCE(website,'') AS context FROM manufacturer ORDER BY name LIMIT 500`
 	case "brand":
-		statement = `SELECT b.brandid AS id,b.name,concat_ws(' · ',m.name,b.manufacturerid::text) AS context,b.manufacturerid AS manufacturer_id,m.name AS manufacturer FROM brands b LEFT JOIN manufacturer m ON m.manufacturerid=b.manufacturerid ORDER BY b.name LIMIT 500`
+		statement = `SELECT b.brandid AS id,b.name,b.lifecycle_status,concat_ws(' · ',m.name,b.manufacturerid::text) AS context,b.manufacturerid AS manufacturer_id,m.name AS manufacturer FROM brands b LEFT JOIN manufacturer m ON m.manufacturerid=b.manufacturerid ORDER BY b.name LIMIT 500`
 	case "category":
 		statement = `SELECT categoryid AS id,name,abbreviation AS context,abbreviation FROM categories ORDER BY name LIMIT 500`
 	case "subcategory":

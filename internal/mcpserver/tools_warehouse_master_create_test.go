@@ -43,8 +43,8 @@ func TestWarehouseStandaloneMasterPreparations(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, statement := range []string{
-		`CREATE TABLE manufacturer(manufacturerid SERIAL PRIMARY KEY,name TEXT,website TEXT,updated_at TIMESTAMP DEFAULT '2026-09-30 10:15:00.123456')`,
-		`CREATE TABLE brands(brandid SERIAL PRIMARY KEY,name TEXT,manufacturerid INT,updated_at TIMESTAMP DEFAULT '2026-09-30 10:15:00.123456')`,
+		`CREATE TABLE manufacturer(manufacturerid SERIAL PRIMARY KEY,name TEXT,website TEXT,updated_at TIMESTAMP DEFAULT '2026-09-30 10:15:00.123456',lifecycle_status TEXT DEFAULT 'active')`,
+		`CREATE TABLE brands(brandid SERIAL PRIMARY KEY,name TEXT,manufacturerid INT,updated_at TIMESTAMP DEFAULT '2026-09-30 10:15:00.123456',lifecycle_status TEXT DEFAULT 'active')`,
 		`CREATE TABLE products(productid SERIAL PRIMARY KEY,name TEXT,manufacturerid INT,brandid INT,categoryid INT,subcategoryid TEXT,subbiercategoryid TEXT)`,
 		`CREATE TABLE categories(categoryid SERIAL PRIMARY KEY,name TEXT,abbreviation TEXT,updated_at TIMESTAMP DEFAULT '2026-09-30 10:15:00.123456')`,
 		`CREATE TABLE subcategories(subcategoryid TEXT PRIMARY KEY,name TEXT,abbreviation TEXT,categoryid INT,updated_at TIMESTAMP DEFAULT '2026-09-30 10:15:00.123456')`,

@@ -138,7 +138,7 @@ func prepareWarehouseBrandCreate(ctx context.Context, db *store.Store, input War
 		p.finish()
 		return p, nil
 	}
-	manufacturer, err := db.Query(ctx, `SELECT manufacturerid AS id,name FROM manufacturer WHERE manufacturerid=$1`, input.ManufacturerID)
+	manufacturer, err := db.Query(ctx, `SELECT manufacturerid AS id,name FROM manufacturer WHERE manufacturerid=$1 AND lifecycle_status='active'`, input.ManufacturerID)
 	if err != nil {
 		return p, err
 	}

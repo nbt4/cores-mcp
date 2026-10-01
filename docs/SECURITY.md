@@ -127,3 +127,13 @@ können über Scanner oder Inhaltsoperationen nicht benutzt werden. Mutation,
 Audit (MCP/AI, Nutzer, Vorher/Nachher) und Idempotenzbeleg committen atomar.
 Audit-Historie liefert nur redigierte Metadaten; Beschreibungen/Roh-JSON bleiben
 bei normalen Audit-Abfragen ausgeschlossen. Keine endgültige Case-Löschung.
+
+## Hersteller-/Marken-Archive
+
+Die benannten Hersteller-/Marken-Lifecycle-Tools benötigen Administrator,
+archive-Scope, genaue Version und recordgebundene erhöhte Bestätigung.
+Aktive Produkt-/Markenreferenzen sperren Archive; Restore validiert Identität
+und Elternstatus. Datenbankregeln schützen aktive Referenzen und archivierte
+Metadaten auch gegenüber bestehenden Core-Schreibern. Vorschau/Dry-run schreiben
+weder Geschäftsdaten noch Belege. Lifecycle, Vorher/Nachher-Audit und dauerhafter
+Replay sind atomar; Historienausgabe enthält keine Roh-JSON, Website oder IP.

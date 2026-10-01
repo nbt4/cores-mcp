@@ -7,7 +7,7 @@ and production verification. Optional event streams are separate follow-up work.
 | Area | Available | Remaining |
 | --- | --- | --- |
 | Warehouse products | Atomic master resolution/create, metadata update, archive/restore, typed relations | URL/bulk imports, complete relation lifecycle |
-| Warehouse manufacturers/brands | Resolve, create, update with diff/version | Archive/restore, retained redacted per-entity audit |
+| Warehouse manufacturers/brands | Resolve, create, update with diff/version, archive/restore, retained redacted per-entity audit | — |
 | Warehouse categories | Three hierarchy levels: resolve/create/update; authorized dependency-checked removal | Soft archive/restore where referenced history must remain |
 | Warehouse locations | Create/update/archive/restore, audit | — |
 | Warehouse packages | Atomic lines/create/update/archive/restore, audit | — |

@@ -548,3 +548,21 @@ aktiven/archivierten Beständen eindeutig sein. Kombinierte Lagerkapazität,
 Lagerprofile und zyklusfreie aktive Hierarchie werden erneut geprüft. IDs und
 fehlende Kennungen entstehen bei Ausführung; keine Etiketten oder Anhänge.
 `warehouse.devices.audit_history` liefert die redigierten Stapelereignisse.
+
+### Hersteller-/Marken-Lebenszyklus ab 1.5.29
+
+`warehouse.manufacturers` und `warehouse.brands` besitzen
+`prepare_archive`/`archive`, `prepare_restore`/`restore` und `audit_history`.
+Lifecycle-Input: `id`, exaktes `expected_updated_at`, `confirm_lifecycle`,
+`confirmation_text`, `idempotency_key`; `dry_run` schreibt nichts.
+Warehouse-Admin/archive-Scope und exakt
+`ARCHIVE|RESTORE WAREHOUSE MANUFACTURER|BRAND <ID>` sind erforderlich.
+Vorschau zeigt alle Felder, Version, Lebenszyklus-Diff und aktive/historische
+Produkt-/Markenzahlen. Aktive Referenzen sperren Archivierung, keine Kaskade.
+Restore prüft reservierte Identität und aktiven Hersteller der Marke.
+Historische Produkte und Stammdaten bleiben erhalten. Alle bestehenden
+Schreibpfade schützen aktive Zuordnungen per Datenbankregeln; archivierte
+Metadaten benötigen Restore vor Bearbeitung. Die neuen MCP-Aktionen speichern
+Änderung, Vorher/Nachher-Audit und dauerhaften Replay gemeinsam. Audit-Historie
+ist administratorgeschützt und redigiert; keine Rohwerte, Website oder IP.
+Auflösung enthält `lifecycle_status`; archivierte Treffer zuerst restaurieren.

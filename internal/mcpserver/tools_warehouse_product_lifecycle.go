@@ -128,6 +128,16 @@ func prepareWarehouseProductLifecycle(ctx context.Context, db *store.Store, inpu
 		}
 		p.Warnings = append(p.Warnings, "Archiving also archives active devices and disables their inventory identifiers; website visibility is cleared.")
 	} else {
+		parents, parentErr := db.Query(ctx, `SELECT p.manufacturerid AS manufacturer_id,p.brandid AS brand_id,
+		 (p.manufacturerid IS NULL OR COALESCE(m.lifecycle_status='active',false)) AS manufacturer_active,
+		 (p.brandid IS NULL OR COALESCE(b.lifecycle_status='active',false)) AS brand_active
+		 FROM products p LEFT JOIN manufacturer m ON m.manufacturerid=p.manufacturerid LEFT JOIN brands b ON b.brandid=p.brandid WHERE p.productid=$1`, input.ProductID)
+		if parentErr != nil {
+			return p, parentErr
+		}
+		if len(parents) != 1 || parents[0]["manufacturer_active"] != true || parents[0]["brand_active"] != true {
+			p.require("active_master_data", "Hersteller und Marke zuerst wiederherstellen; historische Zuordnungen bleiben erhalten.", parents)
+		}
 		p.Warnings = append(p.Warnings, "Restoring reactivates only devices archived by this product; website visibility remains unchanged.")
 	}
 	p.Draft = map[string]any{"product_id": input.ProductID, "expected_updated_at": version, "confirmation_text_required": warehouseLifecyclePhrase(operation, input.ProductID), "affected_devices": count}

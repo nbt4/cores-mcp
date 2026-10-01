@@ -289,7 +289,7 @@ func checkWarehouseProductUpdateRelations(ctx context.Context, db *store.Store, 
 		query   string
 	}{
 		{input.CategoryID != nil, "category_id", `SELECT categoryid AS id FROM categories WHERE categoryid=$1`},
-		{input.ManufacturerID != nil, "manufacturer_id", `SELECT manufacturerid AS id FROM manufacturer WHERE manufacturerid=$1`},
+		{input.ManufacturerID != nil, "manufacturer_id", `SELECT manufacturerid AS id FROM manufacturer WHERE manufacturerid=$1 AND lifecycle_status='active'`},
 		{input.CountTypeID != nil, "count_type_id", `SELECT count_type_id AS id FROM count_types WHERE count_type_id=$1`},
 	} {
 		if !relation.changed || p.Draft[relation.field] == nil {
@@ -304,7 +304,7 @@ func checkWarehouseProductUpdateRelations(ctx context.Context, db *store.Store, 
 		}
 	}
 	if (input.BrandID != nil || input.ManufacturerID != nil || containsString(input.ClearFields, "manufacturer_id")) && p.Draft["brand_id"] != nil {
-		rows, err := db.Query(ctx, `SELECT brandid AS id,manufacturerid AS manufacturer_id FROM brands WHERE brandid=$1`, numericID(p.Draft["brand_id"]))
+		rows, err := db.Query(ctx, `SELECT brandid AS id,manufacturerid AS manufacturer_id FROM brands WHERE brandid=$1 AND lifecycle_status='active'`, numericID(p.Draft["brand_id"]))
 		if err != nil {
 			return err
 		}
