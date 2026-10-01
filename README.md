@@ -1,5 +1,41 @@
 # Cores MCP
 
+## Lagerplätze archivieren und wiederherstellen ab 1.5.26
+
+Lagerplätze können über `warehouse.locations.prepare_archive`/`archive` und
+`prepare_restore`/`restore` archiviert und wiederhergestellt werden. Die Vorschau
+zeigt alle Metadaten, exakte Version, Betriebsstatus-Diff und Abhängigkeiten.
+Warehouse-Admin und `cores:warehouse:archive` (oder Legacy `cores:write`) sind
+nötig. Ausführung verlangt `expected_updated_at`, `idempotency_key`,
+`confirm_lifecycle=true` und exakt `ARCHIVE|RESTORE WAREHOUSE LOCATION <ID>`.
+Dry-run ist möglich.
+
+Aktive Geräte (auch auf Jobs), aktive Nachfahren, Cases am Platz oder mit diesem
+Heimatplatz, jede Mengenzeile mit Bestand sowie offene Aufgaben und Inventuren
+sperren beide Aktionen. Unbekannte Aufgaben-/Inventurstatus sperren ebenfalls;
+entgegengesetzte Bestandszeilen heben die Sperre nicht auf. Inventur-Betriebsstatus
+sperrt Archivierung. Historische abgeschlossene Vorgänge und archivierte Geräte
+bleiben erhalten. Keine Bestandsbewegung, Löschung oder Kaskade auf Kinder.
+
+Restore prüft alle gespeicherten Felder, Identität und die gesamte Elternhierarchie
+auf Aktivität, fehlende Knoten und Zyklen. Bei einer unveränderten, protokollierten
+MCP-Archivierung wird `available`, `blocked` oder `maintenance` aus dem Vorzustand
+wiederhergestellt. Ältere Archive ohne passenden Versionsbeleg oder später
+bearbeitete Archive werden als `blocked` aktiviert und benötigen eine bewusste
+Betriebsfreigabe im WarehouseCore. Beide Zustandswerte werden im Diff gezeigt.
+ID, Code, Scan-Code, Metadaten, Hierarchie, Inventurplanung und Historie bleiben.
+
+`warehouse.locations.audit_history` liefert Administratoren redigierte Ereignisse
+mit Nutzer, Herkunft, Zeitpunkt, Ergebnisversion und Statuswechsel. Beschreibungen,
+Roh-JSON, IP und User-Agent werden ausgeschlossen. Anlage und Bearbeitung schreiben
+jetzt ebenfalls die Ergebnisversion in den Audit. `cores.entities.schema` für
+`warehouse.locations` enthält `lifecycle_fields`. WarehouseCore prüft erneut und
+speichert Mutation, Audit und Replay atomar. Migration `046` / Umbrella `019`
+versioniert bereits alle Lagerplatz-Schreiber; keine neue Migration erforderlich.
+
+Erfordert WarehouseCore `5.9.96`.
+
+
 ## Produktpakete archivieren und wiederherstellen ab 1.5.25
 
 `warehouse.packages.prepare_archive`/`archive` und `prepare_restore`/`restore`
@@ -501,7 +537,7 @@ entfernt ausschließlich sein eigenes Schema.
 
 Cores MCP bindet die gesamte Cores Suite als sicheren MCP-Server an ChatGPT, Claude, Codex und andere MCP-fähige Agents an. Der Chat bleibt beim jeweiligen KI-Anbieter; Cores stellt nur kontrollierte Werkzeuge und Kontext bereit.
 
-Der Server bietet 66 lesende fachliche Tools, fünf wiederverwendbare Analyse-Prompts und dokumentierbare Knowledge-Ressourcen für RentalCore, WarehouseCore, PlannerCore und ProcurementCore. Bei `MCP_ENABLE_WRITES=true` kommen 56 vorbereitende und 56 bestätigte, eng begrenzte Schreibtools für alle vier Core-Services hinzu. Beliebiges SQL, generische HTTP-Aufrufe und generische Löschwerkzeuge bleiben ausgeschlossen. Unbenutzte Warehouse-Kategorien können ausschließlich über die benannten, gesondert bestätigten Löschwerkzeuge entfernt werden.
+Der Server bietet 67 lesende fachliche Tools, fünf wiederverwendbare Analyse-Prompts und dokumentierbare Knowledge-Ressourcen für RentalCore, WarehouseCore, PlannerCore und ProcurementCore. Bei `MCP_ENABLE_WRITES=true` kommen 58 vorbereitende und 58 bestätigte, eng begrenzte Schreibtools für alle vier Core-Services hinzu. Beliebiges SQL, generische HTTP-Aufrufe und generische Löschwerkzeuge bleiben ausgeschlossen. Unbenutzte Warehouse-Kategorien können ausschließlich über die benannten, gesondert bestätigten Löschwerkzeuge entfernt werden.
 
 ## Geführte Schreibzugriffe mit Rückfragen
 
@@ -617,7 +653,7 @@ Der Smoke-Test verbindet einen echten MCP-Client, listet alle Tools und ruft jed
 | `MCP_PUBLIC_URL` | `http://localhost:8090` | Öffentliche Basis-URL ohne `/mcp` |
 | `CORES_DASHBOARD_PUBLIC_URL` | `http://localhost:8080` | Cores-Login, auf den OAuth verweist |
 | `MCP_AUTH_MODE` | `oauth` | `oauth`, `bearer` oder nur lokal `none` |
-| `MCP_ENABLE_WRITES` | `false` | Aktiviert 112 geführte Schreibtools (56 Vorschauen plus 56 Ausführungen); nur mit `MCP_AUTH_MODE=oauth` zulässig |
+| `MCP_ENABLE_WRITES` | `false` | Aktiviert 116 geführte Schreibtools (58 Vorschauen plus 58 Ausführungen); nur mit `MCP_AUTH_MODE=oauth` zulässig |
 | `CORES_JWT_SECRET` | – | Dasselbe Signatur-Secret wie das Cores Dashboard, mindestens 32 Zeichen |
 | `MCP_STATIC_TOKENS` | – | Optionale `name:secret`-Paare für Agents |
 | `DATABASE_URL` | – | Komplette PostgreSQL-URL; überschreibt einzelne DB-Variablen |
@@ -634,7 +670,7 @@ Die vollständige Vorlage steht in [.env.example](.env.example).
 
 ## Sicherheitsmodell
 
-- Die 66 Abfragetools und 56 Vorbereitungstools sind `readOnlyHint=true`; Ausführungstools erzwingen einen Idempotenzschlüssel und sind `idempotentHint=true`. Zustandsänderungen sind zusätzlich als destruktiv annotiert.
+- Die 67 Abfragetools und 58 Vorbereitungstools sind `readOnlyHint=true`; Ausführungstools erzwingen einen Idempotenzschlüssel und sind `idempotentHint=true`. Zustandsänderungen sind zusätzlich als destruktiv annotiert.
 - Jede DB-Abfrage läuft in einer PostgreSQL-Transaktion mit `READ ONLY`, Timeout und Zeilenlimit.
 - Produktion verwendet zusätzlich die Rolle `cores_mcp` mit ausschließlich `SELECT`-Rechten.
 - Schreibtools verwenden ausschließlich validierte Endpunkte des jeweils verantwortlichen Core und ein zweiminütiges, auf den OAuth-Benutzer delegiertes Suite-Token. Rollenänderungen und Kontosperren werden dort live geprüft.
@@ -653,7 +689,7 @@ Markdown-, Text-, CSV- und JSON-Dateien unter `MCP_KNOWLEDGE_DIRS` werden als MC
 
 ```bash
 make check
-docker build -t nobentie/cores-mcp:1.5.25 -t nobentie/cores-mcp:latest .
+docker build -t nobentie/cores-mcp:1.5.26 -t nobentie/cores-mcp:latest .
 ```
 
 Die Umbrella-Compose-Datei der Cores Suite bindet den Dienst intern ein. Der Cores-Dashboard-Reverse-Proxy veröffentlicht MCP und OAuth auf derselben Domain, damit der bestehende Suite-Login genutzt werden kann.

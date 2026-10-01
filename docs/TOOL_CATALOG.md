@@ -7,7 +7,7 @@ OAuth-Benutzers beschränkt. Das gilt auch für `cores.search`,
 berechtigt nicht zum Lesen fremder Pläne. Maschinentokens liefern keine Planner-Daten.
 Toolnamen und Eingabeschemas bleiben unverändert.
 
-Die 66 Abfragetools sind read-only und idempotent. Bei `MCP_ENABLE_WRITES=true` werden zusätzlich 56 vorbereitende und 56 bestätigte Schreibtools für alle vier Core-Services registriert. Suchtools akzeptieren üblicherweise `query`, `limit` und `offset`; Zeitfenster `from`, `to` und `limit`; Detailtools `id`. Datumswerte sind `YYYY-MM-DD` oder RFC3339.
+Die 67 Abfragetools sind read-only und idempotent. Bei `MCP_ENABLE_WRITES=true` werden zusätzlich 58 vorbereitende und 58 bestätigte Schreibtools für alle vier Core-Services registriert. Suchtools akzeptieren üblicherweise `query`, `limit` und `offset`; Zeitfenster `from`, `to` und `limit`; Detailtools `id`. Datumswerte sind `YYYY-MM-DD` oder RFC3339.
 
 Der MCP-Endpunkt verlangt immer `cores:read`. Für ein Vorbereitung- oder
 Ausführungstool ist zusätzlich entweder der kompatible Sammel-Scope
@@ -20,7 +20,7 @@ Ausführungstool ist zusätzlich entweder der kompatible Sammel-Scope
 | `cores:warehouse:create` | Tasks, Produkte, Hersteller, Marken, Kategorien und Lagerplätze anlegen |
 | `cores:warehouse:update` | Bewegungen und Gerätezustände buchen sowie Produkte, ihre Beziehungen, Hersteller, Marken, alle Kategorieebenen und aktive Lagerplätze ändern |
 | `cores:warehouse:delete` | Ungenutzte Warehouse-Kategorien aller drei Ebenen dauerhaft entfernen; Adminrechte und zusätzliche datensatzgebundene Bestätigung erforderlich |
-| `cores:warehouse:archive` | Produkte und mitarchivierte Geräte nach Abhängigkeitsprüfung archivieren oder wiederherstellen |
+| `cores:warehouse:archive` | Produkte, Geräte, Produktpakete und Lagerplätze nach Abhängigkeitsprüfung archivieren oder wiederherstellen |
 | `cores:planner:create` | Pläne und Tasks anlegen |
 | `cores:procurement:create` | Produkte, Angebote, Lieferanten, Kategorien und Bestellungen anlegen |
 | `cores:procurement:update` | Produkte, Angebote, Lieferanten, Kategorien, Bedarfs- und Bestellentwürfe ändern sowie Produkte verknüpfen |
@@ -462,3 +462,36 @@ oder endgültiges Löschen. WarehouseCore 5.9.95 speichert Mutation, Audit und
 Replay atomar und prüft alle Abhängigkeiten erneut. Bestehende Versionstrigger
 reichen aus; keine zusätzliche Migration. Geräte-Abhängigkeiten behandeln
 fehlenden Jobstatus ebenfalls konservativ als offen.
+
+### Warehouse-Lagerplatz-Lebenszyklus ab 1.5.26
+
+Lagerplätze können über `warehouse.locations.prepare_archive`/`archive` und
+`prepare_restore`/`restore` archiviert und wiederhergestellt werden. Die Vorschau
+zeigt alle Metadaten, exakte Version, Betriebsstatus-Diff und Abhängigkeiten.
+Warehouse-Admin und `cores:warehouse:archive` (oder Legacy `cores:write`) sind
+nötig. Ausführung verlangt `expected_updated_at`, `idempotency_key`,
+`confirm_lifecycle=true` und exakt `ARCHIVE|RESTORE WAREHOUSE LOCATION <ID>`.
+Dry-run ist möglich.
+
+Aktive Geräte (auch auf Jobs), aktive Nachfahren, Cases am Platz oder mit diesem
+Heimatplatz, jede Mengenzeile mit Bestand sowie offene Aufgaben und Inventuren
+sperren beide Aktionen. Unbekannte Aufgaben-/Inventurstatus sperren ebenfalls;
+entgegengesetzte Bestandszeilen heben die Sperre nicht auf. Inventur-Betriebsstatus
+sperrt Archivierung. Historische abgeschlossene Vorgänge und archivierte Geräte
+bleiben erhalten. Keine Bestandsbewegung, Löschung oder Kaskade auf Kinder.
+
+Restore prüft alle gespeicherten Felder, Identität und die gesamte Elternhierarchie
+auf Aktivität, fehlende Knoten und Zyklen. Bei einer unveränderten, protokollierten
+MCP-Archivierung wird `available`, `blocked` oder `maintenance` aus dem Vorzustand
+wiederhergestellt. Ältere Archive ohne passenden Versionsbeleg oder später
+bearbeitete Archive werden als `blocked` aktiviert und benötigen eine bewusste
+Betriebsfreigabe im WarehouseCore. Beide Zustandswerte werden im Diff gezeigt.
+ID, Code, Scan-Code, Metadaten, Hierarchie, Inventurplanung und Historie bleiben.
+
+`warehouse.locations.audit_history` liefert Administratoren redigierte Ereignisse
+mit Nutzer, Herkunft, Zeitpunkt, Ergebnisversion und Statuswechsel. Beschreibungen,
+Roh-JSON, IP und User-Agent werden ausgeschlossen. Anlage und Bearbeitung schreiben
+jetzt ebenfalls die Ergebnisversion in den Audit. `cores.entities.schema` für
+`warehouse.locations` enthält `lifecycle_fields`. WarehouseCore prüft erneut und
+speichert Mutation, Audit und Replay atomar. Migration `046` / Umbrella `019`
+versioniert bereits alle Lagerplatz-Schreiber; keine neue Migration erforderlich.
