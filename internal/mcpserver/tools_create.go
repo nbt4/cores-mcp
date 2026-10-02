@@ -68,11 +68,13 @@ type JobCreateInput struct {
 
 type RequirementCreateInput struct {
 	MutationControl
+	RentalRequirementPreviewControl
 	JobID           int64  `json:"job_id,omitempty" jsonschema:"Exact existing RentalCore job ID."`
 	JobQuery        string `json:"job_query,omitempty" jsonschema:"Job code or description to resolve when job_id is unknown."`
 	ProductID       int64  `json:"product_id,omitempty" jsonschema:"Exact active WarehouseCore product ID."`
 	ProductQuery    string `json:"product_query,omitempty" jsonschema:"Product name, code, barcode, model, or manufacturer to resolve when product_id is unknown."`
 	Quantity        int    `json:"quantity,omitempty" jsonschema:"Required positive product quantity."`
+	ManualQuantity  *int64 `json:"manual_quantity,omitempty" jsonschema:"Additional manually planned material. Total quantity includes server-controlled source positions; provide either quantity or manual_quantity, or consistent values for both."`
 	ConfirmCreation bool   `json:"confirm_creation,omitempty" jsonschema:"Set true only after showing the resolved final draft to the user and receiving explicit confirmation."`
 }
 
@@ -132,32 +134,13 @@ func registerCreateTools(server *mcp.Server, cfg config.Config, db *store.Store)
 		return invokeRentalJob(ctx, cfg, db, "create", input, false)
 	})
 
-	addWritePreparationTool(server, "rental.requirements.prepare_create", "Prepare rental product requirement", "Resolve one job and one active product, validate a positive quantity, and detect an existing job-product link. Call this before creating a requirement and never guess among ambiguous matches.", func(ctx context.Context, input RequirementCreateInput) (any, []Source, []string, error) {
-		prepared, err := prepareRequirementCreate(ctx, db, input)
-		return prepared.response("draft"), requirementSources(prepared), nil, err
+	addWritePreparationTool(server, "rental.requirements.prepare_create", "Prepare material requirement", "Resolve the parent job and product, review all quantity sources, duplicates and exact context before creation.", func(ctx context.Context, in RequirementCreateInput) (any, []Source, []string, error) {
+		return invokeRentalRequirement(ctx, cfg, db, "create", in, true)
 	})
-	addCreateTool(server, "rental.requirements.create", "Create rental product requirement", "Add one new product requirement to an existing RentalCore job. First call rental.requirements.prepare_create, resolve every question, show the final draft, and obtain explicit confirmation. Existing requirements are never overwritten.", func(ctx context.Context, input RequirementCreateInput) (any, []Source, []string, error) {
-		prepared, err := prepareRequirementCreate(ctx, db, input)
-		if err != nil {
-			return nil, nil, nil, err
-		}
-		if !prepared.Ready {
-			return prepared.response("needs_input"), requirementSources(prepared), []string{"No data was changed. Ask the listed questions before retrying."}, nil
-		}
-		if !input.ConfirmCreation {
-			return prepared.response("confirmation_required"), requirementSources(prepared), []string{"No data was changed. Show this final draft and ask the user for explicit confirmation."}, nil
-		}
-		jobID := numericID(prepared.Draft["job_id"])
-		payload := map[string]any{"product_id": prepared.Draft["product_id"], "quantity": prepared.Draft["quantity"]}
-		var created map[string]any
-		if err := api.doJSON(ctx, cfg.RentalURL, fmt.Sprintf("/api/v1/jobs/%d/requirements", jobID), http.MethodPost, payload, &created); err != nil {
-			return nil, nil, nil, err
-		}
-		return map[string]any{"creation_status": "created", "requirement": created["requirement"]}, []Source{
-			{Service: "rentalcore", Entity: "job", ID: fmt.Sprint(jobID)},
-			{Service: "warehousecore", Entity: "product", ID: fmt.Sprint(prepared.Draft["product_id"])},
-		}, nil, nil
+	addCreateTool(server, "rental.requirements.create", "Create material requirement", "Create one reviewed material line through the owning Rental API with exact parent/context versions, elevated confirmation and atomic history/audit/durable replay.", func(ctx context.Context, in RequirementCreateInput) (any, []Source, []string, error) {
+		return invokeRentalRequirement(ctx, cfg, db, "create", in, false)
 	})
+
 }
 
 type preparedRequirement struct {

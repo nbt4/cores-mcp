@@ -18,7 +18,7 @@ and production verification. Optional event streams are separate follow-up work.
 | Warehouse tasks | Full create/partial update/start/complete/cancel/reopen/archive/restore, exact task/reference versions, atomic events/audits/durable replay and redacted history | — |
 | Rental customers/venues | Full business fields, fuzzy resolve/minimal reads, partial create/update/archive/restore, signed owner action rights, active job guards, redacted audit and atomic durable replay | — |
 | Rental jobs | Complete fields, shared position-based totals, live editor/device/reference/context locks, archive/restore, redacted audit, atomic native history/audit/durable replay, device assignment | — |
-| Rental requirements | Create, quantity update | Complete fields, lifecycle, full atomic audit/replay |
+| Rental requirements | Full total/manual/source quantities, exact line/job/context versions, archive/restore, redacted audit, atomic native history/replay and retained native selections; archived demand excluded | — |
 | Rental staffing/external equipment | Read context | Create/update/lifecycle and personnel assignment |
 | Procurement suppliers/products/offers | Create/update, deactivation/reactivation | Named lifecycle aliases, complete audit discovery |
 | Procurement categories | Create/update with full parameter schema | Archive/restore |
@@ -135,3 +135,27 @@ Customer/venue lifecycle regression passes against the same fresh database.
 Deploy Rental first and check installed job/child triggers; deploy MCP second
 and verify the full read-only catalog and exact released image IDs.
 The parent issues remain open for the remaining rows above.
+
+## Rental complete material requirement verification
+
+RentalCore 5.3.120 / WarehouseCore 5.9.106 / Cores MCP 1.5.39 adds seven tools:
+353 total (99 reads / 127 preparations / 127 executions), Rental 049 /
+umbrella 035. Full Go race/DB suites, Vet/builds, unchanged frontend builds and
+committed suite design validation pass. An upgrade from the previously published
+owners preserves old successful job receipts and original material identity and
+quantities; unversioned legacy writes must be prepared again. Fresh umbrella
+schema and actual Streamable HTTP verify complete total/manual/source arithmetic,
+explicit zero manual quantities, current administrator/action rights on replay,
+exact phrase/dry-run, duplicate/archived identity resolution, stale line/parent/
+product/position/device/editor contexts, assignment floors, archive blockers,
+retained lifecycle and hard-delete/all-writer guards. Active demand and Warehouse
+requirement reads exclude archives. Parent/product/source validation, final-audit
+rollback/same-key retry, concurrent exact-version execution, redacted line/native
+job history and durable restart replay pass. Native selection tests preserve the
+original line ID through soft removal/reselection and position reconciliation.
+Database and actual generated/regenerated Warehouse PDF tests include extra
+manual quantities beside commercial positions, accessory multiplication, archive
+exclusion and retained restore.
+Deploy Rental first, then Warehouse and MCP; verify exact images, installed
+requirement/job guards and the complete read-only catalog. Parent issues remain
+open for the remaining rows above.

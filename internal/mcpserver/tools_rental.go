@@ -33,7 +33,7 @@ func registerRentalTools(server *mcp.Server, db *store.Store) {
 		jobID := jobRows[0]["job_id"]
 		requirements, err := db.Query(ctx, `SELECT p.productid AS product_id,p.name,p.product_code,p.tracking_mode,r.quantity,
                    count(DISTINCT jd.deviceid) FILTER (WHERE d.productid=p.productid) AS assigned_devices
-              FROM job_product_requirements r JOIN products p ON p.productid=r.product_id
+              FROM (SELECT * FROM job_product_requirements src WHERE COALESCE(to_jsonb(src)->>'deleted_at','')='') r JOIN products p ON p.productid=r.product_id
               LEFT JOIN job_devices jd ON jd.jobid=r.job_id LEFT JOIN devices d ON d.deviceid=jd.deviceid
              WHERE r.job_id=$1 GROUP BY p.productid,r.quantity ORDER BY p.name`, jobID)
 		if err != nil {
@@ -63,7 +63,7 @@ func registerRentalTools(server *mcp.Server, db *store.Store) {
                        COALESCE(NULLIF(c.companyname,''),NULLIF(c.name,''),TRIM(CONCAT_WS(' ',c.firstname,c.lastname))) AS customer,
                        count(DISTINCT r.id) AS requirement_lines,count(DISTINCT jd.deviceid) AS assigned_devices,count(DISTINCT jp.job_package_id) AS packages
                   FROM jobs j LEFT JOIN status s ON s.statusid=j.statusid LEFT JOIN customers c ON c.customerid=j.customerid
-                  LEFT JOIN job_product_requirements r ON r.job_id=j.jobid LEFT JOIN job_devices jd ON jd.jobid=j.jobid LEFT JOIN job_packages jp ON jp.job_id=j.jobid
+                  LEFT JOIN job_product_requirements r ON r.job_id=j.jobid AND COALESCE(to_jsonb(r)->>'deleted_at','')='' LEFT JOIN job_devices jd ON jd.jobid=j.jobid LEFT JOIN job_packages jp ON jp.job_id=j.jobid
                  WHERE j.deleted_at IS NULL AND j.startdate <= $2 AND COALESCE(j.enddate,j.startdate) >= $1
                  GROUP BY j.jobid,s.status,c.companyname,c.name,c.firstname,c.lastname ORDER BY j.startdate,j.jobid LIMIT $3`, []any{from, to, db.Limit(input.Limit)}
 	})
@@ -71,7 +71,7 @@ func registerRentalTools(server *mcp.Server, db *store.Store) {
 	windowRowsTool(server, db, "rental.requirements.list", "List job material requirements", "Return product quantities required by jobs in a date window, grouped by job and product.", "rentalcore", "job_product_requirement", func(input WindowInput, from, to time.Time) (string, []any) {
 		return `SELECT j.jobid AS job_id,j.job_code,j.description,j.startdate AS start_date,j.enddate AS end_date,
                        p.productid AS product_id,p.name AS product,p.product_code,p.tracking_mode,r.quantity
-                  FROM job_product_requirements r JOIN jobs j ON j.jobid=r.job_id JOIN products p ON p.productid=r.product_id
+                  FROM (SELECT * FROM job_product_requirements src WHERE COALESCE(to_jsonb(src)->>'deleted_at','')='') r JOIN jobs j ON j.jobid=r.job_id JOIN products p ON p.productid=r.product_id
                  WHERE j.deleted_at IS NULL AND j.startdate <= $2 AND COALESCE(j.enddate,j.startdate) >= $1
                  ORDER BY j.startdate,p.name LIMIT $3`, []any{from, to, db.Limit(input.Limit)}
 	})

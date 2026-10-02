@@ -1,5 +1,41 @@
 # Tool-Katalog
 
+## Materialanforderungen — Rental 5.3.120 / Warehouse 5.9.106 / MCP 1.5.39
+
+`rental.requirements.prepare_create/create` und `prepare_update/update` nutzen
+nun eine geschlossene Rental-Owner-API mit vollständigem Mengenvorschlag.
+Neu sind `get`, `search`, `audit_history` und `prepare_archive/archive`,
+`prepare_restore/restore`: 353 Werkzeuge (99 Abfragen / 127 Vorschauen /
+127 Ausführungen).
+
+`quantity` ist die Gesamtmenge, `manual_quantity` die zusätzlich geplante
+manuelle Menge. Positionsanteile werden aus den bestehenden Produktpositionen
+berechnet und bleiben servergesteuert. Entweder Gesamt- oder manuelle Menge
+angeben; bei beiden müssen die Werte übereinstimmen. Eine manuelle Menge 0
+ist erlaubt, wenn eine positive Positionsmenge bestehen bleibt. Job-/Produkt-
+Identität ist unveränderlich; andere Identitäten erhalten separate geprüfte Zeilen.
+Exakte Zeilen-, Job- und Kontextversion, aktuelle Admin-/Aktionsrechte sowie
+Vorschau und deren Bestätigungsphrase sind Pflicht. Aktive Bearbeiter und
+Änderungen an Positionen, Geräten oder Produktreferenzen stoppen die Ausführung.
+Native Job-Historie, Audit und dauerhafter Beleg werden atomar gespeichert;
+Wiederholungen prüfen aktuelle Rechte im Zielservice.
+
+Archive erhalten die ursprünglichen Mengen und die Zeilen-ID. Positionen und
+noch zugeordnete Geräte blockieren sie. Archivierte Anforderungen zählen nicht
+mehr für aktive Bedarfe, Packlisten und Produkt-/Beziehungs-Abhängigkeiten.
+Restore erhält alle Felder und prüft Job, aktives Produkt und Positionsquellen.
+Es gibt keine Bestandsbewegungen, Preisänderungen oder externen Nachrichten.
+Native manuelle/Positions-Workflows archivieren entfernte Zeilen ebenfalls;
+späteres Auswählen stellt dieselbe Identität innerhalb der Geschäftstransaktion
+wieder her. Packlisten berücksichtigen zusätzliche manuelle Mengen auch neben
+kommerziellen Positionen und erweitern deren Zubehör mit der gesamten Menge.
+
+Rental `049` / Root `035` ergänzt Archivzeitpunkt, exakte monotone Zeilenversionen,
+Schutz aller Schreiber und einen Index für aktive Anforderungen. Root `032` und
+die Warehouse-Initialisierung behandeln archivierte Materialanforderungen als
+historische Referenzen. Rental zuerst ausrollen, danach Warehouse und MCP;
+frische/aktualisierte Datenbank und tatsächlichen Streamable-HTTP-Verkehr prüfen.
+
 ## Vollständige Job-Workflows — Rental 5.3.119 / MCP 1.5.38
 
 Die bestehenden `rental.jobs.prepare_create/create` und
@@ -474,14 +510,18 @@ Alle Query-Namen und Felder stammen aus einer festen Registry. Nutzwerte werden 
 | `rental.external_equipment.list` | Fremdmietkatalog, Nutzung und historische Kosten |
 | `rental.jobs.prepare_create` | Kunde, Status, Kategorie, Ort und Datumswerte auflösen; konkrete Rückfragen liefern |
 | `rental.jobs.create` | Einen bestätigten, vollständig aufgelösten Job über die RentalCore-API anlegen |
-| `rental.requirements.prepare_create` | Job und aktives Produkt eindeutig auflösen, positive Menge prüfen und vorhandenen Bedarf erkennen |
-| `rental.requirements.create` | Einen bestätigten Produktbedarf additiv anlegen, ohne bestehende Mengen zu überschreiben |
+| `rental.requirements.prepare_create` | Job/Produkt auflösen, Gesamt-/manuelle/Positionsmengen, Duplikate und exakte Job-/Kontextversion prüfen |
+| `rental.requirements.create` | Einen bestätigten Bedarf mit Owner-Rechten, Versionen, nativer Historie, Audit und dauerhaftem Beleg atomar anlegen |
 | `rental.jobs.prepare_assign_device` | Job und aktives Gerät auflösen sowie vorhandene Zuweisung prüfen |
 | `rental.jobs.assign_device` | Ein bestätigtes Gerät einem Job zuweisen |
 | `rental.jobs.prepare_update` | Aktuellen Job laden, neue Referenzen/Termine prüfen und Stornofolgen anzeigen |
 | `rental.jobs.update` | Jobdaten oder Status bestätigt ändern; Storno ersetzt keine Löschung |
-| `rental.requirements.prepare_update` | Vorhandene Bedarfszeile und neue positive Menge prüfen |
-| `rental.requirements.update` | Ausschließlich die bestätigte Menge einer Bedarfszeile ändern |
+| `rental.requirements.prepare_update` | Gesamte/manuelle Menge, geschützte Positionsanteile, Geräte und genaue Zeilen-/Job-/Kontextversion prüfen |
+| `rental.requirements.update` | Bestätigte Gesamt-/manuelle Menge mit unveränderlicher Identität und atomarer Historie/Audit/Replay ändern |
+| `rental.requirements.get/search` | Vollständige Mengen, Identität und Versionen lesen; Archive ausdrücklich kennzeichnen |
+| `rental.requirements.prepare_archive/archive` | Bedarfszeile unter Erhalt der Mengen archivieren; Positionen/zugeordnete Geräte blockieren |
+| `rental.requirements.prepare_restore/restore` | Originalzeile nach Prüfung von Job, Produkt und Positionsquellen wiederherstellen |
+| `rental.requirements.audit_history` | Redigierte Mengen-/Lifecycle-Historie der konkreten Zeile lesen |
 
 ## WarehouseCore (18 + 30 geführte Schreibtools)
 

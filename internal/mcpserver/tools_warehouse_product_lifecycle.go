@@ -116,7 +116,7 @@ func prepareWarehouseProductLifecycle(ctx context.Context, db *store.Store, inpu
 		p.Diff["website_visible"] = map[string]any{"before": p.Current["website_visible"], "after": false}
 		p.Diff["website_featured"] = map[string]any{"before": p.Current["website_featured"], "after": false}
 		deps, err := db.Query(ctx, `SELECT
-			(SELECT COUNT(*) FROM job_product_requirements r JOIN jobs j ON j.jobid=r.job_id JOIN status s ON s.statusid=j.statusid
+			(SELECT COUNT(*) FROM (SELECT * FROM job_product_requirements src WHERE COALESCE(to_jsonb(src)->>'deleted_at','')='') r JOIN jobs j ON j.jobid=r.job_id JOIN status s ON s.statusid=j.statusid
 			 WHERE r.product_id=$1 AND j.deleted_at IS NULL AND lower(trim(s.status)) NOT IN ('abgeschlossen','storniert','completed','paid','canceled','cancelled','abgerechnet')) AS open_job_requirements,
 			(SELECT COUNT(*) FROM job_devices jd JOIN devices d ON d.deviceid=jd.deviceid WHERE d.productid=$1 AND jd.pack_status IN ('packed','issued')) AS packed_or_issued_devices`, input.ProductID)
 		if err != nil {

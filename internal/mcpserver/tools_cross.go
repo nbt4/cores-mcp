@@ -34,7 +34,7 @@ func registerCrossCoreTools(server *mcp.Server, db *store.Store) {
                   FROM selected s
               ), daily AS (
                 SELECT r.product_id,day::date AS demand_date,sum(r.quantity) AS demand
-                  FROM job_product_requirements r JOIN jobs j ON j.jobid=r.job_id
+                  FROM (SELECT * FROM job_product_requirements src WHERE COALESCE(to_jsonb(src)->>'deleted_at','')='') r JOIN jobs j ON j.jobid=r.job_id
                   CROSS JOIN LATERAL generate_series(GREATEST(j.startdate,$2::date),LEAST(COALESCE(j.enddate,j.startdate),$3::date),interval '1 day') day
                  WHERE j.deleted_at IS NULL AND j.startdate<=$3 AND COALESCE(j.enddate,j.startdate)>=$2 AND r.product_id IN (SELECT productid FROM selected)
                  GROUP BY r.product_id,day::date
@@ -80,7 +80,7 @@ func registerCrossCoreTools(server *mcp.Server, db *store.Store) {
               SELECT m.*,COALESCE(dem.peak_demand,0) AS peak_demand,rel.relation_type,rel.assignment_scope,rel.is_optional,rel.default_quantity,
                      offer.supplier,offer.price_cents AS best_price_cents,offer.currency,offer.lead_days,offer.last_checked_at
                 FROM metrics m
-                LEFT JOIN LATERAL (SELECT max(day_demand) AS peak_demand FROM (SELECT day::date,sum(r.quantity) AS day_demand FROM job_product_requirements r JOIN jobs j ON j.jobid=r.job_id CROSS JOIN LATERAL generate_series(GREATEST(j.startdate,$2::date),LEAST(COALESCE(j.enddate,j.startdate),$3::date),interval '1 day') day WHERE r.product_id=m.productid AND j.deleted_at IS NULL AND j.startdate<=$3 AND COALESCE(j.enddate,j.startdate)>=$2 GROUP BY day::date) q) dem ON true
+                LEFT JOIN LATERAL (SELECT max(day_demand) AS peak_demand FROM (SELECT day::date,sum(r.quantity) AS day_demand FROM (SELECT * FROM job_product_requirements src WHERE COALESCE(to_jsonb(src)->>'deleted_at','')='') r JOIN jobs j ON j.jobid=r.job_id CROSS JOIN LATERAL generate_series(GREATEST(j.startdate,$2::date),LEAST(COALESCE(j.enddate,j.startdate),$3::date),interval '1 day') day WHERE r.product_id=m.productid AND j.deleted_at IS NULL AND j.startdate<=$3 AND COALESCE(j.enddate,j.startdate)>=$2 GROUP BY day::date) q) dem ON true
                 LEFT JOIN LATERAL (SELECT pd.relation_type,pd.assignment_scope,pd.is_optional,pd.default_quantity FROM product_dependencies pd WHERE (pd.product_id IN (SELECT productid FROM matched) AND pd.dependency_product_id=m.productid) OR (pd.dependency_product_id IN (SELECT productid FROM matched) AND pd.product_id=m.productid) LIMIT 1) rel ON true
                 LEFT JOIN core_product_links cpl ON cpl.warehouse_product_id=m.productid LEFT JOIN proc_products pp ON pp.id=cpl.procurement_product_id
                 LEFT JOIN LATERAL (SELECT s.name AS supplier,o.price_cents,o.currency,o.lead_days,o.last_checked_at FROM proc_offers o JOIN proc_suppliers s ON s.id=o.supplier_id WHERE o.product_id=pp.id AND o.active=true ORDER BY o.price_cents/NULLIF(o.pack_size,0),o.lead_days LIMIT 1) offer ON true
@@ -117,7 +117,7 @@ func registerCrossCoreTools(server *mcp.Server, db *store.Store) {
 		}
 		rows, err := db.Query(ctx, `WITH demand AS (
                 SELECT product_id,max(day_demand) AS peak_demand FROM (SELECT r.product_id,day::date,sum(r.quantity) AS day_demand
-                  FROM job_product_requirements r JOIN jobs j ON j.jobid=r.job_id CROSS JOIN LATERAL generate_series(GREATEST(j.startdate,$2::date),LEAST(COALESCE(j.enddate,j.startdate),$3::date),interval '1 day') day
+                  FROM (SELECT * FROM job_product_requirements src WHERE COALESCE(to_jsonb(src)->>'deleted_at','')='') r JOIN jobs j ON j.jobid=r.job_id CROSS JOIN LATERAL generate_series(GREATEST(j.startdate,$2::date),LEAST(COALESCE(j.enddate,j.startdate),$3::date),interval '1 day') day
                  WHERE j.deleted_at IS NULL AND j.startdate<=$3 AND COALESCE(j.enddate,j.startdate)>=$2 GROUP BY r.product_id,day::date) q GROUP BY product_id
               ), metrics AS (
                 SELECT p.productid,p.product_code,p.name,p.tracking_mode,p.stock_quantity,p.min_stock_level,count(d.deviceid) FILTER (WHERE d.condition_status='available') AS available_devices
@@ -148,7 +148,7 @@ func registerCrossCoreTools(server *mcp.Server, db *store.Store) {
                 UNION ALL SELECT 'product_missing_minimum_stock',count(*) FROM products WHERE min_stock_level IS NULL
                 UNION ALL SELECT 'device_missing_location',count(*) FROM devices WHERE zone_id IS NULL AND current_case_id IS NULL
                 UNION ALL SELECT 'device_missing_condition',count(*) FROM devices WHERE condition_status IS NULL OR condition_status=''
-                UNION ALL SELECT 'future_job_without_requirements',count(*) FROM jobs j WHERE j.deleted_at IS NULL AND j.startdate>=current_date AND NOT EXISTS (SELECT 1 FROM job_product_requirements r WHERE r.job_id=j.jobid)
+                UNION ALL SELECT 'future_job_without_requirements',count(*) FROM jobs j WHERE j.deleted_at IS NULL AND j.startdate>=current_date AND NOT EXISTS (SELECT 1 FROM job_product_requirements r WHERE r.job_id=j.jobid AND COALESCE(to_jsonb(r)->>'deleted_at','')='')
                 UNION ALL SELECT 'procurement_product_not_linked_to_warehouse',count(*) FROM proc_products p WHERE p.active=true AND NOT EXISTS (SELECT 1 FROM core_product_links l WHERE l.procurement_product_id=p.id)
                 UNION ALL SELECT 'warehouse_product_not_linked_to_procurement',count(*) FROM products p WHERE COALESCE(p.lifecycle_status,'active')='active' AND NOT EXISTS (SELECT 1 FROM core_product_links l WHERE l.warehouse_product_id=p.productid)
                 UNION ALL SELECT 'active_offer_without_recent_check_30d',count(*) FROM proc_offers WHERE active=true AND (last_checked_at IS NULL OR last_checked_at<now()-interval '30 days')

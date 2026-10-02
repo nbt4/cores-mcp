@@ -102,7 +102,7 @@ func TestExecuteMutationToolRunsConfirmedWriteOnce(t *testing.T) {
 		return map[string]any{"id": 7}, []Source{{Service: "RentalCore", Entity: "requirement", ID: "7"}}, nil, nil
 	}
 	for attempt := 0; attempt < 2; attempt++ {
-		result, output, err := executeMutationTool(ctx, "rental.requirements.update", "write", input, fn)
+		result, output, err := executeMutationTool(ctx, "procurement.orders.update", "write", input, fn)
 		if err != nil || result != nil || output.Data == nil {
 			t.Fatalf("attempt %d result=%#v output=%#v err=%v", attempt, result, output, err)
 		}

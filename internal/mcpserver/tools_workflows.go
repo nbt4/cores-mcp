@@ -51,9 +51,11 @@ type JobUpdateInput struct {
 
 type RequirementUpdateInput struct {
 	MutationControl
-	RequirementID int64 `json:"requirement_id,omitempty" jsonschema:"Exact RentalCore job requirement ID."`
-	Quantity      int   `json:"quantity,omitempty" jsonschema:"Required new positive quantity."`
-	ConfirmUpdate bool  `json:"confirm_update,omitempty" jsonschema:"Set true only after showing the old and new quantity and receiving explicit confirmation."`
+	RentalRequirementPreviewControl
+	ManualQuantity *int64 `json:"manual_quantity,omitempty" jsonschema:"Additional manually planned material; 0 is allowed when commercial position demand remains positive. Total/source quantities are validated by the owner."`
+	RequirementID  int64  `json:"requirement_id,omitempty" jsonschema:"Exact RentalCore job requirement ID."`
+	Quantity       int    `json:"quantity,omitempty" jsonschema:"Required new positive quantity."`
+	ConfirmUpdate  bool   `json:"confirm_update,omitempty" jsonschema:"Set true only after showing the old and new quantity and receiving explicit confirmation."`
 }
 
 type PurchaseOrderLineInput struct {
@@ -167,25 +169,11 @@ func registerWorkflowTools(server *mcp.Server, cfg config.Config, db *store.Stor
 		return invokeRentalJob(ctx, cfg, db, "update", input, false)
 	})
 
-	addWritePreparationTool(server, "rental.requirements.prepare_update", "Prepare requirement update", "Load one existing job-product requirement and preview a positive replacement quantity without changing any other requirement.", func(ctx context.Context, input RequirementUpdateInput) (any, []Source, []string, error) {
-		prepared, err := prepareRequirementUpdate(ctx, db, input)
-		return prepared.response("draft"), mutationSources(prepared, "rentalcore", "job_product_requirement_update_draft"), prepared.Warnings, err
+	addWritePreparationTool(server, "rental.requirements.prepare_update", "Prepare material requirement update", "Review original and proposed total/manual quantities, protected source contributions and exact line/job/dependency versions.", func(ctx context.Context, in RequirementUpdateInput) (any, []Source, []string, error) {
+		return invokeRentalRequirement(ctx, cfg, db, "update", in, true)
 	})
-	addUpdateTool(server, "rental.requirements.update", "Update rental requirement quantity", "Change only the quantity of one RentalCore job-product requirement. First call rental.requirements.prepare_update, show old and new values, and obtain explicit confirmation.", func(ctx context.Context, input RequirementUpdateInput) (any, []Source, []string, error) {
-		prepared, err := prepareRequirementUpdate(ctx, db, input)
-		if err != nil || !prepared.Ready {
-			return prepared.response("needs_input"), mutationSources(prepared, "rentalcore", "job_product_requirement_update_draft"), prepared.Warnings, err
-		}
-		if !input.ConfirmUpdate {
-			return prepared.response("confirmation_required"), mutationSources(prepared, "rentalcore", "job_product_requirement_update_draft"), []string{"No data was changed."}, nil
-		}
-		jobID, requirementID := numericID(prepared.Draft["job_id"]), numericID(prepared.Draft["requirement_id"])
-		var updated map[string]any
-		path := fmt.Sprintf("/api/v1/jobs/%d/requirements/%d", jobID, requirementID)
-		if err := api.doJSON(ctx, cfg.RentalURL, path, http.MethodPut, map[string]any{"quantity": prepared.Draft["quantity"]}, &updated); err != nil {
-			return nil, nil, nil, err
-		}
-		return map[string]any{"operation_status": "updated", "previous": prepared.Current, "requirement": updated["requirement"]}, []Source{{Service: "rentalcore", Entity: "job_product_requirement", ID: fmt.Sprint(requirementID)}}, nil, nil
+	addUpdateTool(server, "rental.requirements.update", "Update material requirement quantities", "Update total or additional manual material through the owner after exact preview/context and explicit confirmation. Source positions and job/product identity remain controlled.", func(ctx context.Context, in RequirementUpdateInput) (any, []Source, []string, error) {
+		return invokeRentalRequirement(ctx, cfg, db, "update", in, false)
 	})
 
 	addWritePreparationTool(server, "procurement.orders.prepare_create", "Prepare purchase order", "Resolve the supplier and products, validate every line, dates and currency, calculate the exact total, and identify duplicate supplier order numbers.", func(ctx context.Context, input PurchaseOrderCreateInput) (any, []Source, []string, error) {

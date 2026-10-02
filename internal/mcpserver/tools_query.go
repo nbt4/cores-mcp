@@ -128,7 +128,7 @@ var queryEntities = map[string]queryEntitySpec{
 		Service: "rentalcore", SourceEntity: "job_product_requirement",
 		BaseSQL: `SELECT r.id AS requirement_id,r.job_id,j.job_code,j.startdate AS start_date,j.enddate AS end_date,
                    r.product_id,p.product_code,p.name AS product,p.tracking_mode,r.quantity
-              FROM job_product_requirements r JOIN jobs j ON j.jobid=r.job_id JOIN products p ON p.productid=r.product_id
+              FROM (SELECT * FROM job_product_requirements src WHERE COALESCE(to_jsonb(src)->>'deleted_at','')='') r JOIN jobs j ON j.jobid=r.job_id JOIN products p ON p.productid=r.product_id
              WHERE j.deleted_at IS NULL`,
 		Fields:        map[string]queryFieldKind{"requirement_id": queryInteger, "job_id": queryInteger, "job_code": queryString, "start_date": queryTime, "end_date": queryTime, "product_id": queryInteger, "product_code": queryString, "product": queryString, "tracking_mode": queryString, "quantity": queryNumber},
 		DefaultFields: []string{"requirement_id", "job_id", "job_code", "start_date", "end_date", "product_id", "product_code", "product", "tracking_mode", "quantity"},
