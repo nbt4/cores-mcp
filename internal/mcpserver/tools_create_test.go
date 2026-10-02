@@ -163,8 +163,8 @@ func TestWriteToolsExposeSafeAnnotationsAndSchemas(t *testing.T) {
 	for _, tool := range listed.Tools {
 		tools[tool.Name] = tool
 	}
-	if len(tools) != 368 {
-		t.Fatalf("tool count = %d, want 368", len(tools))
+	if len(tools) != 373 {
+		t.Fatalf("tool count = %d, want 373", len(tools))
 	}
 	if tool := tools["warehouse.audit.history"]; tool == nil || tool.Annotations == nil || !tool.Annotations.ReadOnlyHint {
 		t.Fatal("warehouse audit history must be read-only")

@@ -22,19 +22,19 @@ type ProcurementMasterLifecycleInput struct {
 }
 
 type ProcurementMasterHistoryInput struct {
-	ID    int64 `json:"id" jsonschema:"Exact ProcurementCore supplier, product or offer ID."`
+	ID    int64 `json:"id" jsonschema:"Exact ProcurementCore supplier, product, offer or category ID."`
 	Limit int   `json:"limit,omitempty" jsonschema:"Maximum redacted events, capped at 100."`
 }
 
 func isProcurementMasterLifecycleTool(name string) bool {
-	return (strings.HasPrefix(name, "procurement.suppliers.") || strings.HasPrefix(name, "procurement.products.") || strings.HasPrefix(name, "procurement.offers.")) && (strings.HasSuffix(name, ".archive") || strings.HasSuffix(name, ".restore"))
+	return (strings.HasPrefix(name, "procurement.categories.") || strings.HasPrefix(name, "procurement.suppliers.") || strings.HasPrefix(name, "procurement.products.") || strings.HasPrefix(name, "procurement.offers.")) && (strings.HasSuffix(name, ".archive") || strings.HasSuffix(name, ".restore"))
 }
 
 func invokeProcurementMasterLifecycle(ctx context.Context, cfg config.Config, namespace, operation string, input ProcurementMasterLifecycleInput, preview bool) (any, []Source, []string, error) {
 	if err := requireProcurementAdmin(ctx); err != nil {
 		return nil, nil, nil, err
 	}
-	kind := map[string]string{"suppliers": "supplier", "products": "product", "offers": "offer"}[namespace]
+	kind := map[string]string{"suppliers": "supplier", "products": "product", "offers": "offer", "categories": "category"}[namespace]
 	sources := []Source{{Service: "procurementcore", Entity: kind, ID: fmt.Sprint(input.ID)}}
 	raw, err := json.Marshal(input)
 	if err != nil {
@@ -49,11 +49,11 @@ func invokeProcurementMasterLifecycle(ctx context.Context, cfg config.Config, na
 	body["preview"] = preview || input.DryRun || !input.ConfirmChange
 	result := map[string]any{}
 	err = newCoreAPIClient(cfg).doJSON(ctx, cfg.ProcurementURL, "/api/v1/mcp/master-data/"+namespace+"/"+operation, http.MethodPost, body, &result)
-	return result, sources, append(untrustedTextWarning(), "Archive/restore preserves IDs, original business fields and prices; no stock movements or external messages. Open orders/requisitions block affected archives. Offer restoration requires active parents. Exact version/context, current administrator/archive rights and record-bound confirmation are required. Lifecycle, audit, native activity and durable receipt commit atomically; retries recheck current owning-Core rights."), err
+	return result, sources, append(untrustedTextWarning(), "Archive/restore preserves IDs, original business fields and prices; no stock movements or external messages. Open orders/requisitions block affected archives; active products block category archives. Offer/product restoration requires active parents. Exact version/context, current administrator/archive rights and record-bound confirmation are required. Lifecycle, audit, native activity and durable receipt commit atomically; retries recheck current owning-Core rights."), err
 }
 
 func registerProcurementMasterLifecycleTools(server *mcp.Server, cfg config.Config, db *store.Store) {
-	for _, namespace := range []string{"suppliers", "products", "offers"} {
+	for _, namespace := range []string{"suppliers", "products", "offers", "categories"} {
 		ns := namespace
 		for _, operation := range []string{"archive", "restore"} {
 			if !cfg.EnableWrites {
@@ -68,7 +68,7 @@ func registerProcurementMasterLifecycleTools(server *mcp.Server, cfg config.Conf
 			})
 		}
 		addTool(server, "procurement."+ns+".audit_history", "Read procurement "+ns+" history", "Read bounded redacted action, actor, timestamp, result version and selected business changes for this exact record. Current procurement administrator required; raw audit JSON and private notes are excluded.", func(ctx context.Context, input ProcurementMasterHistoryInput) (any, []Source, []string, error) {
-			return procurementAuditHistory(ctx, db, ProcurementAuditInput{Entity: map[string]string{"suppliers": "supplier", "products": "product", "offers": "offer"}[ns], ID: input.ID, Limit: input.Limit})
+			return procurementAuditHistory(ctx, db, ProcurementAuditInput{Entity: map[string]string{"suppliers": "supplier", "products": "product", "offers": "offer", "categories": "category"}[ns], ID: input.ID, Limit: input.Limit})
 		})
 	}
 }

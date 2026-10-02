@@ -95,8 +95,8 @@ type categoryParameter struct {
 	Key     string   `json:"key"`
 	Label   string   `json:"label"`
 	Type    string   `json:"type"`
-	Unit    string   `json:"unit"`
-	Options []string `json:"options"`
+	Unit    string   `json:"unit,omitempty"`
+	Options []string `json:"options,omitempty"`
 }
 
 func registerCreateTools(server *mcp.Server, cfg config.Config, db *store.Store) {
@@ -283,7 +283,7 @@ func prepareProductCreate(ctx context.Context, db *store.Store, api *coreAPIClie
 		"parameters": cloneMap(input.Parameters), "attributes": mergeAttributes(preview.Attributes, input.Attributes),
 		"active": true, "reorderPoint": input.ReorderPoint, "targetStock": input.TargetStock,
 	}
-	categories, err := db.Query(ctx, `SELECT id,name,description,parameter_schema FROM proc_categories ORDER BY name`)
+	categories, err := db.Query(ctx, `SELECT id,name,description,parameter_schema FROM proc_categories WHERE active=true ORDER BY name`)
 	if err != nil {
 		return preparedProduct{}, err
 	}

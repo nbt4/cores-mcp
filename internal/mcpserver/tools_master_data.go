@@ -23,8 +23,8 @@ type masterDataSource struct {
 }
 
 var masterDataSources = map[string]masterDataSource{
-	"procurement.supplier": {"procurementcore", "supplier", `SELECT id,name,code AS context,code FROM proc_suppliers WHERE active=true ORDER BY name LIMIT 500`},
-	"procurement.category": {"procurementcore", "category", `SELECT id,name,'' AS context FROM proc_categories ORDER BY name LIMIT 500`},
+	"procurement.supplier": {"procurementcore", "supplier", `SELECT id,name,code AS context,code,NOT active AS is_archived FROM proc_suppliers ORDER BY active DESC,name LIMIT 500`},
+	"procurement.category": {"procurementcore", "category", `SELECT id,name,'' AS context,NOT active AS is_archived FROM proc_categories ORDER BY active DESC,name LIMIT 500`},
 	"rental.customer":      {"rentalcore", "customer", `SELECT customerid AS id,COALESCE(NULLIF(companyname,''),NULLIF(name,''),TRIM(CONCAT_WS(' ',firstname,lastname))) AS name,concat_ws(' · ',city,country) AS context,COALESCE(is_archived,false) AS is_archived FROM customers ORDER BY companyname,name LIMIT 500`},
 	"rental.venue":         {"rentalcore", "venue", `SELECT id,name,concat_ws(' · ',city,zip) AS context,is_archived FROM venues ORDER BY name LIMIT 500`},
 }

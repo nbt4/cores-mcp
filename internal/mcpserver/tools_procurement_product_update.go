@@ -164,7 +164,7 @@ func prepareProcurementProductUpdate(ctx context.Context, db *store.Store, input
 		}
 	}
 	if id := numericID(p.Draft["categoryId"]); id > 0 {
-		categories, queryErr := db.Query(ctx, `SELECT id,name,parameter_schema FROM proc_categories WHERE id=$1`, id)
+		categories, queryErr := db.Query(ctx, `SELECT id,name,parameter_schema FROM proc_categories WHERE id=$1 AND active=true`, id)
 		if queryErr != nil {
 			return p, queryErr
 		}

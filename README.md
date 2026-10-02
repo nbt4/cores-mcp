@@ -1,5 +1,23 @@
 # Cores MCP
 
+## Beschaffungskategorien — MCP 1.5.42
+
+`procurement.categories.prepare_archive/archive`, `prepare_restore/restore` und
+`audit_history` ergänzen fünf Werkzeuge: 373 insgesamt (103 Abfragen / 135
+Vorschauen / 135 Ausführungen). Die identische Eigentümer-API erhält das vollständige
+Parameterschema und alle ursprünglichen Geschäftsfelder. Aktive Produkte blockieren
+Archivierung. Produktanlage/Restore benötigen aktive Kategorien; normale Pflege
+archivierter Kategorien muss zuerst eine separate Wiederherstellung durchführen.
+`cores.master_data.resolve` zeigt archivierte Kategorien und Lieferanten als
+`restoration_required` ohne automatische Auswahl. Exakte Version/Kontext/Bestätigung,
+aktuelle Admin-/Archiv-Rechte und atomare Historie/Audit/Replay bleiben Pflicht.
+
+Einheit und Auswahloptionen einer Parameterdefinition sind im MCP-Eingabeschema
+tatsächlich optional; Auswahlparameter benötigen weiterhin gültige Optionen.
+
+Die OAuth-Freigaben und Browseroberfläche bleiben wie in 1.5.41; vorhandene
+Erfolgsbelege sind auch nach dem Upgrade wiederholbar und prüfen aktuelle Rechte.
+
 ## Procurement-Katalogarchive und OAuth — MCP 1.5.41
 
 Der Katalog umfasst 368 Werkzeuge (102 Abfragen / 133 Vorschauen /

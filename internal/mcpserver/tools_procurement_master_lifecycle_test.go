@@ -90,7 +90,7 @@ func TestProcurementMasterOwnerDelegationRetryAndRevocation(t *testing.T) {
 }
 
 func TestProcurementMasterLifecycleScopeAndSchema(t *testing.T) {
-	for _, ns := range []string{"suppliers", "products", "offers"} {
+	for _, ns := range []string{"suppliers", "products", "offers", "categories"} {
 		for _, op := range []string{"archive", "restore"} {
 			name := "procurement." + ns + "." + op
 			if !isMutationTool(name) || !hasDurableWarehouseRetry(name) || requiredMutationScope(name) != "cores:procurement:archive" {

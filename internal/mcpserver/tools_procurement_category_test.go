@@ -57,7 +57,7 @@ func TestPrepareCategoryCreateAndUpdate(t *testing.T) {
 	if _, err := database.Exec("SET search_path TO " + schema); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := database.Exec(`CREATE TABLE proc_categories (id BIGSERIAL PRIMARY KEY, name TEXT, description TEXT, parameter_schema JSONB, updated_at TIMESTAMPTZ)`); err != nil {
+	if _, err := database.Exec(`CREATE TABLE proc_categories (id BIGSERIAL PRIMARY KEY, name TEXT, description TEXT, parameter_schema JSONB, active BOOLEAN NOT NULL DEFAULT true, updated_at TIMESTAMPTZ)`); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := database.Exec(`INSERT INTO proc_categories (name,description,parameter_schema,updated_at) VALUES
@@ -121,4 +121,16 @@ func TestPrepareCategoryCreateAndUpdate(t *testing.T) {
 	if err != nil || !update.Ready {
 		t.Fatalf("matching version rejected: %#v, %v", update, err)
 	}
+	if _, err := database.Exec("UPDATE proc_categories SET active=false WHERE id=1"); err != nil {
+		t.Fatal(err)
+	}
+	archived, err := run(true, input)
+	if err != nil || archived.Ready || !containsString(archived.Missing, "active_category") {
+		t.Fatalf("archived category business edits allowed: %#v, %v", archived, err)
+	}
+	duplicate, err := prepareCategoryCreate(context.Background(), lookup, CategoryCreateInput{Name: "Stage Lighting"})
+	if err != nil || duplicate.Ready || len(duplicate.RelatedRecords) != 1 || duplicate.RelatedRecords[0]["is_archived"] != true {
+		t.Fatalf("archived category identity hidden: %#v, %v", duplicate, err)
+	}
+
 }

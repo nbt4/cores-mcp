@@ -21,7 +21,7 @@ and production verification. Optional event streams are separate follow-up work.
 | Rental requirements | Full total/manual/source quantities, exact line/job/context versions, archive/restore, redacted audit, atomic native history/replay and retained native selections; archived demand excluded | — |
 | Rental staffing/external equipment | Read context | Create/update/lifecycle and personnel assignment |
 | Procurement suppliers/products/offers | Create/update, retained named archive/restore, exact record/dependency context, current owner rights, atomic audit/activity/durable replay, per-entity redacted versioned history | — |
-| Procurement categories | Create/update with full parameter schema | Archive/restore |
+| Procurement categories | Full parameter schema create/update, retained named archive/restore, active product/parent guards, redacted audit and atomic owner activity/replay | — |
 | Procurement requisitions | Draft create/update, submit, separated decisions | Archive/restore, return-for-revision verification |
 | Procurement orders | Draft create/update, separated transitions, partial receipt/devices/putaway | Archive/restore, end-to-end receipt discrepancy/overdelivery verification |
 | Procurement product mapping | Audited versioned link | Supplier-link lifecycle verification |
@@ -196,3 +196,26 @@ layout overflow. Committed design copies pass validation; user-owned pre-existin
 Planner copies remain untouched. Deploy Procurement first, then MCP, and verify
 all existing guards plus the three proc_*_guard_lifecycle_version triggers.
 The parent issues remain open for the other acceptance rows above.
+
+
+## Procurement category lifecycle
+
+Procurement 1.0.67 / MCP 1.5.42: 373 tools (103 reads / 135 preparations /
+135 executions). Native 009 / umbrella 038 adds retained category lifecycle and
+all-writer identity/version guards. Active products block archives; active product
+creation/restoration locks and checks its category. Ordinary category updates retain
+state. Category/supplier resolution keeps historical IDs as restoration_required.
+Complete original parameter definitions and other fields are retained. Optional
+parameter units/options are correctly optional in MCP schemas; selects still require
+valid options. Older category request hashes and saved successful responses preserve
+their pre-active-field shape; original supplier lifecycle receipts replay unchanged.
+
+Full PostgreSQL/race suites, Vet/build, 23 unchanged frontend tests, frontend build
+and committed design validation pass. Actual Streamable HTTP against the upgraded
+and fresh complete stacks verifies create, archive/restore, bound exact version and
+context, current administrator/archive rights, dry-run, active product/category
+all-writer blockers, retained parameter definitions, atomic final-audit rollback and
+same-key retry, redacted history and restart replay. Complete read-only smoke has
+373 tools with zero failures. Deploy Procurement before MCP and verify the new
+category trigger alongside all previously released guards. Parent issues remain
+open for the other acceptance rows.

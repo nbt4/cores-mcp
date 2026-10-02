@@ -1,5 +1,16 @@
 # Tool-Katalog
 
+## Procurement category lifecycle — 1.5.42
+
+373 tools: 103 reads / 135 preparations / 135 executions.
+`procurement.categories` adds `prepare_archive`, `archive`, `prepare_restore`,
+`restore`, `audit_history` with the same `ProcurementMasterLifecycleInput` controls
+and signed current-admin/archive owner delegation as other catalog lifecycle tools.
+Complete original parameter definitions, description and identity are retained.
+Active products block archives; active product creation/restoration requires an active
+category. Master resolution retains inactive categories and suppliers as
+`restoration_required`; exact historical identity must be restored separately.
+
 ## Procurement catalog lifecycle — 1.5.41
 
 368 tools: 102 read tools, 133 preparations, 133 executions.

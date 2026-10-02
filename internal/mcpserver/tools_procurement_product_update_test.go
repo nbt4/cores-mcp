@@ -44,14 +44,14 @@ func TestPrepareProcurementProductUpdateDiffVersionAndArchive(t *testing.T) {
 	}
 	for _, statement := range []string{
 		`CREATE TABLE proc_products (id BIGSERIAL PRIMARY KEY,sku TEXT,name TEXT,description TEXT,category_id BIGINT,unit TEXT,manufacturer TEXT,model TEXT,parameters JSONB,attributes JSONB,active BOOLEAN,reorder_point DOUBLE PRECISION,target_stock DOUBLE PRECISION,updated_at TIMESTAMP)`,
-		`CREATE TABLE proc_categories (id BIGINT PRIMARY KEY,name TEXT,parameter_schema JSONB)`,
+		`CREATE TABLE proc_categories (id BIGINT PRIMARY KEY,name TEXT,parameter_schema JSONB,active BOOLEAN NOT NULL DEFAULT true)`,
 		`CREATE TABLE proc_suppliers (id BIGINT PRIMARY KEY,name TEXT,code TEXT,active BOOLEAN)`,
 		`CREATE TABLE proc_offers (id BIGSERIAL PRIMARY KEY,product_id BIGINT,supplier_id BIGINT,supplier_sku TEXT,price_cents BIGINT,currency TEXT,minimum_quantity DOUBLE PRECISION,pack_size DOUBLE PRECISION,lead_days BIGINT,purchase_url TEXT,valid_until TIMESTAMP,active BOOLEAN,updated_at TIMESTAMP)`,
 		`CREATE TABLE proc_purchase_orders (id BIGINT PRIMARY KEY,number TEXT,status TEXT)`,
 		`CREATE TABLE proc_purchase_order_lines (id BIGSERIAL PRIMARY KEY,purchase_order_id BIGINT,product_id BIGINT)`,
 		`CREATE TABLE proc_requisitions (id BIGINT PRIMARY KEY,number TEXT,status TEXT)`,
 		`CREATE TABLE proc_requisition_lines (id BIGSERIAL PRIMARY KEY,requisition_id BIGINT,product_id BIGINT)`,
-		`INSERT INTO proc_categories VALUES (1,'Lighting','[]')`,
+		`INSERT INTO proc_categories(id,name,parameter_schema) VALUES (1,'Lighting','[]')`,
 		`INSERT INTO proc_suppliers VALUES (1,'Light Supply','LS',true)`,
 		`INSERT INTO proc_products(sku,name,description,category_id,unit,manufacturer,model,parameters,attributes,active,reorder_point,target_stock,updated_at) VALUES ('NODE-1','Node','DMX node',1,'Stk.','MA Lighting','grandMA3','{}','{}',true,1,2,'2026-09-24T08:15:00.123456'),('NODE-2','Other Node','Backup',1,'Stk.','','','{}','{}',true,0,0,'2026-09-24T08:15:00')`,
 		`INSERT INTO proc_purchase_orders VALUES (7,'PO-7','ordered')`,

@@ -120,7 +120,7 @@ func checkCategoryDuplicates(ctx context.Context, db *store.Store, name string, 
 		return nil, nil, nil
 	}
 	first := strings.Fields(name)[0]
-	rows, err := db.Query(ctx, `SELECT id,name FROM proc_categories WHERE id<>$1 AND (lower(name)=lower($2) OR position(lower($3) in lower(name))>0)
+	rows, err := db.Query(ctx, `SELECT id,name,NOT active AS is_archived FROM proc_categories WHERE id<>$1 AND (lower(name)=lower($2) OR position(lower($3) in lower(name))>0)
 		ORDER BY CASE WHEN lower(name)=lower($2) THEN 0 ELSE 1 END,name LIMIT 100`, excludeID, name, first)
 	if err != nil {
 		return nil, nil, err
@@ -183,7 +183,7 @@ func prepareCategoryUpdate(ctx context.Context, db *store.Store, input CategoryU
 	if info == nil || info.Extra["is_admin"] != true {
 		return p, fmt.Errorf("Procurement administrator permission is required to read and update category details")
 	}
-	rows, err := db.Query(ctx, `SELECT id,name,description,parameter_schema,
+	rows, err := db.Query(ctx, `SELECT id,name,description,parameter_schema,active,
 		to_char(updated_at AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS updated_at
 		FROM proc_categories WHERE id=$1`, input.CategoryID)
 	if err != nil {
@@ -195,6 +195,11 @@ func prepareCategoryUpdate(ctx context.Context, db *store.Store, input CategoryU
 		return p, nil
 	}
 	p.Current = rows[0]
+	if p.Current["active"] != true {
+		p.require("active_category", "Die archivierte Kategorie muss vor einer Feldänderung separat wiederhergestellt werden.", nil)
+		p.finish()
+		return p, nil
+	}
 	version := rfc3339Value(p.Current["updated_at"])
 	var parameters []categoryParameter
 	encoded, err := json.Marshal(p.Current["parameter_schema"])
