@@ -131,7 +131,7 @@ func executeMutationTool[In any](ctx context.Context, name, permissionLabel stri
 			return &mcp.CallToolResult{IsError: true, Content: []mcp.Content{&mcp.TextContent{Text: message}}}, Output{AsOf: now(), Summary: message}, nil
 		}
 	}
-	if isProcurementMasterLifecycleTool(name) {
+	if isProcurementMasterLifecycleTool(name) || name == "procurement.orders.receive" {
 		if err := requireProcurementAdmin(ctx); err != nil {
 			return &mcp.CallToolResult{IsError: true, Content: []mcp.Content{&mcp.TextContent{Text: err.Error()}}}, Output{AsOf: now(), Summary: err.Error()}, nil
 		}
@@ -167,7 +167,7 @@ func executeMutationTool[In any](ctx context.Context, name, permissionLabel stri
 		if !owner {
 			// Rental jobs/requirements authorize replay against current owner-side rights.
 			// The durable receipt supplies the result without repeating the write.
-			if isProcurementMasterLifecycleTool(name) || strings.HasPrefix(name, "rental.jobs.") || strings.HasPrefix(name, "rental.requirements.") {
+			if isProcurementMasterLifecycleTool(name) || name == "procurement.orders.receive" || strings.HasPrefix(name, "rental.jobs.") || strings.HasPrefix(name, "rental.requirements.") {
 				data, sources, warnings, err := fn(withMutationIdempotency(ctx, mutationControlsKey(input)), invocation.Input)
 				if err != nil {
 					message := fmt.Sprintf("%s failed: %v", name, err)
@@ -213,8 +213,8 @@ func mutationControlsKey(input any) string {
 }
 
 func mutationPermissionMessage(tool string) string {
-	if tool == "warehouse.inventory_counts.approve" {
-		return tool + " requires the explicit cores:warehouse:approve scope and current administrator rights. Legacy cores:write, create and update access do not grant inventory approval. Reconnect and explicitly grant the approval scope."
+	if tool == "warehouse.inventory_counts.approve" || tool == "procurement.orders.receive" || tool == "procurement.orders.transition" || tool == "procurement.requisitions.decide" {
+		return tool + " requires the explicit " + requiredMutationScope(tool) + " scope and current administrator rights. Legacy cores:write, create and update access do not grant this workflow. Reconnect and explicitly grant the required scope."
 	}
 	return tool + " requires " + requiredMutationScope(tool) + " (or legacy cores:write). Reconnect the Cores MCP connector, choose Read and write (Lesen und Schreiben) in the Cores authorization dialog and confirm the selected access."
 }
@@ -222,7 +222,7 @@ func mutationPermissionMessage(tool string) string {
 func authorizeMutation(ctx context.Context, tool string) (context.Context, error) {
 	info := auth.TokenInfoFromContext(ctx)
 	required := requiredMutationScope(tool)
-	if info == nil || tool == "warehouse.inventory_counts.approve" && !containsString(info.Scopes, required) || (!containsString(info.Scopes, coresauth.WriteScope()) && !containsString(info.Scopes, required)) {
+	if info == nil || (tool == "warehouse.inventory_counts.approve" || tool == "procurement.orders.receive" || tool == "procurement.orders.transition" || tool == "procurement.requisitions.decide") && !containsString(info.Scopes, required) || (!containsString(info.Scopes, coresauth.WriteScope()) && !containsString(info.Scopes, required)) {
 		return ctx, errorsNew("mutation scope is required")
 	}
 	return withMutationPermission(ctx, required), nil

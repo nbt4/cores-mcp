@@ -6,7 +6,6 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
-	"reflect"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -309,21 +308,6 @@ func TestCriticalProcurementConfirmationPhrases(t *testing.T) {
 	}
 	if got := requisitionDecisionPhrase("unknown", 17); got != "" {
 		t.Fatalf("invalid decision phrase = %q", got)
-	}
-	if got := purchaseOrderReceiptPhrase(23, 42); got != "RECEIVE ORDER 23 LINE 42" {
-		t.Fatalf("receipt phrase = %q", got)
-	}
-	overdelivery := PurchaseOrderReceiptInput{OrderID: 23, LineID: 42, AllowOverdelivery: true}
-	if got := purchaseOrderReceiptConfirmation(overdelivery); got != "RECEIVE OVERDELIVERY ORDER 23 LINE 42" {
-		t.Fatalf("overdelivery phrase = %q", got)
-	}
-}
-
-func TestNormalizeSerialInputs(t *testing.T) {
-	got := normalizeSerialInputs([]string{" SN-1 ", "sn-1", "", "SN-2"})
-	want := []string{"SN-1", "SN-2"}
-	if !reflect.DeepEqual(got, want) {
-		t.Fatalf("serials = %#v, want %#v", got, want)
 	}
 }
 

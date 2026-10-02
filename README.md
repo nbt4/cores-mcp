@@ -1,5 +1,36 @@
 # Cores MCP
 
+## Vollständiger Wareneingang — Procurement 1.0.68 / MCP 1.5.43
+
+`procurement.orders.prepare_receive/receive` delegieren an
+`POST /api/v1/mcp/orders/receive`. Die Vorschau bindet Bestellung, alle Positionen,
+Mengen, aktive Produktzuordnung, Bestand und Lagerverteilung, Seriennummern,
+Zielplatz sowie Amazon-Bestätigung an `expected_context`. `expected_updated_at`,
+`confirm_receipt`, Idempotenzschlüssel und die exakte mengen-/kontextgebundene
+Bestätigungsphrase sind erforderlich. Überlieferung verlangt zusätzlich
+`allow_overdelivery`; Teilbestätigungen dürfen Amazons bestätigte Menge nicht
+überschreiten. Einzelgeräte benötigen genau eine unbenutzte Seriennummer je Gerät
+(maximal 1000); Mengenbestand erhält höchstens drei Nachkommastellen. Lagergrenzen
+werden vor Ausführung geprüft. Vorschau und Dry-Run verändern keine Daten.
+
+Bestellposition/-status, Bestand oder Geräte, Einlagerungsaufgabe/-ereignis,
+Vorher-/Nachher-Audits, native Aktivität und dauerhafter Erfolgsbeleg werden atomar
+verbucht. Wiederholungen prüfen die aktuellen Rechte im Eigentümer-Core. Bereits
+vor dem Upgrade erfolgreiche Wareneingänge behalten ihren ursprünglichen Beleg
+und erzeugen keinen zweiten Bestand. Der alte MCP-Pfad `/orders/{id}/receipt`
+spielt ausschließlich solche gespeicherten Belege wieder; noch nicht ausgeführte
+alte Vorschauen müssen neu vorbereitet werden. Preise und externe Nachrichten
+bleiben außerhalb dieser Aktion.
+
+Wareneingang braucht ausdrücklich `cores:procurement:receive`; Bedarfsentscheidungen
+und Bestellstatus brauchen ausdrücklich `cores:procurement:approve`. Allgemeines
+`cores:write` erteilt diese Freigaben nicht. Bestehende Verbindungen müssen die
+benötigten Scopes mit neuer Einwilligung anfordern. `cores.entities.schema`
+enthält unter `workflow_fields` die separaten Empfangs- und Statusfelder.
+Der Katalog bleibt bei 373 Werkzeugen (103 Abfragen / 135 Vorschauen /
+135 Ausführungen). Andere offene Punkte der Issues #4/#5 bleiben offen.
+
+
 ## Beschaffungskategorien — MCP 1.5.42
 
 `procurement.categories.prepare_archive/archive`, `prepare_restore/restore` und
@@ -907,7 +938,7 @@ Entscheidungs- und Wareneingangs-Audit nun atomar mit dem jeweiligen Vorgang.
 `procurement.orders.prepare_transition`/`.transition` prüfen den erlaubten
 Statuswechsel, zeigen Bestellung und Positionen, den vollständigen Status-Diff,
 die exakte Version und eine datensatzgebundene Bestätigungsphrase. Versand,
-Bestätigung und Storno benötigen `cores:procurement:approve` oder `cores:write`
+Bestätigung und Storno benötigen ausdrücklich `cores:procurement:approve`
 und Procurement-Administratorrechte. „Gesendet“ dokumentiert den Status; es
 verschickt keine Bestellung an den Lieferanten. Ein Storno benötigt einen Grund
 und erhält bereits gebuchte Wareneingänge. `procurement.orders.create` erzeugt

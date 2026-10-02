@@ -23,7 +23,7 @@ and production verification. Optional event streams are separate follow-up work.
 | Procurement suppliers/products/offers | Create/update, retained named archive/restore, exact record/dependency context, current owner rights, atomic audit/activity/durable replay, per-entity redacted versioned history | — |
 | Procurement categories | Full parameter schema create/update, retained named archive/restore, active product/parent guards, redacted audit and atomic owner activity/replay | — |
 | Procurement requisitions | Draft create/update, submit, separated decisions | Archive/restore, return-for-revision verification |
-| Procurement orders | Draft create/update, separated transitions, partial receipt/devices/putaway | Archive/restore, end-to-end receipt discrepancy/overdelivery verification |
+| Procurement orders | Draft create/update, separated transitions, full context-bound partial/full/overdelivery receipt, atomic stock/devices/putaway events/audits/durable replay | Archive/restore |
 | Procurement product mapping | Audited versioned link | Supplier-link lifecycle verification |
 | Planner plans/tasks | Create, membership-protected reads | Complete update/archive/restore, durable atomic audit/replay |
 | Planner buckets/labels/dependencies/sprints/goals | Read context | Schema discovery, guided create/update/archive/restore |
@@ -219,3 +219,32 @@ same-key retry, redacted history and restart replay. Complete read-only smoke ha
 373 tools with zero failures. Deploy Procurement before MCP and verify the new
 category trigger alongside all previously released guards. Parent issues remain
 open for the other acceptance rows.
+
+## Complete goods receipt verification
+
+Procurement 1.0.68 / MCP 1.5.43 retains 373 tools (103 reads / 135 preparations /
+135 executions). Both receipt tools delegate directly to the closed owning API.
+An exact record and complete context freeze order/line state, active mapping,
+stock/location distribution, serial reservations, destination and supplier/Amazon
+confirmation alongside the quantity-bound phrase. Partial/full/overdelivery,
+individual/quantity/untracked/service items, bounded serials and physical precision
+are explicit. Receipt/order/line, stock/devices, putaway task/event, native activity,
+versioned before/after audits and durable response commit together. Legacy MCP
+receipt execution only replays previously saved successes; unbooked old previews
+must use the new owner context. Current owner administrator/receive rights are
+checked before cached, legacy and restarted replay. Generic legacy write access
+cannot grant receipt or procurement decisions/status transitions; their dedicated
+receive/approve scopes must be explicitly consented.
+
+Full PostgreSQL/race suites, Vet/build, 23 unchanged frontend tests, frontend build
+and committed design validation pass. Actual Streamable HTTP against upgraded
+and separately fresh complete stacks verifies all physical receipt modes, partial
+and final status/unchanged prices, explicit overdelivery, quantity/line/mapping/
+stock/distribution/zone/serial staleness, Amazon partial confirmation ceilings,
+current scope/role revocation, dry-run, concurrent single commit, final warehouse
+and order audit rollback/same-key retry, per-entity redacted versioned history and
+owner/MCP restart replay. A golden receipt created by the previous published
+native owner retains its saved response without creating a second stock booking.
+The fresh full read-only catalog has zero failures. Deploy Procurement before MCP,
+verify exact healthy images and every previously installed guard. There is no new
+schema migration. The parent issues remain open for the other acceptance rows.
