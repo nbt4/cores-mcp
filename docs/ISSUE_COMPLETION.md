@@ -6,7 +6,7 @@ and production verification. Optional event streams are separate follow-up work.
 
 | Area | Available | Remaining |
 | --- | --- | --- |
-| Warehouse products | Atomic master resolution/create, metadata update, archive/restore, typed relations | URL/bulk imports, complete relation lifecycle |
+| Warehouse products | Atomic master resolution/create, metadata update, archive/restore, full typed relation create/update/archive/restore and redacted history | URL/bulk imports |
 | Warehouse manufacturers/brands | Resolve, create, update with diff/version, archive/restore, retained redacted per-entity audit | — |
 | Warehouse categories | Three hierarchy levels: resolve/create/update/archive/restore, exact record/dependency protection, atomic audit/replay, redacted history; authorized dependency-checked removal | — |
 | Warehouse locations | Create/update/archive/restore, audit | — |
@@ -70,3 +70,18 @@ parent-first restoration, precise record and reference versions, privileged
 confirmation, all-writer archive/reference/deletion guards, final-audit rollback,
 same-key retry and restart replay. Production deployment is tracked in the
 umbrella docs. Parent issues remain open for the remaining areas above.
+
+## Product relationship verification
+
+WarehouseCore 5.9.105 / Cores MCP 1.5.35 / RentalCore 5.3.116 adds 11 tools:
+315 total (89 reads / 113 preparations / 113 executions), Warehouse 059 /
+umbrella 032. Full race/DB tests pass in all three services, alongside Vet,
+Go/Docker builds, the Rental frontend build and suite design validation.
+A fresh root-migration volume verifies actual Streamable HTTP permissions,
+full fields, precise product/relation/graph versions, unchanged previews and
+dry-run, mandatory cycle rejection, active ancestor job guards (including
+product archival), unchanged existing requirements/stock, final-audit rollback
+and same-key retry, retained lifecycle history, active discovery, parent
+availability, restart replay and stable legacy link tools. Production rollout
+runs Warehouse/MCP before Rental to install shared lifecycle schema first.
+The parent issues remain open for the remaining rows above.

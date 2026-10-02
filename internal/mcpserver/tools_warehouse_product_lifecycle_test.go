@@ -48,6 +48,9 @@ func TestPrepareWarehouseProductLifecycleShowsDependenciesAndVersion(t *testing.
 		`CREATE TABLE status(statusid INT PRIMARY KEY,status TEXT)`,
 		`CREATE TABLE jobs(jobid INT PRIMARY KEY,statusid INT,deleted_at TIMESTAMP)`,
 		`CREATE TABLE job_product_requirements(job_id INT,product_id INT)`,
+		// Fixture for the owning Core's read-only job-reference contract. Full
+		// ancestor/job validation is exercised by the Warehouse SQL integration tests.
+		`CREATE FUNCTION warehouse_relation_active_jobs(pid INT) RETURNS JSONB AS $$ SELECT COALESCE(jsonb_agg(jsonb_build_object('job_id',job_id)),'[]'::jsonb) FROM job_product_requirements WHERE product_id=pid $$ LANGUAGE SQL STABLE`,
 		`CREATE TABLE job_devices(jobid INT,deviceid TEXT,pack_status TEXT)`,
 		`INSERT INTO products VALUES(1,'Mixer','PRD-1','active',TRUE,TRUE,'2026-09-24T08:00:00.123456')`,
 		`INSERT INTO devices VALUES('D-1',1,'active',FALSE)`,
@@ -76,7 +79,7 @@ func TestPrepareWarehouseProductLifecycleShowsDependenciesAndVersion(t *testing.
 	}
 	input := WarehouseProductLifecycleInput{ProductID: 1}
 	preview, err := run(input)
-	if err != nil || preview.Ready || !containsString(preview.Missing, "active_dependencies") || preview.Draft["expected_updated_at"] != "2026-09-24T08:00:00.123456Z" {
+	if err != nil || preview.Ready || !containsString(preview.Missing, "active_dependencies") || !containsString(preview.Missing, "active_dependency_jobs") || preview.Draft["expected_updated_at"] != "2026-09-24T08:00:00.123456Z" {
 		t.Fatalf("dependency preview: %#v %v", preview, err)
 	}
 	if _, err := database.Exec(`DELETE FROM job_product_requirements`); err != nil {

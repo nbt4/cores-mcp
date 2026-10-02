@@ -1,5 +1,61 @@
 # Tool-Katalog
 
+## Produktbeziehungen — WarehouseCore 5.9.105 / MCP 1.5.35
+
+`warehouse.product_relations` ergänzt `search`, `get`, redigierte
+`audit_history` und Vorschau-/Ausführungspaare für `create`, `update`, `archive`
+und `restore`. Der Katalog enthält 315 Werkzeuge
+(89 Abfragen / 113 Vorschauen / 113 Ausführungen).
+
+Der Eigentümer bietet vollständige Feldpflege für `relation_type` (`required`,
+`recommended`, `compatible`, `consumes`, `alternative`, `included`),
+`assignment_scope` (`product`, `device`, `case`), `default_quantity` und `notes`.
+Anlage standardisiert recommended/product/ein Stück; Teilupdates erhalten
+weggelassene Felder, ein expliziter leerer Notizstring leert auf null.
+Mengen sind positiv, höchstens 99999999.99, mit maximal zwei Nachkommastellen.
+`is_optional` wird bei Anlage/Pflege aus der Beziehungsart abgeleitet.
+Produktendpunkte und Beziehungs-ID bleiben unveränderlich. Eine weitere
+Beziehungsart desselben Produktpaars ist eine geprüfte Änderung desselben
+Datensatzes; identische Duplikate werden nicht angelegt.
+
+Vorschauen zeigen sämtliche Beziehungsfelder, beide Produktversionen, den
+vollständigen Diff, betroffene aktive Jobs und Geschäftseffekte. Ausführung
+benötigt tatsächliche Adminrechte, create/update/archive-Scope, `confirm_change`,
+Idempotenz, vollständigen SHA-256-`expected_context`, bei bestehenden Beziehungen
+die genaue `expected_updated_at` sowie die recordgebundene Vorschauphrase.
+Archiv/Restore erhält sämtliche Felder und Historie; Restore verlangt aktive
+Produkte. Pflichtbeziehungen dürfen keine Zyklen bilden; reziproke
+Kompatibilität/Alternativen bleiben möglich. Aktive Jobs des Quellprodukts oder
+seiner Vorfahren in der Packlisten-Hierarchie blockieren Änderungen.
+
+`warehouse.products.prepare_link_relation/link_relation` bleibt erhalten und
+verwendet denselben Eigentümer. `expected_updated_at` bleibt die Quellprodukt-
+Version; die neue Vorschau liefert zusätzlich `expected_relation_updated_at`
+und `expected_context`, die bei Bestätigung ebenfalls zu übernehmen sind.
+Archivierte Beziehungen ausdrücklich wiederherstellen. Lebenszyklusaktionen
+ersetzen keine separate Metadatenpflege.
+
+Warehouse `059` / Umbrella `032` erhalten Historie auch bei alten Core-Schreibern,
+versionieren jede Beziehungsänderung und beide Produktendpunkte, und schützen
+alle Produkt-Metadatenupdates mit monotonen Mikrosekundenversionen. Auch das
+Archivieren eines in aktiven Jobs indirekt benötigten Produkts ist blockiert.
+Alte UI-DELETE-Aktionen für Beziehungen sind gesperrt; stattdessen den neuen
+geführten Archivpfad verwenden. Ein Archiv wird nicht physisch gelöscht.
+Normale Warehouse-/Rental-Vorschläge,
+Scanner und rekursive Packlisten verwenden ausschließlich aktive Beziehungen
+und Produkte. RentalCore 5.3.116 integriert diesen Filter; neue gemeinsame
+Installationen und Upgrades benötigen die aktuelle Warehouse-Schema-Version.
+
+Beziehung, Produktversionen, vollständiger Vorher/Nachher-Audit und dauerhafter
+Replay sind atomar. Auditfehler lassen keine Teiländerung zurück; derselbe
+Schlüssel kann erneut versucht werden. Erfolgreiche Wiederholung ist auch nach
+Neustart identisch. Geschäftsbestand und bestehende Jobanforderungen bleiben
+unverändert; die Beziehung steuert Vorschläge und zukünftige Packlisten-
+Expansion. Historien schließen alte `product.relation.link`-Audits ein und
+geben weder Notizen noch rohe Audit-JSONs aus. Issues #4/#5 bleiben bis zum
+Abschluss aller Bereiche der Completion-Liste offen.
+
+
 ## Kategorie-Lifecycle — WarehouseCore 5.9.104 / Cores MCP 1.5.34
 
 Alle drei Ebenen (`warehouse.categories`, `warehouse.subcategories`,

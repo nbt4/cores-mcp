@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"math"
-	"net/http"
 	"strings"
 
 	"github.com/modelcontextprotocol/go-sdk/auth"
@@ -15,39 +14,49 @@ import (
 
 type WarehouseProductRelationInput struct {
 	MutationControl
-	ProductID           int64   `json:"product_id,omitempty" jsonschema:"Exact source WarehouseCore product ID."`
-	DependencyProductID int64   `json:"dependency_product_id,omitempty" jsonschema:"Exact related WarehouseCore product ID; cannot equal product_id."`
-	RelationType        string  `json:"relation_type,omitempty" jsonschema:"required, recommended, compatible, consumes, alternative or included. Empty preserves an existing type or defaults to recommended."`
-	AssignmentScope     string  `json:"assignment_scope,omitempty" jsonschema:"product, device or case. Empty preserves an existing scope or defaults to product."`
-	DefaultQuantity     float64 `json:"default_quantity,omitempty" jsonschema:"Positive finite quantity. Zero preserves an existing quantity or defaults to one."`
-	Notes               *string `json:"notes,omitempty" jsonschema:"Optional relationship note; empty string clears an existing note. At most 500 characters."`
-	ExpectedUpdatedAt   string  `json:"expected_updated_at,omitempty" jsonschema:"Exact source product version from prepare_link_relation."`
-	ConfirmLink         bool    `json:"confirm_link,omitempty" jsonschema:"Confirm the full relationship diff after preview."`
-	ConfirmationText    string  `json:"confirmation_text,omitempty" jsonschema:"Exact product-bound phrase from the preview."`
+	ProductID                 int64   `json:"product_id,omitempty" jsonschema:"Exact source WarehouseCore product ID."`
+	DependencyProductID       int64   `json:"dependency_product_id,omitempty" jsonschema:"Exact related WarehouseCore product ID; cannot equal product_id."`
+	RelationType              string  `json:"relation_type,omitempty" jsonschema:"required, recommended, compatible, consumes, alternative or included. Empty preserves an existing type or defaults to recommended."`
+	AssignmentScope           string  `json:"assignment_scope,omitempty" jsonschema:"product, device or case. Empty preserves an existing scope or defaults to product."`
+	DefaultQuantity           float64 `json:"default_quantity,omitempty" jsonschema:"Positive finite quantity. Zero preserves an existing quantity or defaults to one."`
+	Notes                     *string `json:"notes,omitempty" jsonschema:"Optional relationship note; empty string clears an existing note. At most 500 characters."`
+	ExpectedUpdatedAt         string  `json:"expected_updated_at,omitempty" jsonschema:"Exact source product version from prepare_link_relation."`
+	ExpectedRelationUpdatedAt string  `json:"expected_relation_updated_at,omitempty" jsonschema:"Exact relationship version from owner preview for updating an existing link."`
+	ExpectedContext           string  `json:"expected_context,omitempty" jsonschema:"Exact complete owner preview fingerprint, including the proposed fields, both products, graph and dependent jobs."`
+	ConfirmLink               bool    `json:"confirm_link,omitempty" jsonschema:"Confirm the full relationship diff after preview."`
+	ConfirmationText          string  `json:"confirmation_text,omitempty" jsonschema:"Exact product-bound phrase from the preview."`
 }
 
 func registerWarehouseProductRelationTools(server *mcp.Server, cfg config.Config, db *store.Store) {
-	api := newCoreAPIClient(cfg)
-	addWritePreparationTool(server, "warehouse.products.prepare_link_relation", "Prepare warehouse product relationship", "Check both active products, current relationship, full diff and exact source product version without changing data.", func(ctx context.Context, input WarehouseProductRelationInput) (any, []Source, []string, error) {
-		p, err := prepareWarehouseProductRelation(ctx, db, input)
-		return p.response("draft"), warehouseRelationSources(input), p.Warnings, err
+	invoke := func(ctx context.Context, input WarehouseProductRelationInput, preview bool) (any, []Source, []string, error) {
+		in := WarehouseRelationInput{MutationControl: input.MutationControl, ProductID: input.ProductID, DependencyProductID: input.DependencyProductID, Notes: input.Notes, ExpectedUpdatedAt: input.ExpectedRelationUpdatedAt, ExpectedProductUpdatedAt: input.ExpectedUpdatedAt, ExpectedContext: input.ExpectedContext, ConfirmChange: input.ConfirmLink, ConfirmationText: input.ConfirmationText}
+		if input.RelationType != "" {
+			in.RelationType = &input.RelationType
+		}
+		if input.AssignmentScope != "" {
+			in.AssignmentScope = &input.AssignmentScope
+		}
+		if input.DefaultQuantity != 0 {
+			in.DefaultQuantity = &input.DefaultQuantity
+		}
+		result, sources, warnings, err := invokeWarehouseRelation(ctx, cfg, "link", in, preview)
+		if out, ok := result.(map[string]any); ok && out["preview"] == true {
+			out["expected_relation_updated_at"] = out["expected_updated_at"]
+			if products, ok := out["products"].([]any); ok {
+				for _, value := range products {
+					if p, ok := value.(map[string]any); ok && numericID(p["product_id"]) == input.ProductID {
+						out["expected_updated_at"] = p["updated_at"]
+					}
+				}
+			}
+		}
+		return result, sources, warnings, err
+	}
+	addWritePreparationTool(server, "warehouse.products.prepare_link_relation", "Prepare warehouse product relationship", "Preview all fields, immutable endpoints, exact source/relation versions, both products, dependent jobs and graph through the owning API. No mutation.", func(ctx context.Context, in WarehouseProductRelationInput) (any, []Source, []string, error) {
+		return invoke(ctx, in, true)
 	})
-	addUpdateTool(server, "warehouse.products.link_relation", "Link warehouse products", "Create or update one typed warehouse product relationship through WarehouseCore after full diff, exact version, elevated confirmation, audit and durable idempotency.", func(ctx context.Context, input WarehouseProductRelationInput) (any, []Source, []string, error) {
-		p, err := prepareWarehouseProductRelation(ctx, db, input)
-		if err != nil || !p.Ready {
-			return p.response("needs_input"), warehouseRelationSources(input), p.Warnings, err
-		}
-		if !input.ConfirmLink {
-			return p.response("confirmation_required"), warehouseRelationSources(input), append(p.Warnings, "No data was changed."), nil
-		}
-		if strings.TrimSpace(input.ConfirmationText) != warehouseRelationPhrase(input) {
-			return p.response("elevated_confirmation_required"), warehouseRelationSources(input), append(p.Warnings, "No data was changed. Type the phrase from the preview."), nil
-		}
-		var result map[string]any
-		if err := api.doJSON(ctx, cfg.WarehouseURL, fmt.Sprintf("/api/v1/admin/products/%d/dependencies", input.ProductID), http.MethodPost, p.Draft, &result); err != nil {
-			return nil, nil, nil, err
-		}
-		return map[string]any{"operation_status": "linked", "relationship": result, "diff": p.Diff}, warehouseRelationSources(input), p.Warnings, nil
+	addUpdateTool(server, "warehouse.products.link_relation", "Link warehouse products", "Create or update one active typed relationship with actual admin/update scope, complete owner context, exact versions, elevated confirmation and atomic audit/replay. Restore an archived relationship separately.", func(ctx context.Context, in WarehouseProductRelationInput) (any, []Source, []string, error) {
+		return invoke(ctx, in, false)
 	})
 }
 

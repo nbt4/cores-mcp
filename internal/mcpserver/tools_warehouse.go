@@ -52,9 +52,9 @@ func registerWarehouseTools(server *mcp.Server, db *store.Store) {
 			return nil, nil, nil, err
 		}
 		dependencies, err := db.Query(ctx, `SELECT pd.id,dep.productid AS related_product_id,dep.name AS related_product,pd.relation_type,pd.assignment_scope,pd.is_optional,pd.default_quantity,pd.notes
-              FROM product_dependencies pd JOIN products dep ON dep.productid=pd.dependency_product_id WHERE pd.product_id=$1
+              FROM product_dependencies pd JOIN products dep ON dep.productid=pd.dependency_product_id WHERE pd.product_id=$1 AND pd.lifecycle_status='active'
               UNION ALL SELECT pd.id,parent.productid,parent.name,pd.relation_type,pd.assignment_scope,pd.is_optional,pd.default_quantity,pd.notes
-              FROM product_dependencies pd JOIN products parent ON parent.productid=pd.product_id WHERE pd.dependency_product_id=$1 ORDER BY related_product`, productID)
+              FROM product_dependencies pd JOIN products parent ON parent.productid=pd.product_id WHERE pd.dependency_product_id=$1 AND pd.lifecycle_status='active' ORDER BY related_product`, productID)
 		if err != nil {
 			return nil, nil, nil, err
 		}
@@ -75,7 +75,7 @@ func registerWarehouseTools(server *mcp.Server, db *store.Store) {
 		return `SELECT p.productid AS product_id,p.name AS product,p.product_code,dep.productid AS related_product_id,dep.name AS related_product,
                        dep.product_code AS related_product_code,pd.relation_type,pd.assignment_scope,pd.is_optional,pd.default_quantity,pd.notes
                   FROM product_dependencies pd JOIN products p ON p.productid=pd.product_id JOIN products dep ON dep.productid=pd.dependency_product_id
-                 WHERE $1='' OR p.name ILIKE $2 OR p.product_code ILIKE $2 OR dep.name ILIKE $2 OR dep.product_code ILIKE $2 OR pd.relation_type ILIKE $2
+                 WHERE pd.lifecycle_status='active' AND p.lifecycle_status='active' AND dep.lifecycle_status='active' AND ($1='' OR p.name ILIKE $2 OR p.product_code ILIKE $2 OR dep.name ILIKE $2 OR dep.product_code ILIKE $2 OR pd.relation_type ILIKE $2)
                  ORDER BY p.name,pd.relation_type,dep.name LIMIT $3 OFFSET $4`, []any{input.Query, searchPattern(input.Query), db.Limit(input.Limit), cleanOffset(input.Offset)}
 	})
 

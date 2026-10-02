@@ -257,7 +257,10 @@ func (s *writeReplayStore) pruneLocked(now time.Time) {
 // A transport/transaction error can safely retry the same key; successful or
 // ambiguous commits replay at the target instead of creating another record.
 func hasDurableWarehouseRetry(tool string) bool {
-	for _, prefix := range []string{"warehouse.categories.", "warehouse.subcategories.", "warehouse.third_categories.", "warehouse.inventory_counts.", "warehouse.tasks.", "warehouse.maintenance_plans.", "warehouse.maintenance_orders.", "warehouse.defects."} {
+	if tool == "warehouse.products.link_relation" {
+		return true
+	}
+	for _, prefix := range []string{"warehouse.product_relations.", "warehouse.categories.", "warehouse.subcategories.", "warehouse.third_categories.", "warehouse.inventory_counts.", "warehouse.tasks.", "warehouse.maintenance_plans.", "warehouse.maintenance_orders.", "warehouse.defects."} {
 		if strings.HasPrefix(tool, prefix) {
 			return true
 		}

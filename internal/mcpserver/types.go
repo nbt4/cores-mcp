@@ -112,7 +112,7 @@ func executeMutationTool[In any](ctx context.Context, name, permissionLabel stri
 		}, nil
 	}
 
-	if strings.HasPrefix(name, "warehouse.categories.") || strings.HasPrefix(name, "warehouse.subcategories.") || strings.HasPrefix(name, "warehouse.third_categories.") || strings.HasPrefix(name, "warehouse.maintenance_orders.") || strings.HasPrefix(name, "warehouse.defects.") || strings.HasPrefix(name, "warehouse.tasks.") || strings.HasPrefix(name, "warehouse.inventory_counts.") {
+	if strings.HasPrefix(name, "warehouse.product_relations.") || name == "warehouse.products.link_relation" || strings.HasPrefix(name, "warehouse.categories.") || strings.HasPrefix(name, "warehouse.subcategories.") || strings.HasPrefix(name, "warehouse.third_categories.") || strings.HasPrefix(name, "warehouse.maintenance_orders.") || strings.HasPrefix(name, "warehouse.defects.") || strings.HasPrefix(name, "warehouse.tasks.") || strings.HasPrefix(name, "warehouse.inventory_counts.") {
 		permissionErr = requireWarehouseMasterAdmin(ctx)
 		raw, _ := json.Marshal(input)
 		fields := map[string]any{}
@@ -204,6 +204,16 @@ func authorizeMutation(ctx context.Context, tool string) (context.Context, error
 }
 
 func requiredMutationScope(tool string) string {
+	if strings.HasPrefix(tool, "warehouse.product_relations.") {
+		action := "update"
+		if strings.HasSuffix(tool, ".create") {
+			action = "create"
+		}
+		if strings.HasSuffix(tool, ".archive") || strings.HasSuffix(tool, ".restore") {
+			action = "archive"
+		}
+		return coresauth.ServiceWriteScope("warehouse", action)
+	}
 	if strings.HasPrefix(tool, "warehouse.inventory_counts.") {
 		action := "update"
 		if strings.HasSuffix(tool, ".create") {

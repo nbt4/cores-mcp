@@ -126,6 +126,15 @@ func prepareWarehouseProductLifecycle(ctx context.Context, db *store.Store, inpu
 		if numericID(deps[0]["open_job_requirements"]) > 0 || numericID(deps[0]["packed_or_issued_devices"]) > 0 {
 			p.require("active_dependencies", "Produkt wird noch von offenen Jobs oder gepackten Geräten verwendet.", deps[0])
 		}
+		relationJobs, relationErr := db.Query(ctx, `SELECT warehouse_relation_active_jobs($1::int) AS active_jobs`, input.ProductID)
+		if relationErr != nil {
+			return p, relationErr
+		}
+		if len(relationJobs) == 1 {
+			if jobs, ok := relationJobs[0]["active_jobs"].([]any); ok && len(jobs) > 0 {
+				p.require("active_dependency_jobs", "Aktive Jobs dieses Produkts oder seiner Abhängigkeitsvorfahren zuerst abschließen.", jobs)
+			}
+		}
 		p.Warnings = append(p.Warnings, "Archiving also archives active devices and disables their inventory identifiers; website visibility is cleared.")
 	} else {
 		parents, parentErr := db.Query(ctx, `SELECT p.manufacturerid AS manufacturer_id,p.brandid AS brand_id,
@@ -137,6 +146,17 @@ func prepareWarehouseProductLifecycle(ctx context.Context, db *store.Store, inpu
 		}
 		if len(parents) != 1 || parents[0]["manufacturer_active"] != true || parents[0]["brand_active"] != true {
 			p.require("active_master_data", "Hersteller und Marke zuerst wiederherstellen; historische Zuordnungen bleiben erhalten.", parents)
+		}
+		categories, categoryErr := db.Query(ctx, `SELECT p.categoryid AS category_id,p.subcategoryid AS subcategory_id,p.subbiercategoryid AS third_category_id,
+ (p.categoryid IS NULL OR COALESCE(c.lifecycle_status='active',false)) AS category_active,
+ (p.subcategoryid IS NULL OR COALESCE(s.lifecycle_status='active' AND c.lifecycle_status='active' AND s.categoryid=p.categoryid,false)) AS subcategory_active,
+ (p.subbiercategoryid IS NULL OR COALESCE(t.lifecycle_status='active' AND s.lifecycle_status='active' AND c.lifecycle_status='active' AND t.subcategoryid=p.subcategoryid AND s.categoryid=p.categoryid,false)) AS third_category_active
+ FROM products p LEFT JOIN categories c ON c.categoryid=p.categoryid LEFT JOIN subcategories s ON s.subcategoryid=p.subcategoryid LEFT JOIN subbiercategories t ON t.subbiercategoryid=p.subbiercategoryid WHERE p.productid=$1`, input.ProductID)
+		if categoryErr != nil {
+			return p, categoryErr
+		}
+		if len(categories) != 1 || categories[0]["category_active"] != true || categories[0]["subcategory_active"] != true || categories[0]["third_category_active"] != true {
+			p.require("active_category_ancestry", "Kategoriehierarchie zuerst wiederherstellen; historische Produktpfade bleiben erhalten.", categories)
 		}
 		p.Warnings = append(p.Warnings, "Restoring reactivates only devices archived by this product; website visibility remains unchanged.")
 	}
