@@ -36,7 +36,14 @@ func procurementAuditHistory(ctx context.Context, db *store.Store, input Procure
 	if info == nil {
 		return nil, nil, nil, fmt.Errorf("interactive Cores user is required")
 	}
-	if info.Extra["is_admin"] != true {
+	accounts, err := db.Query(ctx, `SELECT is_active,is_admin FROM users WHERE userid::text=$1`, info.UserID)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	if len(accounts) != 1 || accounts[0]["is_active"] != true {
+		return nil, nil, nil, fmt.Errorf("current active procurement user required")
+	}
+	if accounts[0]["is_admin"] != true {
 		if entity != "requisition" {
 			return nil, nil, nil, fmt.Errorf("Procurement administrator permission is required for this entity's history")
 		}
@@ -56,6 +63,7 @@ func procurementAuditHistory(ctx context.Context, db *store.Store, input Procure
 		limit = 100
 	}
 	rows, err := db.Query(ctx, `SELECT id AS audit_id,action,entity_type,entity_id,user_id,timestamp AS changed_at,
+            COALESCE(new_values->>'updated_at',new_values#>>'{after,updatedAt}') AS result_version,
 			COALESCE(new_values->>'origin',old_values->>'origin','UI') AS origin,
 			COALESCE(old_values->>'status',old_values#>>'{order,status}') AS status_before,
 			COALESCE(new_values#>>'{requisition,status}',new_values#>>'{purchase_order,status}',new_values#>>'{order,status}') AS status_after,

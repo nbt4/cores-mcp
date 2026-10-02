@@ -44,6 +44,8 @@ func TestProcurementAuditHistoryIsScopedAndRedacted(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, statement := range []string{
+		`CREATE TABLE users(userid BIGINT PRIMARY KEY,is_active BOOLEAN,is_admin BOOLEAN)`,
+		`INSERT INTO users VALUES(41,true,false),(42,true,true),(43,true,false)`,
 		`CREATE TABLE proc_requisitions(id BIGINT PRIMARY KEY,requester_id BIGINT)`,
 		`CREATE TABLE audit_log(id BIGSERIAL PRIMARY KEY,user_id BIGINT,action TEXT,entity_type TEXT,entity_id TEXT,old_values JSONB,new_values JSONB,ip_address TEXT,user_agent TEXT,timestamp TIMESTAMPTZ DEFAULT now())`,
 		`INSERT INTO proc_requisitions VALUES(7,41)`,
@@ -108,4 +110,11 @@ func TestProcurementAuditHistoryIsScopedAndRedacted(t *testing.T) {
 			t.Fatalf("offer before/after missing: %s", encoded)
 		}
 	}
+	if _, err := database.Exec("UPDATE users SET is_admin=false WHERE userid=42"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := run("42", true, ProcurementAuditInput{Entity: "product", ID: 11}); err == nil {
+		t.Fatal("revoked administrator read history with cached token claims")
+	}
+
 }

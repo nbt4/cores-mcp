@@ -1,5 +1,35 @@
 # Cores MCP
 
+## Procurement-Katalogarchive und OAuth — MCP 1.5.41
+
+Der Katalog umfasst 368 Werkzeuge (102 Abfragen / 133 Vorschauen /
+133 Ausführungen). Für `procurement.suppliers`, `procurement.products` und
+`procurement.offers` ergänzen `prepare_archive/archive`, `prepare_restore/restore`
+und `audit_history` die vorhandene Anlage und Pflege. Die Eigentümer-API bewahrt
+alle ursprünglichen Felder und prüft exakte Version, vollständigen Kontext,
+datensatzgebundene Bestätigung und aktuellen aktiven Administrator mit
+`cores:procurement:archive`. Offene Bestellungen/Bedarfe blockieren betroffene
+Archive; Wiederherstellung eines Angebots benötigt aktive Eltern. Änderung,
+Audit, native Aktivität und dauerhafte Idempotenzantwort sind atomar. Auch
+wiederholte erfolgreiche Aufrufe prüfen die aktuellen Rechte im Eigentümer-Core.
+Audit-Aliasse liefern redigierte Ereignisse samt Ergebnisversion und bleiben
+bei deaktivierten Schreibwerkzeugen verfügbar; aktuelle Rollen werden aus der
+Datenbank gelesen.
+
+OAuth veröffentlicht und akzeptiert nun auch `cores:rental:archive`,
+`cores:procurement:archive` und `cores:rental:financial`. Finanzfreigabe bleibt
+separat und standardmäßig deaktiviert. Die Einwilligungsseite nennt ausschließlich
+die angefragten Finanzbereiche; Schreibzugriff und Rollen sind zusätzlich nötig.
+Bereits ausgestellte Zugriffstoken bekommen keine neuen Scopes: Die Verbindung
+muss die gewünschten Scopes erneut mit Nutzereinwilligung autorisieren.
+Werkzeug-Metadaten werden nach dem dokumentierten
+[Refresh-/Rescan-Verfahren](#tool-katalog-in-ki-apps-aktualisieren) aktualisiert.
+
+Browsernachweise: [Deutsch / Light / Mobil](docs/screenshots/catalog-consent-de-light-mobile.png)
+und [Englisch / Dark / Desktop](docs/screenshots/catalog-consent-en-dark-desktop.png).
+Alle vier Breakpoints, beide Sprachen und Themes sowie Tastaturfokus,
+keine horizontale Überbreite und sichere Vorgaben sind im Browser geprüft.
+
 ## Frischer Stack und numerische Beschaffungsabfragen — MCP 1.5.40
 
 Der unveränderte Katalog umfasst 353 Werkzeuge. Angebotspreise pro Packeinheit

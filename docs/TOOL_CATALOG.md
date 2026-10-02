@@ -1,5 +1,26 @@
 # Tool-Katalog
 
+## Procurement catalog lifecycle — 1.5.41
+
+368 tools: 102 read tools, 133 preparations, 133 executions.
+For each of `procurement.suppliers`, `procurement.products`, `procurement.offers`:
+
+| Tool suffix | Input and behavior |
+| --- | --- |
+| `prepare_archive` | Exact `id`; complete retained record, dependencies, version/context and confirmation phrase without mutation |
+| `archive` | `id`, `expected_updated_at`, `expected_context`, `confirmation_text`, `confirm_change`, `idempotency_key`; confirmed owner execution |
+| `prepare_restore` | Exact inactive `id`; reviews original fields and current parents |
+| `restore` | Same lifecycle controls; preserves original business fields |
+| `audit_history` | Numeric `id`, optional `limit` (max 100); current administrator, redacted action/actor/time/changes/result version |
+
+Lifecycle requires real current administrator and `cores:procurement:archive`
+(or explicitly selected legacy writes). Open orders/requisitions block affected
+archives; offer restoration requires active existing parents. Native owner
+rechecks rights on durable replay. Lifecycle, audit, native activity and receipt
+commit atomically. History remains available with writes disabled. OAuth consent
+advertises Rental/Procurement archive rights and requested Rental financial access;
+existing tokens need renewed consent for added scopes.
+
 ## Frischer Stack und numerische Beschaffungsabfragen — MCP 1.5.40
 
 Der unveränderte Katalog umfasst 353 Werkzeuge. Angebotspreise pro Packeinheit

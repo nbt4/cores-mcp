@@ -111,7 +111,7 @@ func offerSources(productID, supplierID, offerID int64) []Source {
 func requireProcurementAdmin(ctx context.Context) error {
 	info := auth.TokenInfoFromContext(ctx)
 	if info == nil || info.Extra["is_admin"] != true {
-		return fmt.Errorf("Procurement administrator permission is required for supplier offers")
+		return fmt.Errorf("Procurement administrator permission is required")
 	}
 	return nil
 }

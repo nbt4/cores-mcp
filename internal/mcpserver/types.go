@@ -131,6 +131,11 @@ func executeMutationTool[In any](ctx context.Context, name, permissionLabel stri
 			return &mcp.CallToolResult{IsError: true, Content: []mcp.Content{&mcp.TextContent{Text: message}}}, Output{AsOf: now(), Summary: message}, nil
 		}
 	}
+	if isProcurementMasterLifecycleTool(name) {
+		if err := requireProcurementAdmin(ctx); err != nil {
+			return &mcp.CallToolResult{IsError: true, Content: []mcp.Content{&mcp.TextContent{Text: err.Error()}}}, Output{AsOf: now(), Summary: err.Error()}, nil
+		}
+	}
 	if strings.HasPrefix(name, "rental.requirements.") || strings.HasPrefix(name, "rental.jobs.") || strings.HasPrefix(name, "rental.customers.") || strings.HasPrefix(name, "rental.venues.") {
 		if err := requireRentalMasterAdmin(ctx); err != nil {
 			return &mcp.CallToolResult{IsError: true, Content: []mcp.Content{&mcp.TextContent{Text: err.Error()}}}, Output{AsOf: now(), Summary: err.Error()}, nil
@@ -162,7 +167,7 @@ func executeMutationTool[In any](ctx context.Context, name, permissionLabel stri
 		if !owner {
 			// Rental jobs/requirements authorize replay against current owner-side rights.
 			// The durable receipt supplies the result without repeating the write.
-			if strings.HasPrefix(name, "rental.jobs.") || strings.HasPrefix(name, "rental.requirements.") {
+			if isProcurementMasterLifecycleTool(name) || strings.HasPrefix(name, "rental.jobs.") || strings.HasPrefix(name, "rental.requirements.") {
 				data, sources, warnings, err := fn(withMutationIdempotency(ctx, mutationControlsKey(input)), invocation.Input)
 				if err != nil {
 					message := fmt.Sprintf("%s failed: %v", name, err)
@@ -224,6 +229,9 @@ func authorizeMutation(ctx context.Context, tool string) (context.Context, error
 }
 
 func requiredMutationScope(tool string) string {
+	if isProcurementMasterLifecycleTool(tool) {
+		return coresauth.ServiceWriteScope("procurement", "archive")
+	}
 	if strings.HasPrefix(tool, "rental.requirements.") || strings.HasPrefix(tool, "rental.jobs.") || strings.HasPrefix(tool, "rental.customers.") || strings.HasPrefix(tool, "rental.venues.") {
 		action := "update"
 		if strings.HasSuffix(tool, ".create") {

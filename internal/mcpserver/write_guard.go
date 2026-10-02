@@ -272,6 +272,9 @@ func (s *writeReplayStore) pruneLocked(now time.Time) {
 // A transport/transaction error can safely retry the same key; successful or
 // ambiguous commits replay at the target instead of creating another record.
 func hasDurableWarehouseRetry(tool string) bool {
+	if isProcurementMasterLifecycleTool(tool) {
+		return true
+	}
 	if tool == "warehouse.products.link_relation" {
 		return true
 	}

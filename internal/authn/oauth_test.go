@@ -55,12 +55,12 @@ func TestRequestedScopesDefaultToReadOnly(t *testing.T) {
 
 func TestSupportedScopesIncludeLegacyAndGranularWrites(t *testing.T) {
 	got := SupportedScopes(true)
-	for _, expected := range []string{readScope, writeScope, ServiceWriteScope("rental", "create"), ServiceWriteScope("warehouse", "update"), ServiceWriteScope("warehouse", "approve"), ServiceWriteScope("warehouse", "archive"), ServiceWriteScope("warehouse", "delete"), ServiceWriteScope("procurement", "update"), ServiceWriteScope("procurement", "approve"), ServiceWriteScope("procurement", "submit"), ServiceWriteScope("procurement", "receive")} {
+	for _, expected := range []string{readScope, writeScope, ServiceWriteScope("rental", "create"), ServiceWriteScope("rental", "archive"), "cores:rental:financial", ServiceWriteScope("procurement", "archive"), ServiceWriteScope("warehouse", "update"), ServiceWriteScope("warehouse", "approve"), ServiceWriteScope("warehouse", "archive"), ServiceWriteScope("warehouse", "delete"), ServiceWriteScope("procurement", "update"), ServiceWriteScope("procurement", "approve"), ServiceWriteScope("procurement", "submit"), ServiceWriteScope("procurement", "receive")} {
 		if !contains(got, expected) {
 			t.Fatalf("supported scopes %v lack %q", got, expected)
 		}
 	}
-	if got := SupportedScopes(false); len(got) != 2 || got[0] != readScope || got[1] != "cores:warehouse:financial" {
+	if got := SupportedScopes(false); len(got) != 3 || got[0] != readScope || got[1] != "cores:warehouse:financial" || got[2] != "cores:rental:financial" {
 		t.Fatalf("read-only scopes = %v", got)
 	}
 }
@@ -80,6 +80,11 @@ func TestOAuthAuthorizationCodeFlow(t *testing.T) {
 		{"writes disabled", readScope, "read", readScope, false, ""},
 		{"cannot enable writes on read-only server", readScope, "write", "invalid_scope", false, ""},
 		{"invalid selection is rejected", readScope, "admin", "invalid_scope", true, ""},
+		{"rental financial defaults denied", readScope + " cores:rental:financial", "write", readScope + " " + writeScope, true, ""},
+		{"rental financial explicit consent", readScope + " cores:rental:update cores:rental:financial", "write", readScope + " cores:rental:financial cores:rental:update", true, "allow"},
+		{"rental archive remains granular", readScope + " cores:rental:archive", "write", readScope + " cores:rental:archive", true, ""},
+		{"procurement archive remains granular", readScope + " cores:procurement:archive", "write", readScope + " cores:procurement:archive", true, ""},
+		{"only requested finance is granted", readScope + " cores:warehouse:financial cores:rental:financial", "read", readScope + " cores:warehouse:financial cores:rental:financial", true, "allow"},
 		{"financial request defaults denied", readScope + " cores:warehouse:financial", "read", readScope, false, ""},
 		{"read-only financial consent", readScope + " cores:warehouse:financial", "read", readScope + " cores:warehouse:financial", false, "allow"},
 		{"financial and granular update consent", readScope + " cores:warehouse:update cores:warehouse:financial", "write", readScope + " cores:warehouse:financial cores:warehouse:update", true, "allow"},
@@ -127,7 +132,7 @@ func TestOAuthAuthorizationCodeFlow(t *testing.T) {
 				t.Fatalf("consent CSP does not allow the validated callback origin: %s", policy)
 			}
 			assertAuthorizationFields(t, consent.Body.String(), query)
-			requestedFinance := strings.Contains(tc.requested, "cores:warehouse:financial")
+			requestedFinance := (strings.Contains(tc.requested, "cores:warehouse:financial") || strings.Contains(tc.requested, "cores:rental:financial"))
 			if requestedFinance != strings.Contains(consent.Body.String(), `id="financial-access"`) {
 				t.Fatal("financial consent control visibility wrong")
 			}

@@ -20,7 +20,7 @@ and production verification. Optional event streams are separate follow-up work.
 | Rental jobs | Complete fields, shared position-based totals, live editor/device/reference/context locks, archive/restore, redacted audit, atomic native history/audit/durable replay, device assignment | — |
 | Rental requirements | Full total/manual/source quantities, exact line/job/context versions, archive/restore, redacted audit, atomic native history/replay and retained native selections; archived demand excluded | — |
 | Rental staffing/external equipment | Read context | Create/update/lifecycle and personnel assignment |
-| Procurement suppliers/products/offers | Create/update, deactivation/reactivation | Named lifecycle aliases, complete audit discovery |
+| Procurement suppliers/products/offers | Create/update, retained named archive/restore, exact record/dependency context, current owner rights, atomic audit/activity/durable replay, per-entity redacted versioned history | — |
 | Procurement categories | Create/update with full parameter schema | Archive/restore |
 | Procurement requisitions | Draft create/update, submit, separated decisions | Archive/restore, return-for-revision verification |
 | Procurement orders | Draft create/update, separated transitions, partial receipt/devices/putaway | Archive/restore, end-to-end receipt discrepancy/overdelivery verification |
@@ -171,3 +171,28 @@ quantities to PostgreSQL numeric before decimal rounding and retain NULL for
 zero denominators. Integration tests exercise actual named tools and curated
 offer queries with fractional and zero quantities. These compatibility fixes
 retain the 353-tool catalog; remaining issue acceptance work stays open.
+
+
+## Procurement retained catalog lifecycle and OAuth
+
+Procurement 1.0.66 / MCP 1.5.41: 368 tools (102 reads / 133 preparations /
+133 executions). Supplier/product/offer archive and restoration have separate
+named tools and redacted audit aliases; complete original fields and dependency
+versions bind exact confirmation. Open orders/requisitions block affected archives;
+offer restoration requires active parents. Native 008 / umbrella 037 retains
+identity, history and monotonic versions for every catalog writer. Existing native
+DELETE returns 409 and cannot silently remove price/history records.
+
+Full PostgreSQL race suites, Vet/build, actual owning API and SDK/MCP tests cover
+atomic audit rollback/retry, current real-user/admin/archive rights including
+cached and restarted replay, stale dependency context and concurrent single-version
+execution. Actual Streamable HTTP verifies all six lifecycle actions, redacted
+versioned history and retained fields/prices. Upgraded and separately fresh complete
+stacks expose 368 tools with zero read-only smoke failures. OAuth PKCE tests verify
+Rental/Procurement archive and explicit Rental financial scopes, deny-default
+financial consent and preservation of the requested scope set. Browser checks cover
+German/English, Light/Dark, 390/768/1280/1536px, keyboard focus and no horizontal
+layout overflow. Committed design copies pass validation; user-owned pre-existing
+Planner copies remain untouched. Deploy Procurement first, then MCP, and verify
+all existing guards plus the three proc_*_guard_lifecycle_version triggers.
+The parent issues remain open for the other acceptance rows above.
