@@ -24,9 +24,9 @@ func registerRentalTools(server *mcp.Server, db *store.Store) {
 	addTool(server, "rental.jobs.get", "Get rental job context", "Get a job and its product, device, package, rental-equipment, venue, and staffing context by numeric ID or job code.", func(ctx context.Context, input IDInput) (any, []Source, []string, error) {
 		jobRows, err := db.Query(ctx, `SELECT j.jobid AS job_id,j.job_code,j.description,s.status,j.startdate AS start_date,j.enddate AS end_date,
                    COALESCE(NULLIF(c.companyname,''),NULLIF(c.name,''),TRIM(CONCAT_WS(' ',c.firstname,c.lastname))) AS customer,
-                   v.name AS venue,v.city AS venue_city,j.revenue,j.final_revenue,j.discount,j.discount_type,j.updated_at
+                   v.name AS venue,v.city AS venue_city,j.revenue,j.final_revenue,j.discount,j.discount_type,j.customerid AS customer_id,j.statusid AS status_id,j.jobcategoryid AS job_category_id,j.venue_id,j.multiply_by_days,j.prices_include_tax,j.revision,j.deleted_at IS NOT NULL AS is_archived,j.deleted_at AS archived_at,to_char(j.updated_at,'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS updated_at
               FROM jobs j LEFT JOIN status s ON s.statusid=j.statusid LEFT JOIN customers c ON c.customerid=j.customerid
-              LEFT JOIN venues v ON v.id=j.venue_id WHERE j.deleted_at IS NULL AND (j.jobid::text=$1 OR j.job_code=$1) LIMIT 1`, input.ID)
+              LEFT JOIN venues v ON v.id=j.venue_id WHERE (j.jobid::text=$1 OR j.job_code=$1) LIMIT 1`, input.ID)
 		if err != nil || len(jobRows) == 0 {
 			return jobRows, []Source{{Service: "rentalcore", Entity: "job", ID: input.ID}}, nil, err
 		}

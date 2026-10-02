@@ -136,7 +136,7 @@ func TestExecuteMutationToolCoalescesConcurrentRetries(t *testing.T) {
 	for index := 0; index < attempts; index++ {
 		go func() {
 			defer wait.Done()
-			result, _, err := executeMutationTool(ctx, "rental.jobs.update", "write", input, fn)
+			result, _, err := executeMutationTool(ctx, "procurement.orders.update", "write", input, fn)
 			if err != nil {
 				errors <- err
 				return
@@ -157,7 +157,7 @@ func TestExecuteMutationToolCoalescesConcurrentRetries(t *testing.T) {
 }
 
 func TestExecuteMutationToolDryRunNeverExecutesConfirmedBranch(t *testing.T) {
-	ctx := writeScopeContext(t)
+	ctx := inventoryTestContext(t, "42", true, "cores:rental:update")
 	input := JobUpdateInput{MutationControl: MutationControl{DryRun: true}, JobID: 9, ConfirmUpdate: true}
 	result, output, err := executeMutationTool(ctx, "rental.jobs.update", "write", input, func(_ context.Context, got JobUpdateInput) (any, []Source, []string, error) {
 		if got.ConfirmUpdate {

@@ -45,20 +45,25 @@ type ProductCreateInput struct {
 
 type JobCreateInput struct {
 	MutationControl
-	Description      string  `json:"description,omitempty" jsonschema:"Human-readable job title or description."`
-	CustomerID       int64   `json:"customer_id,omitempty" jsonschema:"Exact existing RentalCore customer ID."`
-	CustomerQuery    string  `json:"customer_query,omitempty" jsonschema:"Customer name to resolve when customer_id is unknown."`
-	StartDate        string  `json:"start_date,omitempty" jsonschema:"Required date in YYYY-MM-DD."`
-	EndDate          string  `json:"end_date,omitempty" jsonschema:"Required date in YYYY-MM-DD; must not precede start_date."`
-	StatusID         int64   `json:"status_id,omitempty" jsonschema:"Existing RentalCore status ID; defaults to planning status."`
-	StatusQuery      string  `json:"status_query,omitempty"`
-	JobCategoryID    int64   `json:"job_category_id,omitempty"`
-	JobCategoryQuery string  `json:"job_category_query,omitempty"`
-	VenueID          int64   `json:"venue_id,omitempty"`
-	VenueQuery       string  `json:"venue_query,omitempty"`
-	Revenue          float64 `json:"revenue,omitempty"`
-	AllowDuplicate   bool    `json:"allow_duplicate,omitempty" jsonschema:"Set true only when the user explicitly confirms that a matching existing job is not the same job."`
-	ConfirmCreation  bool    `json:"confirm_creation,omitempty" jsonschema:"Set true only after showing the resolved final draft to the user and receiving explicit confirmation."`
+	RentalJobPreviewControl
+	Description      string   `json:"description,omitempty" jsonschema:"Human-readable job title or description."`
+	CustomerID       int64    `json:"customer_id,omitempty" jsonschema:"Exact existing RentalCore customer ID."`
+	CustomerQuery    string   `json:"customer_query,omitempty" jsonschema:"Customer name to resolve when customer_id is unknown."`
+	StartDate        string   `json:"start_date,omitempty" jsonschema:"Required date in YYYY-MM-DD."`
+	EndDate          string   `json:"end_date,omitempty" jsonschema:"Required date in YYYY-MM-DD; must not precede start_date."`
+	StatusID         int64    `json:"status_id,omitempty" jsonschema:"Existing RentalCore status ID; defaults to planning status."`
+	StatusQuery      string   `json:"status_query,omitempty"`
+	JobCategoryID    int64    `json:"job_category_id,omitempty"`
+	JobCategoryQuery string   `json:"job_category_query,omitempty"`
+	VenueID          int64    `json:"venue_id,omitempty"`
+	VenueQuery       string   `json:"venue_query,omitempty"`
+	Revenue          float64  `json:"revenue,omitempty"`
+	Discount         *float64 `json:"discount,omitempty"`
+	DiscountType     *string  `json:"discount_type,omitempty"`
+	MultiplyByDays   *bool    `json:"multiply_by_days,omitempty"`
+	PricesIncludeTax *bool    `json:"prices_include_tax,omitempty"`
+	AllowDuplicate   bool     `json:"allow_duplicate,omitempty" jsonschema:"Set true only when the user explicitly confirms that a matching existing job is not the same job."`
+	ConfirmCreation  bool     `json:"confirm_creation,omitempty" jsonschema:"Set true only after showing the resolved final draft to the user and receiving explicit confirmation."`
 }
 
 type RequirementCreateInput struct {
@@ -120,37 +125,11 @@ func registerCreateTools(server *mcp.Server, cfg config.Config, db *store.Store)
 		return map[string]any{"creation_status": "created", "product": created, "semantic_explanation": prepared.SemanticHints}, []Source{{Service: "procurementcore", Entity: "product", ID: fmt.Sprint(created["id"])}}, warnings, nil
 	})
 
-	addWritePreparationTool(server, "rental.jobs.prepare_create", "Prepare rental job creation", "Resolve customer, status, job category and venue against live RentalCore data; validate dates; and return exact follow-up questions. Call this before creating a job and never guess among ambiguous matches.", func(ctx context.Context, input JobCreateInput) (any, []Source, []string, error) {
-		result, err := prepareJobCreate(ctx, db, input)
-		return result.response("draft"), []Source{{Service: "rentalcore", Entity: "job_draft"}}, nil, err
+	addWritePreparationTool(server, "rental.jobs.prepare_create", "Prepare rental job creation", "Resolve live references and review every field, duplicates, commercial totals and exact owner confirmation before creation.", func(ctx context.Context, input JobCreateInput) (any, []Source, []string, error) {
+		return invokeRentalJob(ctx, cfg, db, "create", input, true)
 	})
-	addCreateTool(server, "rental.jobs.create", "Create rental job", "Create one RentalCore job after resolving all required references. First call rental.jobs.prepare_create, ask every returned question, show the final draft, and obtain explicit confirmation. Never guess a customer or ambiguous venue.", func(ctx context.Context, input JobCreateInput) (any, []Source, []string, error) {
-		prepared, err := prepareJobCreate(ctx, db, input)
-		if err != nil {
-			return nil, nil, nil, err
-		}
-		if !prepared.Ready {
-			return prepared.response("needs_input"), []Source{{Service: "rentalcore", Entity: "job_draft"}}, []string{"No data was changed. Ask the listed questions before retrying."}, nil
-		}
-		if !input.ConfirmCreation {
-			return prepared.response("confirmation_required"), []Source{{Service: "rentalcore", Entity: "job_draft"}}, []string{"No data was changed. Show this final draft and ask the user for explicit confirmation."}, nil
-		}
-		payload := map[string]any{
-			"description": prepared.Draft["description"], "customer_id": prepared.Draft["customer_id"],
-			"start_date": prepared.Draft["start_date"], "end_date": prepared.Draft["end_date"],
-			"status_id": prepared.Draft["status_id"], "revenue": input.Revenue,
-		}
-		for _, key := range []string{"job_category_id", "venue_id"} {
-			if value, ok := prepared.Draft[key]; ok {
-				payload[key] = value
-			}
-		}
-		var created map[string]any
-		if err := api.doJSON(ctx, cfg.RentalURL, "/api/v1/jobs", http.MethodPost, payload, &created); err != nil {
-			return nil, nil, nil, err
-		}
-		id := fmt.Sprint(created["jobID"])
-		return map[string]any{"creation_status": "created", "job": created}, []Source{{Service: "rentalcore", Entity: "job", ID: id}}, nil, nil
+	addCreateTool(server, "rental.jobs.create", "Create rental job", "Create one fully previewed job through the Rental owner with exact context, elevated confirmation, selected financial rights and atomic audit/idempotency.", func(ctx context.Context, input JobCreateInput) (any, []Source, []string, error) {
+		return invokeRentalJob(ctx, cfg, db, "create", input, false)
 	})
 
 	addWritePreparationTool(server, "rental.requirements.prepare_create", "Prepare rental product requirement", "Resolve one job and one active product, validate a positive quantity, and detect an existing job-product link. Call this before creating a requirement and never guess among ambiguous matches.", func(ctx context.Context, input RequirementCreateInput) (any, []Source, []string, error) {

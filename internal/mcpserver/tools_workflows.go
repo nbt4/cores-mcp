@@ -25,17 +25,28 @@ type JobDeviceAssignInput struct {
 
 type JobUpdateInput struct {
 	MutationControl
-	JobID         int64    `json:"job_id,omitempty" jsonschema:"Exact existing RentalCore job ID."`
-	JobQuery      string   `json:"job_query,omitempty" jsonschema:"Job code or description to resolve when job_id is unknown."`
-	Description   string   `json:"description,omitempty"`
-	CustomerID    int64    `json:"customer_id,omitempty"`
-	StatusID      int64    `json:"status_id,omitempty" jsonschema:"Existing RentalCore status ID, including the configured cancelled status when cancelling a job."`
-	StatusQuery   string   `json:"status_query,omitempty"`
-	StartDate     string   `json:"start_date,omitempty" jsonschema:"New date in YYYY-MM-DD; omitted values remain unchanged."`
-	EndDate       string   `json:"end_date,omitempty" jsonschema:"New date in YYYY-MM-DD; omitted values remain unchanged."`
-	VenueID       *int64   `json:"venue_id,omitempty" jsonschema:"New venue ID. Use 0 to clear the venue; omit to keep it unchanged."`
-	Revenue       *float64 `json:"revenue,omitempty" jsonschema:"New planned revenue; omit to keep it unchanged."`
-	ConfirmUpdate bool     `json:"confirm_update,omitempty" jsonschema:"Set true only after showing the current values and final update preview and receiving explicit confirmation."`
+	RentalJobPreviewControl
+	AllowDuplicate   bool     `json:"allow_duplicate,omitempty" jsonschema:"Only after reviewing matching jobs and explicitly confirming a distinct business identity."`
+	JobID            int64    `json:"job_id,omitempty" jsonschema:"Exact existing RentalCore job ID."`
+	JobQuery         string   `json:"job_query,omitempty" jsonschema:"Job code or description to resolve when job_id is unknown."`
+	Description      string   `json:"description,omitempty"`
+	CustomerID       int64    `json:"customer_id,omitempty"`
+	CustomerQuery    string   `json:"customer_query,omitempty"`
+	JobCategoryID    *int64   `json:"job_category_id,omitempty"`
+	JobCategoryQuery string   `json:"job_category_query,omitempty"`
+	VenueQuery       string   `json:"venue_query,omitempty"`
+	ClearFields      []string `json:"clear_fields,omitempty" jsonschema:"Only nullable start_date/end_date/venue_id/job_category_id; omit to preserve."`
+	Discount         *float64 `json:"discount,omitempty"`
+	DiscountType     *string  `json:"discount_type,omitempty"`
+	MultiplyByDays   *bool    `json:"multiply_by_days,omitempty"`
+	PricesIncludeTax *bool    `json:"prices_include_tax,omitempty"`
+	StatusID         int64    `json:"status_id,omitempty" jsonschema:"Existing RentalCore status ID, including the configured cancelled status when cancelling a job."`
+	StatusQuery      string   `json:"status_query,omitempty"`
+	StartDate        string   `json:"start_date,omitempty" jsonschema:"New date in YYYY-MM-DD; omitted values remain unchanged."`
+	EndDate          string   `json:"end_date,omitempty" jsonschema:"New date in YYYY-MM-DD; omitted values remain unchanged."`
+	VenueID          *int64   `json:"venue_id,omitempty" jsonschema:"New venue ID. Use 0 to clear the venue; omit to keep it unchanged."`
+	Revenue          *float64 `json:"revenue,omitempty" jsonschema:"New planned revenue; omit to keep it unchanged."`
+	ConfirmUpdate    bool     `json:"confirm_update,omitempty" jsonschema:"Set true only after showing the current values and final update preview and receiving explicit confirmation."`
 }
 
 type RequirementUpdateInput struct {
@@ -149,25 +160,11 @@ func registerWorkflowTools(server *mcp.Server, cfg config.Config, db *store.Stor
 		return map[string]any{"operation_status": "assigned", "assignment": prepared.Draft, "result": result}, []Source{{Service: "rentalcore", Entity: "job", ID: fmt.Sprint(jobID)}, {Service: "warehousecore", Entity: "device", ID: deviceID}}, prepared.Warnings, nil
 	})
 
-	addWritePreparationTool(server, "rental.jobs.prepare_update", "Prepare rental job update", "Load the current job, resolve changed references and statuses, validate dates, and preview every resulting value. A cancellation is a status update to the configured cancelled status.", func(ctx context.Context, input JobUpdateInput) (any, []Source, []string, error) {
-		prepared, err := prepareJobUpdate(ctx, db, input)
-		return prepared.response("draft"), mutationSources(prepared, "rentalcore", "job_update_draft"), prepared.Warnings, err
+	addWritePreparationTool(server, "rental.jobs.prepare_update", "Prepare rental job update", "Review complete job fields, server-calculated totals, related versions, device conflicts and active editors before confirming.", func(ctx context.Context, input JobUpdateInput) (any, []Source, []string, error) {
+		return invokeRentalJob(ctx, cfg, db, "update", input, true)
 	})
-	addUpdateTool(server, "rental.jobs.update", "Update or cancel rental job", "Update one RentalCore job after comparing current and proposed values. First call rental.jobs.prepare_update and obtain explicit confirmation. Use the configured cancelled status instead of deleting jobs.", func(ctx context.Context, input JobUpdateInput) (any, []Source, []string, error) {
-		prepared, err := prepareJobUpdate(ctx, db, input)
-		if err != nil || !prepared.Ready {
-			return prepared.response("needs_input"), mutationSources(prepared, "rentalcore", "job_update_draft"), prepared.Warnings, err
-		}
-		if !input.ConfirmUpdate {
-			return prepared.response("confirmation_required"), mutationSources(prepared, "rentalcore", "job_update_draft"), append(prepared.Warnings, "No data was changed."), nil
-		}
-		jobID := numericID(prepared.Draft["job_id"])
-		payload := cloneWithout(prepared.Draft, "job_id", "job", "status", "customer", "venue")
-		var updated map[string]any
-		if err := api.doJSON(ctx, cfg.RentalURL, fmt.Sprintf("/api/v1/jobs/%d", jobID), http.MethodPut, payload, &updated); err != nil {
-			return nil, nil, prepared.Warnings, err
-		}
-		return map[string]any{"operation_status": "updated", "previous": prepared.Current, "job": updated}, []Source{{Service: "rentalcore", Entity: "job", ID: fmt.Sprint(jobID)}}, prepared.Warnings, nil
+	addUpdateTool(server, "rental.jobs.update", "Update or cancel rental job", "Execute a complete versioned job field/status change through the Rental owner with exact preview context, elevated confirmation and atomic audit/replay.", func(ctx context.Context, input JobUpdateInput) (any, []Source, []string, error) {
+		return invokeRentalJob(ctx, cfg, db, "update", input, false)
 	})
 
 	addWritePreparationTool(server, "rental.requirements.prepare_update", "Prepare requirement update", "Load one existing job-product requirement and preview a positive replacement quantity without changing any other requirement.", func(ctx context.Context, input RequirementUpdateInput) (any, []Source, []string, error) {
@@ -319,7 +316,7 @@ func prepareJobUpdate(ctx context.Context, db *store.Store, input JobUpdateInput
 		p.finish()
 		return p, nil
 	}
-	rows, err := db.Query(ctx, `SELECT j.jobid AS job_id,j.job_code,j.description,j.customerid AS customer_id,c.companyname AS customer,j.statusid AS status_id,s.status,j.startdate::date AS start_date,j.enddate::date AS end_date,j.venue_id,v.name AS venue,j.revenue,j.discount,j.discount_type,j.job_category_id FROM jobs j LEFT JOIN customers c ON c.customerid=j.customerid LEFT JOIN status s ON s.statusid=j.statusid LEFT JOIN venues v ON v.id=j.venue_id WHERE j.jobid=$1 AND j.deleted_at IS NULL`, job["id"])
+	rows, err := db.Query(ctx, `SELECT j.jobid AS job_id,j.job_code,j.description,j.customerid AS customer_id,c.companyname AS customer,j.statusid AS status_id,s.status,j.startdate::date AS start_date,j.enddate::date AS end_date,j.venue_id,v.name AS venue,j.revenue,j.discount,j.discount_type,j.jobcategoryid AS job_category_id FROM jobs j LEFT JOIN customers c ON c.customerid=j.customerid LEFT JOIN status s ON s.statusid=j.statusid LEFT JOIN venues v ON v.id=j.venue_id WHERE j.jobid=$1 AND j.deleted_at IS NULL`, job["id"])
 	if err != nil || len(rows) != 1 {
 		return p, firstError(err, "job not found")
 	}

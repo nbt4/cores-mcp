@@ -17,7 +17,7 @@ and production verification. Optional event streams are separate follow-up work.
 | Warehouse inventory | Full guided count/create/update/lines/review/correction/approve/cancel/archive/restore, explicit approve scope, precise context/line/event/start-stock protection, atomic physical adjustments/movements/audits/replay and redacted history | — |
 | Warehouse tasks | Full create/partial update/start/complete/cancel/reopen/archive/restore, exact task/reference versions, atomic events/audits/durable replay and redacted history | — |
 | Rental customers/venues | Full business fields, fuzzy resolve/minimal reads, partial create/update/archive/restore, signed owner action rights, active job guards, redacted audit and atomic durable replay | — |
-| Rental jobs | Create, limited metadata/status updates, device assignment | Complete fields, locking, lifecycle, full atomic audit/replay |
+| Rental jobs | Complete fields, shared position-based totals, live editor/device/reference/context locks, archive/restore, redacted audit, atomic native history/audit/durable replay, device assignment | — |
 | Rental requirements | Create, quantity update | Complete fields, lifecycle, full atomic audit/replay |
 | Rental staffing/external equipment | Read context | Create/update/lifecycle and personnel assignment |
 | Procurement suppliers/products/offers | Create/update, deactivation/reactivation | Named lifecycle aliases, complete audit discovery |
@@ -113,3 +113,25 @@ receipt created by the previous published owner/MCP versions. Explicitly
 distinct same-named archived venues restore with reviewed duplicate consent;
 creation from an archived exact match remains blocked. No schema change.
 Parent issues remain open for all remaining areas above.
+
+## Rental complete job workflow verification
+
+RentalCore 5.3.119 / Cores MCP 1.5.38 adds five tools: 346 total
+(96 reads / 125 preparations / 125 executions), Rental 048 / umbrella 034.
+Full Go race/DB suites, Vet, backend builds, cached unchanged Rental frontend
+build and committed-suite design check pass. A fresh umbrella database and real
+Streamable HTTP verify complete fields and reference resolution, nullable
+clearing, explicit financial/admin/action rights, owner rights checked on cached
+replay, exact confirmation/dry-run, duplicates, legacy/child/device stale
+versions, active editors, device schedule conflicts, shared position-based
+recalculation and financial replay scope. Status closure preserves the physical
+return process. Issued devices, active cases and open warehouse tasks block
+archive; archived jobs and direct/indirect contents reject native edits/deletion.
+Separate actual-MCP checks cover position-device and package-reservation version
+invalidation, inactive retained package restore blocking and complete contents,
+status and totals retained by restore. Audit rollback/same-key retry, concurrent
+exact-version writes, redacted history and durable owner/MCP restart replay pass.
+Customer/venue lifecycle regression passes against the same fresh database.
+Deploy Rental first and check installed job/child triggers; deploy MCP second
+and verify the full read-only catalog and exact released image IDs.
+The parent issues remain open for the remaining rows above.

@@ -131,8 +131,13 @@ func executeMutationTool[In any](ctx context.Context, name, permissionLabel stri
 			return &mcp.CallToolResult{IsError: true, Content: []mcp.Content{&mcp.TextContent{Text: message}}}, Output{AsOf: now(), Summary: message}, nil
 		}
 	}
-	if strings.HasPrefix(name, "rental.customers.") || strings.HasPrefix(name, "rental.venues.") {
+	if strings.HasPrefix(name, "rental.jobs.") || strings.HasPrefix(name, "rental.customers.") || strings.HasPrefix(name, "rental.venues.") {
 		if err := requireRentalMasterAdmin(ctx); err != nil {
+			return &mcp.CallToolResult{IsError: true, Content: []mcp.Content{&mcp.TextContent{Text: err.Error()}}}, Output{AsOf: now(), Summary: err.Error()}, nil
+		}
+	}
+	if strings.HasPrefix(name, "rental.jobs.") {
+		if err := requireRentalJobFinancialInput(ctx, input); err != nil {
 			return &mcp.CallToolResult{IsError: true, Content: []mcp.Content{&mcp.TextContent{Text: err.Error()}}}, Output{AsOf: now(), Summary: err.Error()}, nil
 		}
 	}
@@ -155,6 +160,16 @@ func executeMutationTool[In any](ctx context.Context, name, permissionLabel stri
 			}, nil
 		}
 		if !owner {
+			// Rental jobs authorize replay against current owner-side user rights.
+			// The durable receipt supplies the result without repeating the write.
+			if strings.HasPrefix(name, "rental.jobs.") {
+				data, sources, warnings, err := fn(withMutationIdempotency(ctx, mutationControlsKey(input)), invocation.Input)
+				if err != nil {
+					message := fmt.Sprintf("%s failed: %v", name, err)
+					return &mcp.CallToolResult{IsError: true, Content: []mcp.Content{&mcp.TextContent{Text: message}}}, Output{AsOf: now(), Summary: message, Warnings: warnings}, nil
+				}
+				return nil, Output{AsOf: now(), Summary: summarize(data), Data: data, Sources: sources, Warnings: append(warnings, "Durable owner replay: current user rights rechecked; no additional mutation.")}, nil
+			}
 			warnings := append(append([]string(nil), replay.warnings...), "Idempotent replay: no additional mutation was executed.")
 			if replay.err != nil {
 				message := fmt.Sprintf("%s failed: %v", name, replay.err)
@@ -209,7 +224,7 @@ func authorizeMutation(ctx context.Context, tool string) (context.Context, error
 }
 
 func requiredMutationScope(tool string) string {
-	if strings.HasPrefix(tool, "rental.customers.") || strings.HasPrefix(tool, "rental.venues.") {
+	if strings.HasPrefix(tool, "rental.jobs.") || strings.HasPrefix(tool, "rental.customers.") || strings.HasPrefix(tool, "rental.venues.") {
 		action := "update"
 		if strings.HasSuffix(tool, ".create") {
 			action = "create"

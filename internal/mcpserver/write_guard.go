@@ -275,7 +275,7 @@ func hasDurableWarehouseRetry(tool string) bool {
 	if tool == "warehouse.products.link_relation" {
 		return true
 	}
-	for _, prefix := range []string{"rental.customers.", "rental.venues.", "warehouse.product_relations.", "warehouse.categories.", "warehouse.subcategories.", "warehouse.third_categories.", "warehouse.inventory_counts.", "warehouse.tasks.", "warehouse.maintenance_plans.", "warehouse.maintenance_orders.", "warehouse.defects."} {
+	for _, prefix := range []string{"rental.jobs.", "rental.customers.", "rental.venues.", "warehouse.product_relations.", "warehouse.categories.", "warehouse.subcategories.", "warehouse.third_categories.", "warehouse.inventory_counts.", "warehouse.tasks.", "warehouse.maintenance_plans.", "warehouse.maintenance_orders.", "warehouse.defects."} {
 		if strings.HasPrefix(tool, prefix) {
 			return true
 		}
