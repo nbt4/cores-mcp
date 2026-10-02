@@ -14,7 +14,7 @@ import (
 	"github.com/nbt4/cores-mcp/internal/store"
 )
 
-const Version = "1.5.43"
+const Version = "1.5.44"
 
 func New(cfg config.Config, db *store.Store, logger *slog.Logger) *mcp.Server {
 	description := "Read-only operational context and safe cross-core queries for RentalCore, WarehouseCore, PlannerCore and ProcurementCore."
@@ -53,6 +53,7 @@ func New(cfg config.Config, db *store.Store, logger *slog.Logger) *mcp.Server {
 	registerProcurementTools(server, db)
 	registerProcurementAuditTool(server, db)
 	registerProcurementMasterLifecycleTools(server, cfg, db)
+	registerProcurementWorkflowLifecycleTools(server, cfg, db)
 	registerCrossCoreTools(server, db)
 	if cfg.EnableWrites {
 		registerRentalMasterWrites(server, cfg)
@@ -227,6 +228,10 @@ var mutationTools = map[string]struct{}{
 	"procurement.requisitions.update":   {},
 	"procurement.requisitions.submit":   {},
 	"procurement.orders.receive":        {},
+	"procurement.orders.archive":        {},
+	"procurement.orders.restore":        {},
+	"procurement.requisitions.archive":  {},
+	"procurement.requisitions.restore":  {},
 	"procurement.orders.transition":     {},
 	"procurement.orders.update":         {},
 	"procurement.product_links.link":    {},

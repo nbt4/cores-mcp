@@ -163,8 +163,8 @@ func TestWriteToolsExposeSafeAnnotationsAndSchemas(t *testing.T) {
 	for _, tool := range listed.Tools {
 		tools[tool.Name] = tool
 	}
-	if len(tools) != 373 {
-		t.Fatalf("tool count = %d, want 373", len(tools))
+	if len(tools) != 383 {
+		t.Fatalf("tool count = %d, want 383", len(tools))
 	}
 	if tool := tools["warehouse.audit.history"]; tool == nil || tool.Annotations == nil || !tool.Annotations.ReadOnlyHint {
 		t.Fatal("warehouse audit history must be read-only")
@@ -184,7 +184,7 @@ func TestWriteToolsExposeSafeAnnotationsAndSchemas(t *testing.T) {
 		}
 		assertMutationControlSchema(t, tool)
 	}
-	for _, name := range []string{"warehouse.locations.archive", "warehouse.locations.restore", "warehouse.packages.archive", "warehouse.packages.restore", "warehouse.devices.update", "warehouse.devices.archive", "warehouse.devices.restore", "warehouse.devices.revert_update", "rental.jobs.archive", "rental.jobs.restore", "rental.jobs.update", "rental.requirements.update", "warehouse.movements.create", "warehouse.devices.update_status", "warehouse.packages.update", "warehouse.products.update", "warehouse.locations.update", "warehouse.manufacturers.update", "warehouse.brands.update", "warehouse.categories.update", "warehouse.subcategories.update", "warehouse.third_categories.update", "warehouse.categories.delete", "warehouse.subcategories.delete", "warehouse.third_categories.delete", "warehouse.products.archive", "warehouse.products.restore", "warehouse.products.link_relation", "procurement.products.update", "procurement.product_links.link", "procurement.offers.update", "procurement.requisitions.update", "procurement.requisitions.submit", "procurement.suppliers.update", "procurement.categories.update", "procurement.requisitions.decide", "procurement.orders.update", "procurement.orders.transition", "procurement.orders.receive"} {
+	for _, name := range []string{"warehouse.locations.archive", "warehouse.locations.restore", "warehouse.packages.archive", "warehouse.packages.restore", "warehouse.devices.update", "warehouse.devices.archive", "warehouse.devices.restore", "warehouse.devices.revert_update", "rental.jobs.archive", "rental.jobs.restore", "rental.jobs.update", "rental.requirements.update", "warehouse.movements.create", "warehouse.devices.update_status", "warehouse.packages.update", "warehouse.products.update", "warehouse.locations.update", "warehouse.manufacturers.update", "warehouse.brands.update", "warehouse.categories.update", "warehouse.subcategories.update", "warehouse.third_categories.update", "warehouse.categories.delete", "warehouse.subcategories.delete", "warehouse.third_categories.delete", "warehouse.products.archive", "warehouse.products.restore", "warehouse.products.link_relation", "procurement.products.update", "procurement.product_links.link", "procurement.offers.update", "procurement.requisitions.update", "procurement.requisitions.submit", "procurement.suppliers.update", "procurement.categories.update", "procurement.requisitions.decide", "procurement.orders.update", "procurement.orders.transition", "procurement.orders.receive", "procurement.orders.archive", "procurement.orders.restore", "procurement.requisitions.archive", "procurement.requisitions.restore"} {
 		tool := tools[name]
 		if tool == nil || tool.Annotations == nil || tool.Annotations.ReadOnlyHint || !tool.Annotations.IdempotentHint || tool.Annotations.DestructiveHint == nil || !*tool.Annotations.DestructiveHint {
 			t.Fatalf("%s is not marked as a state-changing write", name)

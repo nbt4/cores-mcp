@@ -131,7 +131,7 @@ func smokeArguments(name string) map[string]any {
 		return map[string]any{"device_id": "smoke-read-only", "limit": 5}
 	case name == "warehouse.audit.history":
 		return map[string]any{"product_id": 1, "limit": 5}
-	case name == "procurement.categories.audit_history" || name == "procurement.suppliers.audit_history" || name == "procurement.products.audit_history" || name == "procurement.offers.audit_history":
+	case name == "procurement.orders.audit_history" || name == "procurement.requisitions.audit_history" || name == "procurement.categories.audit_history" || name == "procurement.suppliers.audit_history" || name == "procurement.products.audit_history" || name == "procurement.offers.audit_history":
 		return map[string]any{"id": 1, "limit": 5}
 	case name == "procurement.audit.history":
 		return map[string]any{"entity": "product", "id": 1, "limit": 5}

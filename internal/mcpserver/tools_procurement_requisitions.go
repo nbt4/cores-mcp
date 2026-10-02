@@ -130,7 +130,7 @@ func requisitionOwner(ctx context.Context, row map[string]any) bool {
 }
 
 func loadRequisition(ctx context.Context, db *store.Store, id int64) (map[string]any, []map[string]any, error) {
-	rows, err := db.Query(ctx, `SELECT id,number,title,status,requester_id,cost_center,justification,needed_by,estimated_total_cents,to_char(updated_at AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS updated_at FROM proc_requisitions WHERE id=$1`, id)
+	rows, err := db.Query(ctx, `SELECT id,number,title,status,is_archived,requester_id,cost_center,justification,needed_by,estimated_total_cents,to_char(updated_at AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS updated_at FROM proc_requisitions WHERE id=$1`, id)
 	if err != nil || len(rows) == 0 {
 		return nil, nil, err
 	}
@@ -169,11 +169,14 @@ func prepareRequisitionDraft(ctx context.Context, db *store.Store, input Requisi
 			p.finish()
 			return p, nil
 		}
+		if row["is_archived"] == true {
+			p.require("active_requisition", "Bedarf zuerst separat wiederherstellen.", nil)
+		}
 		if !requisitionOwner(ctx, row) {
 			return p, fmt.Errorf("only the requester or a procurement administrator may edit this requisition")
 		}
-		if fmt.Sprint(row["status"]) != "draft" {
-			p.require("status", "Nur Entwürfe können geändert werden.", row["status"])
+		if fmt.Sprint(row["status"]) != "draft" && fmt.Sprint(row["status"]) != "returned" {
+			p.require("status", "Nur Entwürfe oder zur Überarbeitung zurückgegebene Bedarfe können geändert werden.", row["status"])
 		}
 		currentLines := make([]map[string]any, 0, len(lines))
 		for _, line := range lines {
@@ -181,6 +184,10 @@ func prepareRequisitionDraft(ctx context.Context, db *store.Store, input Requisi
 		}
 		p.Current = map[string]any{"title": nullableText(row["title"]), "costCenter": nullableText(row["cost_center"]), "justification": nullableText(row["justification"]), "neededBy": row["needed_by"], "lines": currentLines, "expectedUpdatedAt": rfc3339Value(row["updated_at"])}
 		p.Draft = cloneMap(p.Current)
+		if fmt.Sprint(row["status"]) == "returned" {
+			p.Current["status"] = "returned"
+			p.Draft["status"] = "draft"
+		}
 	} else if input.RequisitionID != 0 {
 		p.require("requisition_id", "Bei der Neuanlage darf keine vorhandene ID angegeben werden.", nil)
 	}
@@ -210,7 +217,7 @@ func prepareRequisitionDraft(ctx context.Context, db *store.Store, input Requisi
 	}
 	if update {
 		p.Diff = map[string]map[string]any{}
-		for _, key := range []string{"title", "costCenter", "justification", "neededBy", "lines"} {
+		for _, key := range []string{"title", "costCenter", "justification", "neededBy", "lines", "status"} {
 			if !reflect.DeepEqual(p.Current[key], p.Draft[key]) {
 				p.Diff[key] = map[string]any{"before": p.Current[key], "after": p.Draft[key]}
 			}
@@ -308,6 +315,9 @@ func prepareRequisitionSubmit(ctx context.Context, db *store.Store, input Requis
 		p.require("requisition_id", "Entwurf wurde nicht gefunden.", nil)
 		p.finish()
 		return p, nil
+	}
+	if row["is_archived"] == true {
+		p.require("active_requisition", "Bedarf zuerst separat wiederherstellen.", nil)
 	}
 	if !requisitionOwner(ctx, row) {
 		return p, fmt.Errorf("only the requester or a procurement administrator may submit this requisition")

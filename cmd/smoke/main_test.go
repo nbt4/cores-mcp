@@ -53,6 +53,8 @@ func TestReadSmokeArgumentsMatchMasterAndAuditSchemas(t *testing.T) {
 		{"warehouse.packages.audit_history", "package_id"},
 		{"warehouse.locations.audit_history", "zone_id"},
 		{"procurement.audit.history", "id"},
+		{"procurement.orders.audit_history", "id"},
+		{"procurement.requisitions.audit_history", "id"},
 		{"warehouse.categories.audit_history", "id"},
 		{"warehouse.subcategories.audit_history", "id"},
 		{"warehouse.third_categories.audit_history", "id"},

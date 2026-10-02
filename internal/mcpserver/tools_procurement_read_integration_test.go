@@ -38,7 +38,7 @@ func TestProcurementReadRoundingWithFloatingQuantities(t *testing.T) {
 CREATE TABLE proc_products(id BIGINT PRIMARY KEY,sku TEXT,name TEXT,manufacturer TEXT,model TEXT,active BOOLEAN);
 CREATE TABLE proc_suppliers(id BIGINT PRIMARY KEY,name TEXT,preferred BOOLEAN,rating DOUBLE PRECISION,risk_level TEXT,active BOOLEAN);
 CREATE TABLE proc_offers(id BIGINT PRIMARY KEY,product_id BIGINT,supplier_id BIGINT,supplier_sku TEXT,price_cents BIGINT,currency TEXT,minimum_quantity DOUBLE PRECISION,pack_size DOUBLE PRECISION,lead_days INTEGER,valid_until TIMESTAMP,last_checked_at TIMESTAMP,purchase_url TEXT,active BOOLEAN);
-CREATE TABLE proc_purchase_orders(id BIGINT PRIMARY KEY,number TEXT,status TEXT,supplier_id BIGINT,currency TEXT,total_cents BIGINT,ordered_by_name TEXT,order_date TIMESTAMP,expected_delivery TIMESTAMP,created_at TIMESTAMP,updated_at TIMESTAMP);
+CREATE TABLE proc_purchase_orders(id BIGINT PRIMARY KEY,number TEXT,status TEXT,supplier_id BIGINT,currency TEXT,total_cents BIGINT,ordered_by_name TEXT,order_date TIMESTAMP,expected_delivery TIMESTAMP,created_at TIMESTAMP,updated_at TIMESTAMP,is_archived BOOLEAN NOT NULL DEFAULT false);
 CREATE TABLE proc_purchase_order_lines(id BIGINT PRIMARY KEY,purchase_order_id BIGINT,quantity DOUBLE PRECISION,received_quantity DOUBLE PRECISION);
 INSERT INTO proc_products VALUES(1,'ROUND','Rounding fixture','','',true);
 INSERT INTO proc_suppliers VALUES(1,'Rounding supplier',false,3,'low',true);

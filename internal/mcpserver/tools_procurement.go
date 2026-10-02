@@ -81,7 +81,7 @@ func registerProcurementTools(server *mcp.Server, db *store.Store) {
 		return `SELECT r.id AS requisition_id,r.number,r.title,r.status,r.requester_name,r.cost_center,r.justification,r.needed_by,r.estimated_total_cents,
                        r.approved_by_name,r.decision_note,r.submitted_at,r.decided_at,count(rl.id) AS lines,sum(rl.quantity) AS total_quantity,r.updated_at
                   FROM proc_requisitions r LEFT JOIN proc_requisition_lines rl ON rl.requisition_id=r.id
-                 WHERE $1='' OR r.number ILIKE $2 OR r.title ILIKE $2 OR r.status ILIKE $2 OR r.requester_name ILIKE $2 OR r.cost_center ILIKE $2 OR r.justification ILIKE $2
+                 WHERE NOT r.is_archived AND ($1='' OR r.number ILIKE $2 OR r.title ILIKE $2 OR r.status ILIKE $2 OR r.requester_name ILIKE $2 OR r.cost_center ILIKE $2 OR r.justification ILIKE $2)
                  GROUP BY r.id ORDER BY r.created_at DESC LIMIT $3 OFFSET $4`, []any{input.Query, searchPattern(input.Query), db.Limit(input.Limit), cleanOffset(input.Offset)}
 	})
 
@@ -90,7 +90,7 @@ func registerProcurementTools(server *mcp.Server, db *store.Store) {
                        po.order_date,po.expected_delivery,count(pol.id) AS lines,sum(pol.quantity) AS ordered_quantity,sum(pol.received_quantity) AS received_quantity,
                        round(100*sum(pol.received_quantity)::numeric/NULLIF(sum(pol.quantity)::numeric,0),1) AS received_percent,po.updated_at
                   FROM proc_purchase_orders po LEFT JOIN proc_suppliers s ON s.id=po.supplier_id LEFT JOIN proc_purchase_order_lines pol ON pol.purchase_order_id=po.id
-                 WHERE $1='' OR po.number ILIKE $2 OR po.status ILIKE $2 OR s.name ILIKE $2 OR po.ordered_by_name ILIKE $2
+                 WHERE NOT po.is_archived AND ($1='' OR po.number ILIKE $2 OR po.status ILIKE $2 OR s.name ILIKE $2 OR po.ordered_by_name ILIKE $2)
                  GROUP BY po.id,s.id,s.name ORDER BY po.created_at DESC LIMIT $3 OFFSET $4`, []any{input.Query, searchPattern(input.Query), db.Limit(input.Limit), cleanOffset(input.Offset)}
 	})
 
@@ -100,7 +100,7 @@ func registerProcurementTools(server *mcp.Server, db *store.Store) {
                        pol.quantity-pol.received_quantity AS outstanding_quantity,pol.unit,pol.unit_price_cents,po.currency
                   FROM proc_purchase_orders po JOIN proc_purchase_order_lines pol ON pol.purchase_order_id=po.id LEFT JOIN proc_products p ON p.id=pol.product_id
                   LEFT JOIN proc_suppliers s ON s.id=po.supplier_id
-				 WHERE po.expected_delivery >= $1 AND po.expected_delivery < $2::timestamptz + interval '1 day' AND pol.received_quantity<pol.quantity
+				 WHERE NOT po.is_archived AND po.expected_delivery >= $1 AND po.expected_delivery < $2::timestamptz + interval '1 day' AND pol.received_quantity<pol.quantity
                  ORDER BY po.expected_delivery,po.number LIMIT $3`, []any{from, to, db.Limit(input.Limit)}
 	})
 
@@ -140,7 +140,7 @@ func registerProcurementTools(server *mcp.Server, db *store.Store) {
                   FROM proc_offers o JOIN proc_products p ON p.id=o.product_id JOIN proc_suppliers s ON s.id=o.supplier_id WHERE o.active=true AND o.valid_until<now()
                  UNION ALL
                 SELECT 'overdue_delivery',po.id::text,concat(po.number,' / ',s.name),'high',concat('status=',po.status),po.expected_delivery
-                  FROM proc_purchase_orders po LEFT JOIN proc_suppliers s ON s.id=po.supplier_id WHERE po.expected_delivery<now() AND lower(po.status) NOT IN ('received','completed','cancelled','closed')
+                  FROM proc_purchase_orders po LEFT JOIN proc_suppliers s ON s.id=po.supplier_id WHERE NOT po.is_archived AND po.expected_delivery<now() AND lower(po.status) NOT IN ('received','completed','cancelled','closed')
                  ORDER BY severity DESC,due_at NULLS LAST LIMIT $1 OFFSET $2`, []any{db.Limit(input.Limit), cleanOffset(input.Offset)}
 	})
 }

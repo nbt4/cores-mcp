@@ -63,12 +63,13 @@ func procurementAuditHistory(ctx context.Context, db *store.Store, input Procure
 		limit = 100
 	}
 	rows, err := db.Query(ctx, `SELECT id AS audit_id,action,entity_type,entity_id,user_id,timestamp AS changed_at,
-            COALESCE(new_values->>'updated_at',new_values#>>'{after,updatedAt}') AS result_version,
+            COALESCE(new_values->>'updated_at',new_values#>>'{after,updatedAt}',new_values#>>'{requisition,updatedAt}',new_values#>>'{purchase_order,updatedAt}',new_values#>>'{order,updatedAt}') AS result_version,
 			COALESCE(new_values->>'origin',old_values->>'origin','UI') AS origin,
+			old_values->>'isArchived' AS archived_before,new_values#>>'{after,isArchived}' AS archived_after,
 			COALESCE(old_values->>'status',old_values#>>'{order,status}') AS status_before,
-			COALESCE(new_values#>>'{requisition,status}',new_values#>>'{purchase_order,status}',new_values#>>'{order,status}') AS status_after,
+			COALESCE(new_values#>>'{requisition,status}',new_values#>>'{purchase_order,status}',new_values#>>'{order,status}',new_values#>>'{after,status}') AS status_after,
 			COALESCE(old_values->>'estimatedTotalCents',old_values->>'totalCents',old_values#>>'{order,totalCents}') AS total_cents_before,
-			COALESCE(new_values#>>'{requisition,estimatedTotalCents}',new_values#>>'{purchase_order,totalCents}',new_values#>>'{order,totalCents}') AS total_cents_after,
+			COALESCE(new_values#>>'{requisition,estimatedTotalCents}',new_values#>>'{purchase_order,totalCents}',new_values#>>'{order,totalCents}',new_values#>>'{after,totalCents}',new_values#>>'{after,estimatedTotalCents}') AS total_cents_after,
 			new_values#>>'{receipt,quantity}' AS receipt_quantity,
 			COALESCE(old_values->>'name',old_values#>>'{before,name}') AS name_before,
 			COALESCE(new_values#>>'{after,name}',new_values#>>'{link,name}') AS name_after,

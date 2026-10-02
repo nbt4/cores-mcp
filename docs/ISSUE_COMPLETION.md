@@ -22,8 +22,8 @@ and production verification. Optional event streams are separate follow-up work.
 | Rental staffing/external equipment | Read context | Create/update/lifecycle and personnel assignment |
 | Procurement suppliers/products/offers | Create/update, retained named archive/restore, exact record/dependency context, current owner rights, atomic audit/activity/durable replay, per-entity redacted versioned history | — |
 | Procurement categories | Full parameter schema create/update, retained named archive/restore, active product/parent guards, redacted audit and atomic owner activity/replay | — |
-| Procurement requisitions | Draft create/update, submit, separated decisions | Archive/restore, return-for-revision verification |
-| Procurement orders | Draft create/update, separated transitions, full context-bound partial/full/overdelivery receipt, atomic stock/devices/putaway events/audits/durable replay | Archive/restore |
+| Procurement requisitions | Draft create/update, submit, separated decisions, retained archive/restore, verified return → revise → resubmit and redacted versioned history | Legacy writer protection verification |
+| Procurement orders | Draft create/update, separated transitions, full context-bound receipt, retained archive/restore with putaway blockers and versioned history | Legacy draft/transition protection verification |
 | Procurement product mapping | Audited versioned link | Supplier-link lifecycle verification |
 | Planner plans/tasks | Create, membership-protected reads | Complete update/archive/restore, durable atomic audit/replay |
 | Planner buckets/labels/dependencies/sprints/goals | Read context | Schema discovery, guided create/update/archive/restore |
@@ -248,3 +248,35 @@ native owner retains its saved response without creating a second stock booking.
 The fresh full read-only catalog has zero failures. Deploy Procurement before MCP,
 verify exact healthy images and every previously installed guard. There is no new
 schema migration. The parent issues remain open for the other acceptance rows.
+
+## Procurement workflow lifecycle and revision
+
+Procurement 1.0.69 / MCP 1.5.44 adds ten tools: 383 total (105 reads / 139
+preparations / 139 executions), native 010 / umbrella 039. Both requisitions and
+orders retain original status, all fields, line IDs and receipt/history links on
+archive/restore. Current owner rights and archive scope, exact microsecond version,
+complete dependency fingerprint and record/context-bound phrase are required.
+Requisition rights are requester/admin; orders require current administrator.
+Open related orders and pending receipt putaway tasks block archival. Restore
+validates original active catalog parents and original requisition. Old putaway
+associations are backfilled from receipt audit records. All-writer parent/child
+guards preserve identities, protect archives and advance parent versions for line
+edits. Operative native/MCP lists exclude archives; historical references remain.
+
+Full PostgreSQL/race suites, Vet/build, all 23 unchanged frontend tests, cached
+frontend build and committed suite design check pass. Upgraded and separately
+fresh complete stacks verify real Streamable HTTP scopes/current roles and
+revocation, pure previews/dry-run, all four retained lifecycle actions, stale
+native line/parent/dependency context, active restore parents, final-audit rollback
+and same-key retry, concurrent single commit, redacted versioned history and
+owner/MCP restart replay. Actual older supplier and native receipt golden results
+replay unchanged without duplicate physical effects. An actual new receipt stores
+its putaway association; archive remains blocked until the separate named Warehouse
+task completion succeeds. Actual different-administrator return, requester revision
+back to draft and requester resubmission clear the previous decision while retaining
+audit history. Historical native requisition audit versions are now readable too.
+
+Deploy Procurement first, then MCP; verify exact healthy released images, every
+previous guard and the six workflow parent/child triggers. Legacy draft/decision/
+transition owner protection, other permission/financial/document/Undo areas and all
+other remaining rows still require completion before closing either parent issue.
