@@ -1,5 +1,17 @@
 # Tool-Katalog
 
+## Frischer Stack und numerische Beschaffungsabfragen — MCP 1.5.40
+
+Der unveränderte Katalog umfasst 353 Werkzeuge. Angebotspreise pro Packeinheit
+und Wareneingangsprozente werden vor PostgreSQL-Rundung ausdrücklich als
+`numeric` berechnet. Das unterstützt sowohl SQL- als auch GORM-Schemata mit
+Gleitkomma-Mengen und erhält NULL bei einem Nenner 0.
+Root `036` initialisiert das bestehende Planner-Schema samt Wiederholungen auf
+einer leeren Umbrella-Datenbank. Procurement 1.0.65 erhält SQL-UNIQUE-Constraints
+beim Start. Ein vollständiger frischer Stack und der ganze lesende Katalog
+gehören zur Release-Prüfung; neue Tools oder Scopes kommen dabei nicht hinzu.
+
+
 ## Materialanforderungen — Rental 5.3.120 / Warehouse 5.9.106 / MCP 1.5.39
 
 `rental.requirements.prepare_create/create` und `prepare_update/update` nutzen

@@ -60,7 +60,7 @@ func registerProcurementTools(server *mcp.Server, db *store.Store) {
 	rowsTool(server, db, "procurement.offers.compare", "Compare supplier offers", "Compare active supplier offers with normalized unit prices, pack sizes, minimum quantities, lead time, validity, supplier rating and risk.", "procurementcore", "offer", func(input SearchInput) (string, []any) {
 		return `SELECT p.id AS product_id,p.sku,p.name AS product,p.manufacturer,p.model,o.id AS offer_id,s.id AS supplier_id,s.name AS supplier,
                        s.preferred,s.rating,s.risk_level,o.supplier_sku,o.price_cents,o.currency,o.minimum_quantity,o.pack_size,
-                       round(o.price_cents/NULLIF(o.pack_size,0),2) AS price_per_unit_cents,o.lead_days,o.valid_until,o.last_checked_at,o.purchase_url
+                       round(o.price_cents::numeric/NULLIF(o.pack_size::numeric,0),2) AS price_per_unit_cents,o.lead_days,o.valid_until,o.last_checked_at,o.purchase_url
                   FROM proc_offers o JOIN proc_products p ON p.id=o.product_id JOIN proc_suppliers s ON s.id=o.supplier_id
                  WHERE o.active=true AND p.active=true AND s.active=true AND ($1='' OR p.name ILIKE $2 OR p.sku ILIKE $2 OR p.manufacturer ILIKE $2 OR p.model ILIKE $2 OR s.name ILIKE $2)
                  ORDER BY p.name,price_per_unit_cents NULLS LAST,o.lead_days LIMIT $3 OFFSET $4`, []any{input.Query, searchPattern(input.Query), db.Limit(input.Limit), cleanOffset(input.Offset)}
@@ -88,7 +88,7 @@ func registerProcurementTools(server *mcp.Server, db *store.Store) {
 	rowsTool(server, db, "procurement.orders.list", "List purchase orders", "List purchase orders with supplier, status, expected delivery, received progress and total value.", "procurementcore", "purchase_order", func(input SearchInput) (string, []any) {
 		return `SELECT po.id AS purchase_order_id,po.number,po.status,s.id AS supplier_id,s.name AS supplier,po.currency,po.total_cents,po.ordered_by_name,
                        po.order_date,po.expected_delivery,count(pol.id) AS lines,sum(pol.quantity) AS ordered_quantity,sum(pol.received_quantity) AS received_quantity,
-                       round(100*sum(pol.received_quantity)/NULLIF(sum(pol.quantity),0),1) AS received_percent,po.updated_at
+                       round(100*sum(pol.received_quantity)::numeric/NULLIF(sum(pol.quantity)::numeric,0),1) AS received_percent,po.updated_at
                   FROM proc_purchase_orders po LEFT JOIN proc_suppliers s ON s.id=po.supplier_id LEFT JOIN proc_purchase_order_lines pol ON pol.purchase_order_id=po.id
                  WHERE $1='' OR po.number ILIKE $2 OR po.status ILIKE $2 OR s.name ILIKE $2 OR po.ordered_by_name ILIKE $2
                  GROUP BY po.id,s.id,s.name ORDER BY po.created_at DESC LIMIT $3 OFFSET $4`, []any{input.Query, searchPattern(input.Query), db.Limit(input.Limit), cleanOffset(input.Offset)}

@@ -232,7 +232,7 @@ var queryEntities = map[string]queryEntitySpec{
 	"procurement.offers": {
 		Service: "procurementcore", SourceEntity: "offer",
 		BaseSQL: `SELECT o.id AS offer_id,o.product_id AS procurement_product_id,p.sku,p.name AS product,o.supplier_id,s.name AS supplier,s.preferred,s.rating,s.risk_level,
-                   o.supplier_sku,o.price_cents,o.currency,o.minimum_quantity,o.pack_size,round(o.price_cents/NULLIF(o.pack_size,0),2) AS price_per_unit_cents,
+                   o.supplier_sku,o.price_cents,o.currency,o.minimum_quantity,o.pack_size,round(o.price_cents::numeric/NULLIF(o.pack_size::numeric,0),2) AS price_per_unit_cents,
                    o.lead_days,o.valid_until,o.last_checked_at,o.active
               FROM proc_offers o JOIN proc_products p ON p.id=o.product_id JOIN proc_suppliers s ON s.id=o.supplier_id`,
 		Fields:        map[string]queryFieldKind{"offer_id": queryInteger, "procurement_product_id": queryInteger, "sku": queryString, "product": queryString, "supplier_id": queryInteger, "supplier": queryString, "preferred": queryBoolean, "rating": queryNumber, "risk_level": queryString, "supplier_sku": queryString, "price_cents": queryNumber, "currency": queryString, "minimum_quantity": queryNumber, "pack_size": queryNumber, "price_per_unit_cents": queryNumber, "lead_days": queryNumber, "valid_until": queryTime, "last_checked_at": queryTime, "active": queryBoolean},

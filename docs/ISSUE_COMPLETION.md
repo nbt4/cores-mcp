@@ -159,3 +159,15 @@ exclusion and retained restore.
 Deploy Rental first, then Warehouse and MCP; verify exact images, installed
 requirement/job guards and the complete read-only catalog. Parent issues remain
 open for the remaining rows above.
+
+## Complete fresh stack compatibility
+
+ProcurementCore 1.0.65 preserves original SQL-migration UNIQUE constraints
+through repeated GORM startup; full PostgreSQL/race tests, Vet/build and all
+23 frontend tests pass. Root 036 mirrors the existing committed Planner
+003/004 schema, which was previously missing from fresh umbrella installation.
+MCP 1.5.40 offer unit prices and receipt percentages explicitly convert floating
+quantities to PostgreSQL numeric before decimal rounding and retain NULL for
+zero denominators. Integration tests exercise actual named tools and curated
+offer queries with fractional and zero quantities. These compatibility fixes
+retain the 353-tool catalog; remaining issue acceptance work stays open.
