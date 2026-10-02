@@ -22,8 +22,8 @@ and production verification. Optional event streams are separate follow-up work.
 | Rental staffing/external equipment | Read context | Create/update/lifecycle and personnel assignment |
 | Procurement suppliers/products/offers | Create/update, retained named archive/restore, exact record/dependency context, current owner rights, atomic audit/activity/durable replay, per-entity redacted versioned history | — |
 | Procurement categories | Full parameter schema create/update, retained named archive/restore, active product/parent guards, redacted audit and atomic owner activity/replay | — |
-| Procurement requisitions | Draft create/update, submit, separated decisions, retained archive/restore, verified return → revise → resubmit and redacted versioned history | Legacy writer protection verification |
-| Procurement orders | Draft create/update, separated transitions, full context-bound receipt, retained archive/restore with putaway blockers and versioned history | Legacy draft/transition protection verification |
+| Procurement requisitions | Draft create/update, submit, complete context-bound distinct-administrator decisions, retained archive/restore, verified return → revise → resubmit and redacted versioned history | Legacy writer protection verification |
+| Procurement orders | Draft create/update, complete context-bound status transitions, full context-bound receipt, retained archive/restore with putaway blockers and versioned history | Legacy draft protection and supplier submission verification |
 | Procurement product mapping | Audited versioned link | Supplier-link lifecycle verification |
 | Planner plans/tasks | Create, membership-protected reads | Complete update/archive/restore, durable atomic audit/replay |
 | Planner buckets/labels/dependencies/sprints/goals | Read context | Schema discovery, guided create/update/archive/restore |
@@ -280,3 +280,42 @@ Deploy Procurement first, then MCP; verify exact healthy released images, every
 previous guard and the six workflow parent/child triggers. Legacy draft/decision/
 transition owner protection, other permission/financial/document/Undo areas and all
 other remaining rows still require completion before closing either parent issue.
+
+## Complete owner approval/status verification
+
+Procurement 1.0.70 / MCP 1.5.45 retains 383 tools. Decisions and status transitions
+now delegate directly to a closed owner API without stale pre-SQL replay guards.
+Current active administrator and explicitly consented approve scope are checked
+before every new, cached, legacy or restarted execution. Requisition decisions
+also require a different user than the immutable original requester. Complete
+record/lines, current catalog/parent/receipt state, reviewed action/note/reason,
+exact microsecond version and complete context bind elevated confirmation.
+Native change/audit/activity/durable response commit together. Original successful
+native approval/cancellation hashes and business responses remain replayable;
+unbooked public legacy MCP requests require the new context-bound owner path.
+Cancellation retains all stock/receipts and independent putaway obligations.
+Sent records status and does not submit an external supplier order; Amazon requires
+its original native submission flow. Generic write scope cannot authorize approvals.
+
+Retained order restore now validates business fields independently of the original
+received/cancelled status and preserves that status. Complete shared workflow
+previews are bounded to 512 KiB per original record. Schema discovery includes
+separate requisition decision/submission and order status/receipt inputs.
+
+Full PostgreSQL/race suites, Vet/builds, all 23 unchanged frontend tests, cached
+frontend build and committed design validation pass. Actual Streamable HTTP against
+upgraded and separately fresh complete stacks verifies all approval/rejection/return
+and sent/confirmed/cancellation actions, current scope/admin/separation checks,
+pure previews/dry-run, line/catalog/action/reason staleness, atomic final-audit
+rollback/same-key retry, concurrent single exact-version decision and owner/MCP
+restart replay. Actual older published native approval and cancellation golden
+business results replay unchanged; changed original payloads are rejected.
+The public legacy decision route only replays its saved original result. Actual
+cancelled and received order restore keeps original status/fields/receipt links.
+Actual different-admin return, requester revision and resubmission clear the old
+decision, while versioned redacted history remains. No migration is added.
+
+Deploy Procurement first, then MCP, and verify exact healthy images, every existing
+guard and the complete read-only catalog. Other acceptance rows, legacy draft
+writers, supplier submission and remaining financial/document/Undo protection stay
+open; neither parent issue is complete yet.

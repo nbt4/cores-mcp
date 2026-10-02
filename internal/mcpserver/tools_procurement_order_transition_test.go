@@ -2,102 +2,121 @@ package mcpserver
 
 import (
 	"context"
-	"database/sql"
+	"encoding/json"
+	"io"
 	"net/http"
-	"net/http/httptest"
-	"net/url"
-	"os"
 	"strings"
 	"testing"
-	"time"
 
-	_ "github.com/jackc/pgx/v5/stdlib"
-	"github.com/modelcontextprotocol/go-sdk/auth"
-	"github.com/nbt4/cores-mcp/internal/store"
+	"github.com/golang-jwt/jwt/v5"
+	"github.com/nbt4/cores-mcp/internal/config"
 )
 
-func TestPrepareOrderTransitionVersionAndStatus(t *testing.T) {
-	dsn := os.Getenv("CORES_MCP_PROCUREMENT_TEST_DATABASE_URL")
-	if dsn == "" {
-		t.Skip("set CORES_MCP_PROCUREMENT_TEST_DATABASE_URL to a disposable PostgreSQL database ending in _test")
-	}
-	parsed, err := url.Parse(dsn)
-	if err != nil || !strings.HasSuffix(strings.TrimPrefix(parsed.Path, "/"), "_test") {
-		t.Fatal("integration test requires a dedicated _test database")
-	}
-	database, err := sql.Open("pgx", dsn)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer database.Close()
-	database.SetMaxOpenConns(1)
-	const schema = "mcp_order_transition_test"
-	if _, err := database.Exec("DROP SCHEMA IF EXISTS " + schema + " CASCADE"); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := database.Exec("CREATE SCHEMA " + schema); err != nil {
-		t.Fatal(err)
-	}
-	defer database.Exec("DROP SCHEMA IF EXISTS " + schema + " CASCADE")
-	if _, err := database.Exec("SET search_path TO " + schema); err != nil {
-		t.Fatal(err)
-	}
-	for _, statement := range []string{
-		`CREATE TABLE proc_purchase_orders(id BIGINT PRIMARY KEY,number TEXT,status TEXT,supplier_id BIGINT,supplier_order_number TEXT,expected_delivery TIMESTAMPTZ,notes TEXT,total_cents BIGINT,updated_at TIMESTAMPTZ)`,
-		`CREATE TABLE proc_purchase_order_lines(id BIGINT PRIMARY KEY,purchase_order_id BIGINT,product_id BIGINT,description TEXT,quantity DOUBLE PRECISION,received_quantity DOUBLE PRECISION,unit TEXT,unit_price_cents BIGINT)`,
-		`INSERT INTO proc_purchase_orders VALUES(7,'PO-7','draft',3,'S-7',NULL,'Original',2000,'2026-09-24T08:15:00.123456Z')`,
-		`INSERT INTO proc_purchase_order_lines VALUES(9,7,NULL,'Cable',2,0,'Stk.',1000)`,
-	} {
-		if _, err := database.Exec(statement); err != nil {
+func TestProcurementApprovalOwnerDelegationRetryAndCurrentRights(t *testing.T) {
+	old := http.DefaultTransport
+	t.Cleanup(func() { http.DefaultTransport = old })
+	secret := strings.Repeat("approval-owner-", 3)
+	failed := map[string]bool{}
+	revoked := false
+	calls := 0
+	http.DefaultTransport = inventoryTestRoundTripper(func(r *http.Request) (*http.Response, error) {
+		if r.Method != "POST" || (r.URL.Path != "/api/v1/mcp/approvals/orders" && r.URL.Path != "/api/v1/mcp/approvals/requisitions") {
+			t.Fatal(r.URL)
+		}
+		cookie, err := r.Cookie("cores_token")
+		if err != nil {
 			t.Fatal(err)
 		}
-	}
-	db := store.New(database, 5*time.Second, 200)
-	run := func(admin bool, input OrderTransitionInput) (preparedMutation, error) {
-		var p preparedMutation
-		var prepareErr error
-		verifier := func(context.Context, string, *http.Request) (*auth.TokenInfo, error) {
-			return &auth.TokenInfo{UserID: "41", Expiration: time.Now().Add(time.Hour), Extra: map[string]any{"is_admin": admin}}, nil
+		claims := &suiteServiceClaims{}
+		tok, err := jwt.ParseWithClaims(cookie.Value, claims, func(*jwt.Token) (any, error) { return []byte(secret), nil }, jwt.WithValidMethods([]string{"HS256"}), jwt.WithExpirationRequired())
+		if err != nil || !tok.Valid || claims.UserID != 42 || !claims.IsAdmin || claims.MutationScope != "cores:procurement:approve" {
+			t.Fatal("real administrator/approval delegation", err, claims)
 		}
-		handler := auth.RequireBearerToken(verifier, nil)(http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
-			p, prepareErr = prepareOrderTransition(r.Context(), db, input)
-		}))
-		r := httptest.NewRequest(http.MethodGet, "/", nil)
-		r.Header.Set("Authorization", "Bearer test")
-		handler.ServeHTTP(httptest.NewRecorder(), r)
-		return p, prepareErr
+		body := map[string]any{}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			t.Fatal(err)
+		}
+		if body["id"] != float64(7) || body["expected_context"] != strings.Repeat("a", 64) || body["expected_updated_at"] != "2026-10-03T12:00:00.000123Z" {
+			t.Fatal(body)
+		}
+		for _, key := range []string{"dry_run", "idempotency_key", "table", "column", "supplier_id", "notes", "total_cents"} {
+			if _, ok := body[key]; ok {
+				t.Fatal("unapproved owner field", key)
+			}
+		}
+		calls++
+		status, out := 200, `{"operation_status":"transitioned","purchase_order":{"id":7,"status":"cancelled"}}`
+		if strings.HasSuffix(r.URL.Path, "requisitions") {
+			out = `{"operation_status":"decided","requisition":{"id":7,"status":"returned"}}`
+		}
+		if revoked {
+			status, out = 403, `{"error":"Current distinct approval administrator required"}`
+		} else if body["preview"] == true {
+			if r.Header.Get("Idempotency-Key") != "" || body["confirm_change"] != false {
+				t.Fatal("dry-run execution", body)
+			}
+			out = `{"preview":true,"dependencies":{"products":[{"id":3}],"supplier":[{"id":4}],"receipts":[{"id":9}]}}`
+		} else if !failed[r.URL.Path] {
+			failed[r.URL.Path] = true
+			status, out = 500, `{"error":"forced final approval audit rollback"}`
+		}
+		return &http.Response{StatusCode: status, Header: make(http.Header), Body: io.NopCloser(strings.NewReader(out)), Request: r}, nil
+	})
+	cfg := config.Config{JWTSecret: secret, ProcurementURL: "http://procurement.invalid"}
+	ctx := inventoryTestContext(t, "42", true, "cores:procurement:approve")
+	order := OrderTransitionInput{MutationControl: MutationControl{DryRun: true}, OrderID: 7, Status: "cancelled", Reason: "Reviewed cancel reason", ExpectedUpdatedAt: "2026-10-03T12:00:00.000123Z", ExpectedContext: strings.Repeat("a", 64), ConfirmTransition: true, ConfirmationText: "CANCEL ORDER 7 CONTEXT"}
+	req := RequisitionDecisionInput{MutationControl: MutationControl{DryRun: true}, RequisitionID: 7, Decision: "returned", Note: "Reviewed return reason", ExpectedUpdatedAt: order.ExpectedUpdatedAt, ExpectedContext: order.ExpectedContext, ConfirmDecision: true, ConfirmationText: "RETURN REQUISITION 7 CONTEXT"}
+	orderFn := func(ctx context.Context, in OrderTransitionInput) (any, []Source, []string, error) {
+		return invokeProcurementApproval(ctx, cfg, "orders", in, false)
 	}
-	input := OrderTransitionInput{OrderID: 7, Status: "sent"}
-	if _, err := run(false, input); err == nil {
-		t.Fatal("non-admin transition preview accepted")
+	reqFn := func(ctx context.Context, in RequisitionDecisionInput) (any, []Source, []string, error) {
+		return invokeProcurementApproval(ctx, cfg, "requisitions", in, false)
 	}
-	p, err := run(true, input)
-	if err != nil || !p.Ready || p.Draft["confirmation_text_required"] != "SEND ORDER 7" || len(p.RelatedRecords) != 1 {
-		t.Fatalf("send preview: %#v %v", p, err)
+	callOrder := func(ctx context.Context, wantError bool) {
+		t.Helper()
+		result, out, err := executeMutationTool(ctx, "procurement.orders.transition", "Transition order", order, orderFn)
+		if err != nil || (result != nil && result.IsError) != wantError {
+			t.Fatal(result, out, err)
+		}
 	}
-	input.ConfirmTransition = true
-	p, err = run(true, input)
-	if err != nil || p.Ready || !containsString(p.Missing, "expected_updated_at") {
-		t.Fatalf("missing version accepted: %#v %v", p, err)
+	callReq := func(ctx context.Context, wantError bool) {
+		t.Helper()
+		result, out, err := executeMutationTool(ctx, "procurement.requisitions.decide", "Decide requisition", req, reqFn)
+		if err != nil || (result != nil && result.IsError) != wantError {
+			t.Fatal(result, out, err)
+		}
 	}
-	input.ExpectedUpdatedAt = "2026-09-24T08:15:00.123456Z"
-	p, err = run(true, input)
-	if err != nil || !p.Ready {
-		t.Fatalf("matching version rejected: %#v %v", p, err)
+	callOrder(ctx, false)
+	callReq(ctx, false)
+	order.DryRun = false
+	order.IdempotencyKey = "approval-order-atomic-retry"
+	req.DryRun = false
+	req.IdempotencyKey = "approval-requisition-atomic-retry"
+	callOrder(ctx, true)
+	callOrder(ctx, false)
+	callOrder(ctx, false)
+	callReq(ctx, true)
+	callReq(ctx, false)
+	callReq(ctx, false)
+	revoked = true
+	callOrder(ctx, true)
+	callReq(ctx, true)
+	if calls != 10 {
+		t.Fatal("cached/retry owner invocation", calls)
 	}
-	input.Status = "confirmed"
-	p, err = run(true, input)
-	if err != nil || p.Ready || !containsString(p.Missing, "status") {
-		t.Fatalf("invalid transition accepted: %#v %v", p, err)
+	for _, denied := range []context.Context{inventoryTestContext(t, "42", false, "cores:procurement:approve"), inventoryTestContext(t, "42", true, "cores:write"), inventoryTestContext(t, "42", true, "cores:procurement:receive"), inventoryTestContext(t, "service:test", true, "cores:procurement:approve")} {
+		callOrder(denied, true)
+		callReq(denied, true)
 	}
-	input.Status = "cancelled"
-	p, err = run(true, input)
-	if err != nil || p.Ready || !containsString(p.Missing, "reason") {
-		t.Fatalf("cancellation without reason accepted: %#v %v", p, err)
+	if calls != 10 {
+		t.Fatal("unauthorized owner request", calls)
 	}
-	input.Reason = "Supplier cannot deliver"
-	p, err = run(true, input)
-	if err != nil || !p.Ready || p.Draft["confirmation_text_required"] != "CANCEL ORDER 7" || !strings.Contains(p.Draft["notes"].(string), input.Reason) {
-		t.Fatalf("cancel preview: %#v %v", p, err)
+	for _, entity := range []string{"procurement.orders", "procurement.requisitions"} {
+		raw, _ := json.Marshal(renderWritableEntitySchema(writableEntitySchemas()[entity]))
+		for _, field := range []string{"workflow_fields", "expected_context", "confirmation_text"} {
+			if !strings.Contains(string(raw), field) {
+				t.Fatal(entity, field)
+			}
+		}
 	}
 }

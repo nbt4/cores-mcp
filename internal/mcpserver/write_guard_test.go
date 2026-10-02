@@ -299,18 +299,6 @@ func TestMutationAuditAttributesExcludeRawIdempotencyKey(t *testing.T) {
 	}
 }
 
-func TestCriticalProcurementConfirmationPhrases(t *testing.T) {
-	if got := requisitionDecisionPhrase("approved", 17); got != "APPROVE REQUISITION 17" {
-		t.Fatalf("approval phrase = %q", got)
-	}
-	if got := requisitionDecisionPhrase("returned", 17); got != "RETURN REQUISITION 17" {
-		t.Fatalf("return phrase = %q", got)
-	}
-	if got := requisitionDecisionPhrase("unknown", 17); got != "" {
-		t.Fatalf("invalid decision phrase = %q", got)
-	}
-}
-
 func TestRFC3339ValuePreservesDatabaseVersion(t *testing.T) {
 	want := "2026-09-22T08:15:00.123456Z"
 	if got := rfc3339Value(want); got != want {
