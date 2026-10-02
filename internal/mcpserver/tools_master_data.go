@@ -25,8 +25,8 @@ type masterDataSource struct {
 var masterDataSources = map[string]masterDataSource{
 	"procurement.supplier": {"procurementcore", "supplier", `SELECT id,name,code AS context,code FROM proc_suppliers WHERE active=true ORDER BY name LIMIT 500`},
 	"procurement.category": {"procurementcore", "category", `SELECT id,name,'' AS context FROM proc_categories ORDER BY name LIMIT 500`},
-	"rental.customer":      {"rentalcore", "customer", `SELECT customerid AS id,COALESCE(NULLIF(companyname,''),NULLIF(name,''),TRIM(CONCAT_WS(' ',firstname,lastname))) AS name,concat_ws(' · ',city,country) AS context FROM customers WHERE COALESCE(is_archived,false)=false ORDER BY companyname,name LIMIT 500`},
-	"rental.venue":         {"rentalcore", "venue", `SELECT id,name,concat_ws(' · ',city,zip) AS context FROM venues ORDER BY name LIMIT 500`},
+	"rental.customer":      {"rentalcore", "customer", `SELECT customerid AS id,COALESCE(NULLIF(companyname,''),NULLIF(name,''),TRIM(CONCAT_WS(' ',firstname,lastname))) AS name,concat_ws(' · ',city,country) AS context,COALESCE(is_archived,false) AS is_archived FROM customers ORDER BY companyname,name LIMIT 500`},
+	"rental.venue":         {"rentalcore", "venue", `SELECT id,name,concat_ws(' · ',city,zip) AS context,is_archived FROM venues ORDER BY name LIMIT 500`},
 }
 
 var warehouseMasterEntities = map[string]string{
@@ -141,6 +141,9 @@ func classifyMasterCandidates(candidates []map[string]any) (string, map[string]a
 	}
 	switch {
 	case exact == 1:
+		if selected["is_archived"] == true || selected["lifecycle_status"] == "archived" {
+			return "restoration_required", nil
+		}
 		return "exact", selected
 	case exact > 1, len(candidates) > 1:
 		return "ambiguous", nil

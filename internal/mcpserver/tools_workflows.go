@@ -337,7 +337,7 @@ func prepareJobUpdate(ctx context.Context, db *store.Store, input JobUpdateInput
 		p.Draft["description"] = value
 	}
 	if input.CustomerID > 0 {
-		customers, queryErr := db.Query(ctx, `SELECT customerid AS customer_id,COALESCE(NULLIF(companyname,''),concat_ws(' ',firstname,lastname)) AS customer FROM customers WHERE customerid=$1`, input.CustomerID)
+		customers, queryErr := db.Query(ctx, `SELECT customerid AS customer_id,COALESCE(NULLIF(companyname,''),concat_ws(' ',firstname,lastname)) AS customer FROM customers WHERE customerid=$1 AND COALESCE(is_archived,false)=false`, input.CustomerID)
 		if queryErr != nil {
 			return p, queryErr
 		}
@@ -382,7 +382,7 @@ func prepareJobUpdate(ctx context.Context, db *store.Store, input JobUpdateInput
 		if *input.VenueID == 0 {
 			p.Draft["venue_id"], p.Draft["venue"] = nil, nil
 		} else {
-			venues, queryErr := db.Query(ctx, `SELECT id AS venue_id,name FROM venues WHERE id=$1`, *input.VenueID)
+			venues, queryErr := db.Query(ctx, `SELECT id AS venue_id,name FROM venues WHERE id=$1 AND is_archived=false`, *input.VenueID)
 			if queryErr != nil {
 				return p, queryErr
 			}

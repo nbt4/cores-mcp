@@ -125,12 +125,19 @@ func mutationControls(input any) (bool, string) {
 
 func mutationConfirmed(input any) bool {
 	value := dereferenceValue(reflect.ValueOf(input))
+	return structMutationConfirmed(value)
+}
+
+func structMutationConfirmed(value reflect.Value) bool {
 	if !value.IsValid() || value.Kind() != reflect.Struct {
 		return false
 	}
 	for index := 0; index < value.NumField(); index++ {
 		field := value.Type().Field(index)
 		candidate := value.Field(index)
+		if field.Anonymous && structMutationConfirmed(dereferenceValue(candidate)) {
+			return true
+		}
 		if strings.HasPrefix(field.Name, "Confirm") && candidate.Kind() == reflect.Bool && candidate.Bool() {
 			return true
 		}
@@ -163,6 +170,14 @@ func clearConfirmationFields(value reflect.Value) {
 	for index := 0; index < value.NumField(); index++ {
 		field := value.Type().Field(index)
 		candidate := value.Field(index)
+		if field.Anonymous {
+			if candidate.Kind() == reflect.Pointer && !candidate.IsNil() && candidate.CanSet() {
+				clone := reflect.New(candidate.Elem().Type())
+				clone.Elem().Set(candidate.Elem())
+				candidate.Set(clone)
+			}
+			clearConfirmationFields(candidate)
+		}
 		if strings.HasPrefix(field.Name, "Confirm") && candidate.CanSet() && candidate.Kind() == reflect.Bool {
 			candidate.SetBool(false)
 		}
@@ -260,7 +275,7 @@ func hasDurableWarehouseRetry(tool string) bool {
 	if tool == "warehouse.products.link_relation" {
 		return true
 	}
-	for _, prefix := range []string{"warehouse.product_relations.", "warehouse.categories.", "warehouse.subcategories.", "warehouse.third_categories.", "warehouse.inventory_counts.", "warehouse.tasks.", "warehouse.maintenance_plans.", "warehouse.maintenance_orders.", "warehouse.defects."} {
+	for _, prefix := range []string{"rental.customers.", "rental.venues.", "warehouse.product_relations.", "warehouse.categories.", "warehouse.subcategories.", "warehouse.third_categories.", "warehouse.inventory_counts.", "warehouse.tasks.", "warehouse.maintenance_plans.", "warehouse.maintenance_orders.", "warehouse.defects."} {
 		if strings.HasPrefix(tool, prefix) {
 			return true
 		}

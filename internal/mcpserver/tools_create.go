@@ -485,7 +485,7 @@ func prepareJobCreate(ctx context.Context, db *store.Store, input JobCreateInput
 		draft["status_id"], draft["status"] = status["id"], status["label"]
 	}
 	if input.VenueID > 0 || strings.TrimSpace(input.VenueQuery) != "" {
-		venue, venueOptions, resolveErr := resolveReference(ctx, db, `SELECT id,name AS label,concat_ws(' ',city,zip) AS context FROM venues`, input.VenueID, input.VenueQuery)
+		venue, venueOptions, resolveErr := resolveReference(ctx, db, `SELECT id,name AS label,concat_ws(' ',city,zip) AS context FROM venues WHERE is_archived=false`, input.VenueID, input.VenueQuery)
 		if resolveErr != nil {
 			return preparedJob{}, resolveErr
 		}

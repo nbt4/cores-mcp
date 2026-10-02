@@ -145,9 +145,9 @@ var queryEntities = map[string]queryEntitySpec{
 	},
 	"rental.venues": {
 		Service: "rentalcore", SourceEntity: "venue",
-		BaseSQL:       `SELECT v.id AS venue_id,v.name,v.city,v.zip,v.updated_at FROM venues v`,
-		Fields:        map[string]queryFieldKind{"venue_id": queryInteger, "name": queryString, "city": queryString, "zip": queryString, "updated_at": queryTime},
-		DefaultFields: []string{"venue_id", "name", "city", "zip", "updated_at"}, SearchFields: []string{"name", "city", "zip"},
+		BaseSQL:       `SELECT v.id AS venue_id,v.name,v.city,v.zip,v.is_archived,v.updated_at FROM venues v`,
+		Fields:        map[string]queryFieldKind{"venue_id": queryInteger, "name": queryString, "city": queryString, "zip": queryString, "is_archived": queryBoolean, "updated_at": queryTime},
+		DefaultFields: []string{"venue_id", "name", "city", "zip", "is_archived", "updated_at"}, SearchFields: []string{"name", "city", "zip"},
 	},
 	"warehouse.products": {
 		Service: "warehousecore", SourceEntity: "product",

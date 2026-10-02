@@ -16,7 +16,7 @@ and production verification. Optional event streams are separate follow-up work.
 | Warehouse maintenance/defects | Full recurring plans and manual work/defect create/update/transition/complete/cancel/reopen/archive/restore; atomic schedule/condition/legacy effects, events, redacted audits and explicit cost scope | — |
 | Warehouse inventory | Full guided count/create/update/lines/review/correction/approve/cancel/archive/restore, explicit approve scope, precise context/line/event/start-stock protection, atomic physical adjustments/movements/audits/replay and redacted history | — |
 | Warehouse tasks | Full create/partial update/start/complete/cancel/reopen/archive/restore, exact task/reference versions, atomic events/audits/durable replay and redacted history | — |
-| Rental customers/venues | Resolve/search | Complete create/update/archive/restore |
+| Rental customers/venues | Full business fields, fuzzy resolve/minimal reads, partial create/update/archive/restore, signed owner action rights, active job guards, redacted audit and atomic durable replay | — |
 | Rental jobs | Create, limited metadata/status updates, device assignment | Complete fields, locking, lifecycle, full atomic audit/replay |
 | Rental requirements | Create, quantity update | Complete fields, lifecycle, full atomic audit/replay |
 | Rental staffing/external equipment | Read context | Create/update/lifecycle and personnel assignment |
@@ -85,3 +85,18 @@ and same-key retry, retained lifecycle history, active discovery, parent
 availability, restart replay and stable legacy link tools. Production rollout
 runs Warehouse/MCP before Rental to install shared lifecycle schema first.
 The parent issues remain open for the remaining rows above.
+
+## Rental customer/venue verification
+
+RentalCore 5.3.117 / Cores MCP 1.5.36 adds 22 tools: 337 total
+(95 reads / 121 preparations / 121 executions), Rental 047 / umbrella 033.
+Full race/DB tests, Vet and builds pass. Rental frontend build and suite design
+validation pass using the committed suite snapshot; unrelated user Planner
+edits are preserved. Fresh-volume actual Streamable HTTP tests verify every
+business field, signed real-user/action delegation, admin/action permissions,
+pure previews and dry-run, duplicate/role validation, partial updates/clearing,
+legacy stale versions, final-audit rollback and same-key retry, active job and
+all-writer archive/identity/delete guards, minimal reads/redacted histories,
+archived master resolution, retained historic job references, parent lifecycle
+and restart durable replay. Deploy Rental first to install shared lifecycle
+schema, then MCP. The parent issues remain open for the remaining rows above.

@@ -87,7 +87,7 @@ func registerRentalTools(server *mcp.Server, db *store.Store) {
 	rowsTool(server, db, "rental.venues.search", "Search venues", "Search event venues and return location plus usage counts without private contact details or notes.", "rentalcore", "venue", func(input SearchInput) (string, []any) {
 		return `SELECT v.id AS venue_id,v.name,v.city,v.zip,count(j.jobid) AS jobs,max(j.startdate) AS latest_job
                   FROM venues v LEFT JOIN jobs j ON j.venue_id=v.id AND j.deleted_at IS NULL
-                 WHERE $1='' OR v.name ILIKE $2 OR v.city ILIKE $2 OR v.zip ILIKE $2
+                 WHERE v.is_archived=false AND ($1='' OR v.name ILIKE $2 OR v.city ILIKE $2 OR v.zip ILIKE $2)
                  GROUP BY v.id ORDER BY jobs DESC,v.name LIMIT $3 OFFSET $4`, []any{input.Query, searchPattern(input.Query), db.Limit(input.Limit), cleanOffset(input.Offset)}
 	})
 

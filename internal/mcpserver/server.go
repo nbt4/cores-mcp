@@ -14,7 +14,7 @@ import (
 	"github.com/nbt4/cores-mcp/internal/store"
 )
 
-const Version = "1.5.35"
+const Version = "1.5.36"
 
 func New(cfg config.Config, db *store.Store, logger *slog.Logger) *mcp.Server {
 	description := "Read-only operational context and safe cross-core queries for RentalCore, WarehouseCore, PlannerCore and ProcurementCore."
@@ -31,6 +31,7 @@ func New(cfg config.Config, db *store.Store, logger *slog.Logger) *mcp.Server {
 	registerSchemaTools(server)
 	registerQueryTools(server, db)
 	registerRentalTools(server, db)
+	registerRentalMasterReads(server, db)
 	registerWarehouseTools(server, db)
 	registerWarehouseAuditTool(server, db)
 	registerWarehouseDeviceAuditTool(server, db)
@@ -51,6 +52,7 @@ func New(cfg config.Config, db *store.Store, logger *slog.Logger) *mcp.Server {
 	registerProcurementAuditTool(server, db)
 	registerCrossCoreTools(server, db)
 	if cfg.EnableWrites {
+		registerRentalMasterWrites(server, cfg)
 		registerCreateTools(server, cfg, db)
 		registerSupplierCreateTools(server, cfg, db)
 		registerSupplierUpdateTools(server, cfg, db)
@@ -124,6 +126,14 @@ func auditMiddleware(logger *slog.Logger) mcp.Middleware {
 }
 
 var mutationTools = map[string]struct{}{
+	"rental.customers.create":                        {},
+	"rental.customers.update":                        {},
+	"rental.customers.archive":                       {},
+	"rental.customers.restore":                       {},
+	"rental.venues.create":                           {},
+	"rental.venues.update":                           {},
+	"rental.venues.archive":                          {},
+	"rental.venues.restore":                          {},
 	"warehouse.inventory_counts.create":              {},
 	"warehouse.inventory_counts.update":              {},
 	"warehouse.inventory_counts.set_lines":           {},

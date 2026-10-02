@@ -131,6 +131,11 @@ func executeMutationTool[In any](ctx context.Context, name, permissionLabel stri
 			return &mcp.CallToolResult{IsError: true, Content: []mcp.Content{&mcp.TextContent{Text: message}}}, Output{AsOf: now(), Summary: message}, nil
 		}
 	}
+	if strings.HasPrefix(name, "rental.customers.") || strings.HasPrefix(name, "rental.venues.") {
+		if err := requireRentalMasterAdmin(ctx); err != nil {
+			return &mcp.CallToolResult{IsError: true, Content: []mcp.Content{&mcp.TextContent{Text: err.Error()}}}, Output{AsOf: now(), Summary: err.Error()}, nil
+		}
+	}
 	invocation, err := prepareWriteInvocation(ctx, name, input)
 	if err != nil {
 		message := fmt.Sprintf("%s rejected: %v", name, err)
@@ -204,6 +209,16 @@ func authorizeMutation(ctx context.Context, tool string) (context.Context, error
 }
 
 func requiredMutationScope(tool string) string {
+	if strings.HasPrefix(tool, "rental.customers.") || strings.HasPrefix(tool, "rental.venues.") {
+		action := "update"
+		if strings.HasSuffix(tool, ".create") {
+			action = "create"
+		}
+		if strings.HasSuffix(tool, ".archive") || strings.HasSuffix(tool, ".restore") {
+			action = "archive"
+		}
+		return coresauth.ServiceWriteScope("rental", action)
+	}
 	if strings.HasPrefix(tool, "warehouse.product_relations.") {
 		action := "update"
 		if strings.HasSuffix(tool, ".create") {
