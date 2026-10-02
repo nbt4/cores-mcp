@@ -16,10 +16,11 @@ import (
 
 type RentalMasterControl struct {
 	MutationControl
-	ID                int64  `json:"id,omitempty" jsonschema:"Exact existing customer or venue ID for update/archive/restore; omit for create."`
+	ID                int64  `json:"id,omitempty" jsonschema:"Exact existing customer or venue ID for update/archive/restore/revert_update; omit for create."`
+	AuditID           int64  `json:"audit_id,omitempty" jsonschema:"For revert_update only: exact expected_audit_id from preview. Only your most recent unchanged MCP field update can be reverted."`
 	ExpectedUpdatedAt string `json:"expected_updated_at,omitempty" jsonschema:"Exact microsecond version from the final owner preview, required for confirmed existing records."`
 	ExpectedContext   string `json:"expected_context,omitempty" jsonschema:"Exact SHA-256 preview binding all current/draft fields, duplicate candidates and active job versions."`
-	AllowDuplicate    bool   `json:"allow_duplicate,omitempty" jsonschema:"Set only after reviewing matching active records and explicitly confirming a distinct business identity. Archived exact matches must be restored."`
+	AllowDuplicate    bool   `json:"allow_duplicate,omitempty" jsonschema:"Set only after reviewing matching active or archived records and explicitly confirming a distinct business identity. Creation from an archived exact match requires restoration."`
 	ConfirmChange     bool   `json:"confirm_change,omitempty" jsonschema:"Set only after presenting all business fields, diff, matching records and dependencies and receiving explicit confirmation."`
 	ConfirmationText  string `json:"confirmation_text,omitempty" jsonschema:"Exact record/draft-bound CREATE/UPDATE/ARCHIVE/RESTORE phrase from the final preview."`
 }
@@ -96,7 +97,7 @@ func invokeRentalMaster(ctx context.Context, cfg config.Config, entity, op strin
 	return out, []Source{{Service: "rentalcore", Entity: kind, ID: id}}, []string{"Preparation requires current administrator/action rights and returns complete business fields, including contact details and notes. Default reads and histories redact these fields. Archive retains identity and history and blocks active jobs; restore preserves every business field. No external messages are sent. Record, audit and durable receipt commit atomically."}, err
 }
 func registerRentalMasterWrites(server *mcp.Server, cfg config.Config) {
-	for _, op := range []string{"create", "update", "archive", "restore"} {
+	for _, op := range []string{"create", "update", "archive", "restore", "revert_update"} {
 		operation := op
 		addWritePreparationTool(server, "rental.customers.prepare_"+operation, "Prepare customer "+operation, "Review all customer fields, duplicate candidates, exact record/context versions and active jobs without changing data.", func(ctx context.Context, in RentalCustomerInput) (any, []Source, []string, error) {
 			return invokeRentalMaster(ctx, cfg, "customers", operation, in, true)
@@ -178,7 +179,7 @@ func registerRentalMasterReads(server *mcp.Server, db *store.Store) {
 			if err := requireRentalMasterAdmin(ctx); err != nil {
 				return nil, nil, nil, err
 			}
-			rows, err := db.Query(ctx, `SELECT id AS audit_id,user_id,timestamp,action,new_values->>'origin' AS origin,new_values->>'updated_at' AS result_version,old_values->>'is_archived' AS archived_before,new_values#>>'{after,is_archived}' AS archived_after FROM audit_log WHERE entity_type=$1 AND entity_id=$2 ORDER BY id DESC LIMIT 100`, "rental_"+entity, strings.TrimSpace(in.ID))
+			rows, err := db.Query(ctx, `SELECT id AS audit_id,user_id,timestamp,action,new_values->>'origin' AS origin,new_values->>'updated_at' AS result_version,new_values->>'reverted_audit_id' AS reverted_audit_id,old_values->>'is_archived' AS archived_before,new_values#>>'{after,is_archived}' AS archived_after FROM audit_log WHERE entity_type=$1 AND entity_id=$2 ORDER BY id DESC LIMIT 100`, "rental_"+entity, strings.TrimSpace(in.ID))
 			return rows, []Source{{Service: "rentalcore", Entity: entity, ID: in.ID}}, nil, err
 		})
 	}

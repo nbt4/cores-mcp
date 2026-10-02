@@ -87,9 +87,12 @@ func TestRentalMasterOwnerDelegationDryRunRetryAndRights(t *testing.T) {
 
 func TestRentalMasterScopesSchemasAndArchivedResolution(t *testing.T) {
 	for _, entity := range []string{"customers", "venues"} {
-		for _, op := range []string{"create", "update", "archive", "restore"} {
+		for _, op := range []string{"create", "update", "archive", "restore", "revert_update"} {
 			name := "rental." + entity + "." + op
 			action := op
+			if op == "revert_update" {
+				action = "update"
+			}
 			if action == "restore" {
 				action = "archive"
 			}
@@ -122,5 +125,56 @@ func TestEmbeddedPointerConfirmationDryRunPreservesCaller(t *testing.T) {
 	prepared, err := prepareWriteInvocation(context.Background(), "rental.customers.update", input)
 	if err != nil || prepared.Confirmed || prepared.Input.ConfirmChange || !input.ConfirmChange || prepared.Input.EmbeddedControl == input.EmbeddedControl {
 		t.Fatal("nested dry-run modified caller or retained confirmation", err)
+	}
+}
+
+func TestRentalMasterRevertDelegatesExactAuditAndUpdateScope(t *testing.T) {
+	old := http.DefaultTransport
+	t.Cleanup(func() { http.DefaultTransport = old })
+	secret := strings.Repeat("revert-test-", 4)
+	calls := 0
+	http.DefaultTransport = inventoryTestRoundTripper(func(r *http.Request) (*http.Response, error) {
+		calls++
+		if r.URL.Path != "/api/v1/mcp/venues/revert_update" {
+			t.Fatal(r.URL)
+		}
+		cookie, err := r.Cookie("cores_token")
+		if err != nil {
+			t.Fatal(err)
+		}
+		claims := &suiteServiceClaims{}
+		tok, err := jwt.ParseWithClaims(cookie.Value, claims, func(*jwt.Token) (any, error) { return []byte(secret), nil }, jwt.WithValidMethods([]string{"HS256"}), jwt.WithExpirationRequired())
+		if err != nil || !tok.Valid || claims.UserID != 42 || claims.MutationScope != "cores:rental:update" {
+			t.Fatal("wrong revert delegation", err, claims)
+		}
+		body := map[string]any{}
+		if err = json.NewDecoder(r.Body).Decode(&body); err != nil {
+			t.Fatal(err)
+		}
+		if body["audit_id"] != float64(17) || body["expected_context"] != strings.Repeat("b", 64) || body["preview"] != false || body["confirm_change"] != true || r.Header.Get("Idempotency-Key") != "rental-venue-revert-exact-audit" {
+			t.Fatal(body)
+		}
+		for _, key := range []string{"notes", "name", "old_values", "new_values", "dry_run", "idempotency_key"} {
+			if _, ok := body[key]; ok {
+				t.Fatal("unexpected undo payload", key)
+			}
+		}
+		return &http.Response{StatusCode: 200, Header: make(http.Header), Body: io.NopCloser(strings.NewReader(`{"operation_status":"reverted","record":{"id":7},"reverted_audit_id":17}`)), Request: r}, nil
+	})
+	cfg := config.Config{RentalURL: "http://rental.invalid", JWTSecret: secret}
+	in := RentalVenueInput{RentalMasterControl: RentalMasterControl{ID: 7, AuditID: 17, ExpectedUpdatedAt: "2026-10-02T08:01:02.000123Z", ExpectedContext: strings.Repeat("b", 64), ConfirmChange: true, ConfirmationText: "REVERT_UPDATE RENTAL VENUE 7 PREVIEW-DIGEST", MutationControl: MutationControl{IdempotencyKey: "rental-venue-revert-exact-audit"}}}
+	fn := func(ctx context.Context, input RentalVenueInput) (any, []Source, []string, error) {
+		return invokeRentalMaster(ctx, cfg, "venues", "revert_update", input, false)
+	}
+	ctx := inventoryTestContext(t, "42", true, "cores:rental:update")
+	result, _, err := executeMutationTool(ctx, "rental.venues.revert_update", "Revert venue update", in, fn)
+	if err != nil || (result != nil && result.IsError) || calls != 1 {
+		t.Fatal(result, err, calls)
+	}
+	for _, denied := range []context.Context{inventoryTestContext(t, "42", true, "cores:rental:archive"), inventoryTestContext(t, "42", false, "cores:rental:update")} {
+		result, _, err = executeMutationTool(denied, "rental.venues.revert_update", "Revert venue update", in, fn)
+		if err != nil || !result.IsError || calls != 1 {
+			t.Fatal("cached revert bypassed rights", result, err, calls)
+		}
 	}
 }

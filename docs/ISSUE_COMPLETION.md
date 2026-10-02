@@ -30,7 +30,7 @@ and production verification. Optional event streams are separate follow-up work.
 | Business documents | Knowledge references only | Scoped metadata/content, quotation/invoice generation/send, attachments, labels |
 | Permissions | Read-only configuration; service/action scopes; real user, target-Core rights | Documents, financial fields outside maintenance, and remaining named workflow scopes |
 | Write protection | Confirmation, dry-run, bounded requests, rate limits | Verify every legacy writer has target atomic audit/replay and precise versions |
-| Undo | Device field revert and existing restores | Defined remaining field revert paths and per-entity history |
+| Undo | Device, Rental customer/venue own last-field-update revert, redacted history and existing restores | Defined remaining field revert paths and per-entity history |
 
 ## Case workflow contract
 
@@ -100,3 +100,16 @@ all-writer archive/identity/delete guards, minimal reads/redacted histories,
 archived master resolution, retained historic job references, parent lifecycle
 and restart durable replay. Deploy Rental first to install shared lifecycle
 schema, then MCP. The parent issues remain open for the remaining rows above.
+
+## Rental master field revert verification
+
+RentalCore 5.3.118 / Cores MCP 1.5.37 adds four tools: 341 total
+(95 reads / 123 preparations / 123 executions). Only the latest unchanged
+own MCP update can be reverted with exact audit/version/context confirmation.
+Tests cover both customer and venue fields, actor checks, intervening legacy
+writes, repeated undo rejection, dry-run/scopes, final-audit rollback with
+same-key retry, redacted history, durable restart replay and replay of a
+receipt created by the previous published owner/MCP versions. Explicitly
+distinct same-named archived venues restore with reviewed duplicate consent;
+creation from an archived exact match remains blocked. No schema change.
+Parent issues remain open for all remaining areas above.
