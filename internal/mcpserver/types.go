@@ -301,7 +301,7 @@ func requiredMutationScope(tool string) string {
 		return coresauth.ServiceWriteScope("procurement", "approve")
 	case "procurement.requisitions.submit":
 		return coresauth.ServiceWriteScope("procurement", "submit")
-	case "procurement.orders.send_amazon":
+	case "procurement.orders.send_amazon", "procurement.orders.reconcile_submission":
 		return coresauth.ServiceWriteScope("procurement", "send")
 	case "procurement.orders.receive":
 		return coresauth.ServiceWriteScope("procurement", "receive")

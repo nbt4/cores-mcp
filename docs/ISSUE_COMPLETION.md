@@ -23,7 +23,7 @@ and production verification. Optional event streams are separate follow-up work.
 | Procurement suppliers/products/offers | Create/update, retained named archive/restore, exact record/dependency context, current owner rights, atomic audit/activity/durable replay, per-entity redacted versioned history | — |
 | Procurement categories | Full parameter schema create/update, retained named archive/restore, active product/parent guards, redacted audit and atomic owner activity/replay | — |
 | Procurement requisitions | Complete owner context-bound draft create/update/submit with retained line IDs, distinct-administrator decisions, retained archive/restore, verified return → revise → resubmit, exact atomic supplier order conversion and redacted versioned history | Scoped read/financial verification |
-| Procurement orders | Complete owner context-bound draft create/update with retained line IDs, status transitions, full context-bound receipt, retained archive/restore with putaway blockers, durable Amazon supplier submission and versioned history | Adam-Hall supplier submission; guided human reconciliation of uncertain submissions |
+| Procurement orders | Complete owner context-bound draft create/update with retained line IDs, status transitions, full context-bound receipt, retained archive/restore with putaway blockers, durable Amazon supplier submission, retained human reconciliation of uncertain claims and versioned history | Adam-Hall supplier submission |
 | Procurement product mapping | Audited versioned link | Supplier-link lifecycle verification |
 | Planner plans/tasks | Create, membership-protected reads | Complete update/archive/restore, durable atomic audit/replay |
 | Planner buckets/labels/dependencies/sprints/goals | Read context | Schema discovery, guided create/update/archive/restore |
@@ -462,3 +462,17 @@ supplier call, lost outcome and ambiguous response barriers, concurrent claims,
 legacy/all-writer guards, redacted history and durable owner/MCP restart replay.
 Production deployment uses only read-only catalog/guard verification; parent issues
 remain open for Adam Hall and every remaining acceptance row above.
+
+## Human supplier reconciliation verification
+
+ProcurementCore 1.0.75 / MCP 1.5.50 adds two named human-verification tools:
+389 total (105 reads / 142 preparations / 142 executions), native 013 / root 042.
+No supplier calls or automatic resend occur. A completed human supplier-account
+check, evidence, exact order/claim/reference context, explicit send/current admin
+rights and elevated phrase bind found_order or confirmed_not_sent. The settling
+period blocks live attempts; known acknowledgements, physical receipts and
+supplier confirmations block contradictory reconciliation. Original claim,
+commercial lines and acknowledgements remain immutable. Resolution, order status,
+full audit/activity and durable receipt commit together; historical submission
+receipts preserve their original results. Production checks remain read-only.
+Parent issues remain open for Adam Hall and the other remaining acceptance rows.

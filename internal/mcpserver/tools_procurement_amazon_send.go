@@ -18,7 +18,9 @@ type AmazonOrderSendInput struct {
 	ConfirmSend       bool   `json:"confirm_send,omitempty"`
 }
 
-func isProcurementSupplierSendTool(name string) bool { return name == "procurement.orders.send_amazon" }
+func isProcurementSupplierSendTool(name string) bool {
+	return name == "procurement.orders.send_amazon" || name == "procurement.orders.reconcile_submission"
+}
 
 func registerProcurementAmazonSendTools(server *mcp.Server, cfg config.Config) {
 	addWritePreparationTool(server, "procurement.orders.prepare_send_amazon", "Prepare Amazon supplier submission", "Review complete original order, references, supplier payload, exact EUR total, business destinations and deployment mode without sending or changing data. Explicit supplier send scope required.", func(ctx context.Context, input AmazonOrderSendInput) (any, []Source, []string, error) {
