@@ -22,7 +22,7 @@ and production verification. Optional event streams are separate follow-up work.
 | Rental staffing/external equipment | Read context | Create/update/lifecycle and personnel assignment |
 | Procurement suppliers/products/offers | Create/update, retained named archive/restore, exact record/dependency context, current owner rights, atomic audit/activity/durable replay, per-entity redacted versioned history | — |
 | Procurement categories | Full parameter schema create/update, retained named archive/restore, active product/parent guards, redacted audit and atomic owner activity/replay | — |
-| Procurement requisitions | Draft create/update, submit, complete context-bound distinct-administrator decisions, retained archive/restore, verified return → revise → resubmit and redacted versioned history | Legacy writer protection verification |
+| Procurement requisitions | Complete owner context-bound draft create/update/submit with retained line IDs, distinct-administrator decisions, retained archive/restore, verified return → revise → resubmit and redacted versioned history | Scoped read/financial verification |
 | Procurement orders | Draft create/update, complete context-bound status transitions, full context-bound receipt, retained archive/restore with putaway blockers and versioned history | Legacy draft protection and supplier submission verification |
 | Procurement product mapping | Audited versioned link | Supplier-link lifecycle verification |
 | Planner plans/tasks | Create, membership-protected reads | Complete update/archive/restore, durable atomic audit/replay |
@@ -319,3 +319,41 @@ Deploy Procurement first, then MCP, and verify exact healthy images, every exist
 guard and the complete read-only catalog. Other acceptance rows, legacy draft
 writers, supplier submission and remaining financial/document/Undo protection stay
 open; neither parent issue is complete yet.
+
+## Complete requisition draft/submission verification
+
+Procurement 1.0.71 / MCP 1.5.46 retains 383 tools. The six existing requisition
+create/update/submit tools delegate directly to the closed owner API. Current
+active requester/admin rights and signed action are checked before new, cached,
+legacy and restarted results. Complete draft/line/reference/own duplicate context,
+exact microsecond version and a context-bound phrase protect final confirmation.
+Omitted lines retain their original identities and opaque native fields; explicit
+replacements may retain original line IDs and add new lines. Same-title own demands
+require reviewed distinct-creation consent. Return/revision/resubmission retains
+history and clears the previous active decision when resubmitted. Business data,
+full before/after audit, native activity and durable response commit together.
+
+Native 011 / umbrella 040 installs four all-writer reference guards. Active
+product/supplier/requisition row locks close the validation-versus-archive race
+for line creation/relinking, order supplier/parent writes, requisition submission/
+approval and restoration. Closed historical records retain inactive references.
+Exact older native request hashes and saved successful business responses remain
+replayable. Unbooked public legacy MCP draft/submission writes require new owner
+preparation; current rights are checked even for saved old results.
+
+Full PostgreSQL/race suites, Vet/builds, 23 unchanged frontend tests, cached
+frontend build and committed suite design validation pass. Native tests reproduce
+both actual catalog-archive race orderings and require fail-closed outcomes.
+Actual Streamable HTTP against upgraded and separately fresh complete stacks
+verifies complete fields/derived totals, nullable clearing, retained/replaced line
+IDs, scope/current revoked owner rights, previews/dry-run/phrase, catalog/line/
+duplicate staleness, all three final-audit rollback/same-key retries, a single
+concurrent exact-version update, different-admin return/revise/resubmit, all-writer
+reference guards, public legacy rejection, redacted versioned history and owner/
+MCP restart replay. Actual previously published 1.0.70/1.5.45 create/update/submit
+golden business results replay unchanged; changed original payloads are rejected.
+
+Deploy Procurement before MCP and verify healthy exact released images, every
+existing guard plus the four catalog-reference guards and the full read-only
+catalog. Other acceptance rows, order draft/submission, scoped read/financial/
+document/Undo protection remain open; neither parent issue is complete.

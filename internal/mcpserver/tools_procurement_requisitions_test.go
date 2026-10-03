@@ -17,7 +17,7 @@ import (
 	"github.com/nbt4/cores-mcp/internal/store"
 )
 
-func TestPrepareRequisitionCreateUpdateAndSubmit(t *testing.T) {
+func TestRequisitionHistoryVersionsAndCurrentRights(t *testing.T) {
 	dsn := os.Getenv("CORES_MCP_PROCUREMENT_TEST_DATABASE_URL")
 	if dsn == "" {
 		t.Skip("set CORES_MCP_PROCUREMENT_TEST_DATABASE_URL to a disposable PostgreSQL database ending in _test")
@@ -70,80 +70,6 @@ func TestPrepareRequisitionCreateUpdateAndSubmit(t *testing.T) {
 			return r
 		}())
 		return result, prepareErr
-	}
-	lines := []RequisitionLineInput{{ProductID: func() *int64 { v := int64(1); return &v }(), Description: "DMX cable", Quantity: 2, EstimatedPriceCents: 1250}}
-	title := "Tour cable"
-	create := RequisitionDraftInput{Title: &title, Lines: &lines}
-	p, err := run("41", false, func(ctx context.Context) (preparedMutation, error) {
-		return prepareRequisitionDraft(ctx, db, create, false)
-	})
-	if err != nil || !p.Ready || len(p.RelatedRecords) != 1 {
-		t.Fatalf("create preview: %#v %v", p, err)
-	}
-	lines[0].ProductID = func() *int64 { v := int64(2); return &v }()
-	p, err = run("41", false, func(ctx context.Context) (preparedMutation, error) {
-		return prepareRequisitionDraft(ctx, db, create, false)
-	})
-	if err != nil || p.Ready || !containsString(p.Missing, "lines[0].product_id") {
-		t.Fatalf("inactive product accepted: %#v %v", p, err)
-	}
-	newTitle := "Tour cable urgent"
-	update := RequisitionDraftInput{RequisitionID: 7, Title: &newTitle}
-	if _, err = run("42", false, func(ctx context.Context) (preparedMutation, error) {
-		return prepareRequisitionDraft(ctx, db, update, true)
-	}); err == nil {
-		t.Fatal("another requester could edit")
-	}
-	p, err = run("41", false, func(ctx context.Context) (preparedMutation, error) {
-		return prepareRequisitionDraft(ctx, db, update, true)
-	})
-	if err != nil || !p.Ready || len(p.Diff) != 1 || p.Draft["expectedUpdatedAt"] != "2026-09-24T08:15:00.123456Z" {
-		t.Fatalf("update preview: %#v %v", p, err)
-	}
-	update.ConfirmUpdate = true
-	p, err = run("41", false, func(ctx context.Context) (preparedMutation, error) {
-		return prepareRequisitionDraft(ctx, db, update, true)
-	})
-	if err != nil || p.Ready || !containsString(p.Missing, "expected_updated_at") {
-		t.Fatalf("missing version accepted: %#v %v", p, err)
-	}
-	update.ExpectedUpdatedAt = "2026-09-24T08:15:00.123456Z"
-	p, err = run("41", false, func(ctx context.Context) (preparedMutation, error) {
-		return prepareRequisitionDraft(ctx, db, update, true)
-	})
-	if err != nil || !p.Ready {
-		t.Fatalf("matching version rejected: %#v %v", p, err)
-	}
-	if _, err := database.Exec("UPDATE proc_requisitions SET status='returned' WHERE id=7"); err != nil {
-		t.Fatal(err)
-	}
-	p, err = run("41", false, func(ctx context.Context) (preparedMutation, error) {
-		return prepareRequisitionDraft(ctx, db, update, true)
-	})
-	if err != nil || !p.Ready || p.Diff["status"]["before"] != "returned" || p.Diff["status"]["after"] != "draft" {
-		t.Fatal("missing returned revision diff", p, err)
-	}
-	if _, err := database.Exec("UPDATE proc_requisitions SET is_archived=true WHERE id=7"); err != nil {
-		t.Fatal(err)
-	}
-	p, err = run("41", false, func(ctx context.Context) (preparedMutation, error) {
-		return prepareRequisitionDraft(ctx, db, update, true)
-	})
-	if err != nil || p.Ready || !containsString(p.Missing, "active_requisition") {
-		t.Fatal("archived revision accepted", p, err)
-	}
-	if _, err := database.Exec("UPDATE proc_requisitions SET is_archived=false,status='draft' WHERE id=7"); err != nil {
-		t.Fatal(err)
-	}
-	submit := RequisitionSubmitInput{RequisitionID: 7, ConfirmSubmit: true}
-	p, err = run("41", false, func(ctx context.Context) (preparedMutation, error) { return prepareRequisitionSubmit(ctx, db, submit) })
-	if err != nil || p.Ready || !containsString(p.Missing, "expected_updated_at") {
-		t.Fatalf("submit missing version accepted: %#v %v", p, err)
-	}
-	submit.ExpectedUpdatedAt = "2026-09-24T08:15:00.123456Z"
-	p, err = run("41", false, func(ctx context.Context) (preparedMutation, error) { return prepareRequisitionSubmit(ctx, db, submit) })
-	if err != nil || !p.Ready || p.Draft["confirmation_text_required"] != "SUBMIT REQUISITION 7" {
-		t.Fatalf("submit preview: %#v %v", p, err)
 	}
 	// Historical native and retained lifecycle audits must both expose their
 	// precise result version without leaking notes or raw before/after JSON.
