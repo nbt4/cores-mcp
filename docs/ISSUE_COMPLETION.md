@@ -22,8 +22,8 @@ and production verification. Optional event streams are separate follow-up work.
 | Rental staffing/external equipment | Read context | Create/update/lifecycle and personnel assignment |
 | Procurement suppliers/products/offers | Create/update, retained named archive/restore, exact record/dependency context, current owner rights, atomic audit/activity/durable replay, per-entity redacted versioned history | — |
 | Procurement categories | Full parameter schema create/update, retained named archive/restore, active product/parent guards, redacted audit and atomic owner activity/replay | — |
-| Procurement requisitions | Complete owner context-bound draft create/update/submit with retained line IDs, distinct-administrator decisions, retained archive/restore, verified return → revise → resubmit and redacted versioned history | Guided supplier order conversion; scoped read/financial verification |
-| Procurement orders | Complete owner context-bound draft create/update with retained line IDs, status transitions, full context-bound receipt, retained archive/restore with putaway blockers and versioned history | Guided requisition conversion and supplier submission |
+| Procurement requisitions | Complete owner context-bound draft create/update/submit with retained line IDs, distinct-administrator decisions, retained archive/restore, verified return → revise → resubmit, exact atomic supplier order conversion and redacted versioned history | Scoped read/financial verification |
+| Procurement orders | Complete owner context-bound draft create/update with retained line IDs, status transitions, full context-bound receipt, retained archive/restore with putaway blockers and versioned history | Supplier submission |
 | Procurement product mapping | Audited versioned link | Supplier-link lifecycle verification |
 | Planner plans/tasks | Create, membership-protected reads | Complete update/archive/restore, durable atomic audit/replay |
 | Planner buckets/labels/dependencies/sprints/goals | Read context | Schema discovery, guided create/update/archive/restore |
@@ -397,3 +397,30 @@ Deploy Procurement before MCP, verify healthy exact released images, every exist
 guard and the full read-only catalog. Guided requisition-to-order conversion,
 external supplier submission and all other remaining rows require completion;
 neither parent issue is ready to close.
+
+## Approved requisition to supplier order verification
+
+Procurement 1.0.73 / MCP 1.5.48 adds two named tools: 385 total (105 reads /
+140 preparations / 140 executions), no new migration. Current administrator and
+signed create rights protect preparation, execution and every cached/durable
+replay. Exact microsecond requisition version, complete original record/lines,
+active supplier/product/preferred supplier references, all offer candidates,
+existing orders and final derived draft bind the full context and phrase.
+The original native cheapest active offer/retained preferred estimate/URL rule
+remains, with deterministic ID tie-breaking and explicit expired offer, currency,
+minimum quantity and pack blockers. No silent rounding or supplier submission.
+Amazon source sessions/vendor references are retained and require Amazon Business.
+
+Order creation and requisition status update retain original fields, decision and
+line IDs. Both full audits, native activities and durable response commit together.
+The existing UI conversion now rechecks approved status inside the same transaction;
+concurrent UI/MCP conversions create only one order. Old unreviewed MCP conversion
+cannot bypass the closed owner workflow and receives 428. Verification covers actual
+PostgreSQL/race suites, Vet/builds, unchanged frontend tests/build, committed design
+check, upgrade/fresh real MCP approval-to-conversion flows, pure preview/dry-run,
+current/revoked admin/action rights, exact phrases, offer/catalog/line staleness,
+both final audit rollbacks and same-key retry, concurrent execution, retained
+original fields/IDs, offer business constraints, redacted history, existing published
+golden draft results and durable owner/MCP restart replay. Deploy owner first, MCP
+second; verify the complete read-only catalog and all installed guards.
+Parent issues remain open for the remaining rows above.

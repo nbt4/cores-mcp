@@ -67,6 +67,7 @@ func New(cfg config.Config, db *store.Store, logger *slog.Logger) *mcp.Server {
 		registerProcurementRequisitionTools(server, cfg, db)
 		registerProcurementOrderTransitionTools(server, cfg, db)
 		registerProcurementOrderDraftTools(server, cfg, db)
+		registerProcurementRequisitionOrderTools(server, cfg)
 		registerProcurementProductLinkTools(server, cfg, db)
 		registerCategoryTools(server, cfg, db)
 		registerWarehouseProductCreateTools(server, cfg, db)

@@ -131,7 +131,7 @@ func executeMutationTool[In any](ctx context.Context, name, permissionLabel stri
 			return &mcp.CallToolResult{IsError: true, Content: []mcp.Content{&mcp.TextContent{Text: message}}}, Output{AsOf: now(), Summary: message}, nil
 		}
 	}
-	if isProcurementMasterLifecycleTool(name) || isProcurementWorkflowLifecycleTool(name) && strings.HasPrefix(name, "procurement.orders.") || name == "procurement.orders.receive" || isProcurementApprovalTool(name) || isProcurementOrderDraftTool(name) {
+	if isProcurementMasterLifecycleTool(name) || isProcurementWorkflowLifecycleTool(name) && strings.HasPrefix(name, "procurement.orders.") || name == "procurement.orders.receive" || isProcurementApprovalTool(name) || isProcurementOrderDraftTool(name) || isProcurementRequisitionOrderTool(name) {
 		if err := requireProcurementAdmin(ctx); err != nil {
 			return &mcp.CallToolResult{IsError: true, Content: []mcp.Content{&mcp.TextContent{Text: err.Error()}}}, Output{AsOf: now(), Summary: err.Error()}, nil
 		}
@@ -167,7 +167,7 @@ func executeMutationTool[In any](ctx context.Context, name, permissionLabel stri
 		if !owner {
 			// Rental jobs/requirements authorize replay against current owner-side rights.
 			// The durable receipt supplies the result without repeating the write.
-			if isProcurementMasterLifecycleTool(name) || isProcurementWorkflowLifecycleTool(name) || name == "procurement.orders.receive" || isProcurementApprovalTool(name) || isProcurementRequisitionDraftTool(name) || isProcurementOrderDraftTool(name) || strings.HasPrefix(name, "rental.jobs.") || strings.HasPrefix(name, "rental.requirements.") {
+			if isProcurementMasterLifecycleTool(name) || isProcurementWorkflowLifecycleTool(name) || name == "procurement.orders.receive" || isProcurementApprovalTool(name) || isProcurementRequisitionDraftTool(name) || isProcurementOrderDraftTool(name) || isProcurementRequisitionOrderTool(name) || strings.HasPrefix(name, "rental.jobs.") || strings.HasPrefix(name, "rental.requirements.") {
 				data, sources, warnings, err := fn(withMutationIdempotency(ctx, mutationControlsKey(input)), invocation.Input)
 				if err != nil {
 					message := fmt.Sprintf("%s failed: %v", name, err)
@@ -290,7 +290,7 @@ func requiredMutationScope(tool string) string {
 		return coresauth.ServiceWriteScope("warehouse", "archive")
 	case "planner.plans.create", "planner.tasks.create":
 		return coresauth.ServiceWriteScope("planner", "create")
-	case "procurement.products.create", "procurement.offers.create", "procurement.orders.create", "procurement.suppliers.create", "procurement.categories.create", "procurement.requisitions.create":
+	case "procurement.products.create", "procurement.offers.create", "procurement.orders.create", "procurement.suppliers.create", "procurement.categories.create", "procurement.requisitions.create", "procurement.requisitions.order":
 		return coresauth.ServiceWriteScope("procurement", "create")
 	case "procurement.suppliers.update", "procurement.categories.update", "procurement.products.update", "procurement.offers.update", "procurement.requisitions.update", "procurement.product_links.link", "procurement.orders.update":
 		return coresauth.ServiceWriteScope("procurement", "update")
