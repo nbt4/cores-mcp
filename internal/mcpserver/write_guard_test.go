@@ -101,7 +101,7 @@ func TestExecuteMutationToolRunsConfirmedWriteOnce(t *testing.T) {
 		return map[string]any{"id": 7}, []Source{{Service: "RentalCore", Entity: "requirement", ID: "7"}}, nil, nil
 	}
 	for attempt := 0; attempt < 2; attempt++ {
-		result, output, err := executeMutationTool(ctx, "procurement.orders.update", "write", input, fn)
+		result, output, err := executeMutationTool(ctx, "test.records.update", "write", input, fn)
 		if err != nil || result != nil || output.Data == nil {
 			t.Fatalf("attempt %d result=%#v output=%#v err=%v", attempt, result, output, err)
 		}
@@ -135,7 +135,7 @@ func TestExecuteMutationToolCoalescesConcurrentRetries(t *testing.T) {
 	for index := 0; index < attempts; index++ {
 		go func() {
 			defer wait.Done()
-			result, _, err := executeMutationTool(ctx, "procurement.orders.update", "write", input, fn)
+			result, _, err := executeMutationTool(ctx, "test.records.update", "write", input, fn)
 			if err != nil {
 				errors <- err
 				return

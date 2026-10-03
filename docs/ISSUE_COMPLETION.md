@@ -22,8 +22,8 @@ and production verification. Optional event streams are separate follow-up work.
 | Rental staffing/external equipment | Read context | Create/update/lifecycle and personnel assignment |
 | Procurement suppliers/products/offers | Create/update, retained named archive/restore, exact record/dependency context, current owner rights, atomic audit/activity/durable replay, per-entity redacted versioned history | — |
 | Procurement categories | Full parameter schema create/update, retained named archive/restore, active product/parent guards, redacted audit and atomic owner activity/replay | — |
-| Procurement requisitions | Complete owner context-bound draft create/update/submit with retained line IDs, distinct-administrator decisions, retained archive/restore, verified return → revise → resubmit and redacted versioned history | Scoped read/financial verification |
-| Procurement orders | Draft create/update, complete context-bound status transitions, full context-bound receipt, retained archive/restore with putaway blockers and versioned history | Legacy draft protection and supplier submission verification |
+| Procurement requisitions | Complete owner context-bound draft create/update/submit with retained line IDs, distinct-administrator decisions, retained archive/restore, verified return → revise → resubmit and redacted versioned history | Guided supplier order conversion; scoped read/financial verification |
+| Procurement orders | Complete owner context-bound draft create/update with retained line IDs, status transitions, full context-bound receipt, retained archive/restore with putaway blockers and versioned history | Guided requisition conversion and supplier submission |
 | Procurement product mapping | Audited versioned link | Supplier-link lifecycle verification |
 | Planner plans/tasks | Create, membership-protected reads | Complete update/archive/restore, durable atomic audit/replay |
 | Planner buckets/labels/dependencies/sprints/goals | Read context | Schema discovery, guided create/update/archive/restore |
@@ -357,3 +357,43 @@ Deploy Procurement before MCP and verify healthy exact released images, every
 existing guard plus the four catalog-reference guards and the full read-only
 catalog. Other acceptance rows, order draft/submission, scoped read/financial/
 document/Undo protection remain open; neither parent issue is complete.
+
+## Complete purchase-order draft verification
+
+Procurement 1.0.72 / MCP 1.5.47 retains 383 tools. The four existing order
+create/update tools delegate directly to the closed owner API. Current active
+administrator and signed create/update rights are checked before new, cached,
+legacy and restarted results. Complete fields/lines, supplier/product resolution,
+canonical native fractional totals, current catalog/original requisition,
+receipts/confirmations and duplicate supplier numbers bind exact version/context
+and confirmation. Creation remains draft-only. Omitted lines retain original IDs
+and opaque native fields; explicit replacements may retain existing line IDs and
+add new lines, with native ID order shown by both preview and persisted result.
+Nullable dates can be cleared; create dates remain YYYY-MM-DD and update dates
+RFC3339. Sent, received, archived and Amazon/receipted/confirmed drafts cannot be
+rewritten through this path. No external supplier order or stock effect occurs.
+
+Business change, complete before/after native audit, activity and durable response
+commit atomically. Original successful native hashes/business responses remain
+replayable; unbooked public legacy MCP drafts require the new owner context.
+If an old supplier-only query no longer resolves after catalog rename, provide
+the original saved supplier ID. There is no migration; native 011 / umbrella 040
+and every previous guard remain installed.
+
+Full PostgreSQL/race suites, Vet/builds, 23 unchanged frontend tests, cached
+frontend build and committed suite design validation pass. Actual Streamable HTTP
+against upgraded and separately fresh complete stacks verifies full fields,
+supplier/product resolution and original price arithmetic, previews/dry-run/phrase,
+current role/scope and cached revocation, catalog/native-line staleness, nullable
+clearing, retained replacement line IDs/order, final create/update audit rollback
+and same-key retry, single concurrent exact-version update/duplicate supplier-
+number creation, native sent/archive/Amazon/receipted blockers, public legacy
+rejection, redacted versioned history and owner/MCP restart replay. Golden order
+create/update business results from the previous published 1.0.71/1.5.46 replay
+unchanged; changed original payloads are rejected. Earlier requisition golden
+results remain replayable too.
+
+Deploy Procurement before MCP, verify healthy exact released images, every existing
+guard and the full read-only catalog. Guided requisition-to-order conversion,
+external supplier submission and all other remaining rows require completion;
+neither parent issue is ready to close.

@@ -3,7 +3,6 @@ package mcpserver
 import (
 	"context"
 	"fmt"
-	"math"
 	"net/http"
 	"net/url"
 	"strings"
@@ -59,6 +58,7 @@ type RequirementUpdateInput struct {
 }
 
 type PurchaseOrderLineInput struct {
+	LineID         int64   `json:"line_id,omitempty" jsonschema:"For draft update, retain this original native line ID; omit for a new line."`
 	ProductID      int64   `json:"product_id,omitempty" jsonschema:"Optional active ProcurementCore product ID."`
 	Description    string  `json:"description,omitempty" jsonschema:"Required when product_id is omitted; otherwise defaults to the product name."`
 	Quantity       float64 `json:"quantity,omitempty" jsonschema:"Required positive quantity."`
@@ -69,6 +69,8 @@ type PurchaseOrderLineInput struct {
 
 type PurchaseOrderCreateInput struct {
 	MutationControl
+	ExpectedContext     string                   `json:"expected_context,omitempty" jsonschema:"Exact full draft/reference/duplicate context from preparation."`
+	ConfirmationText    string                   `json:"confirmation_text,omitempty" jsonschema:"Exact context-bound phrase from prepare_create."`
 	SupplierID          int64                    `json:"supplier_id,omitempty" jsonschema:"Exact active ProcurementCore supplier ID."`
 	SupplierQuery       string                   `json:"supplier_query,omitempty" jsonschema:"Supplier name or code to resolve when supplier_id is unknown."`
 	SupplierOrderNumber string                   `json:"supplier_order_number,omitempty"`
@@ -176,25 +178,11 @@ func registerWorkflowTools(server *mcp.Server, cfg config.Config, db *store.Stor
 		return invokeRentalRequirement(ctx, cfg, db, "update", in, false)
 	})
 
-	addWritePreparationTool(server, "procurement.orders.prepare_create", "Prepare purchase order", "Resolve the supplier and products, validate every line, dates and currency, calculate the exact total, and identify duplicate supplier order numbers.", func(ctx context.Context, input PurchaseOrderCreateInput) (any, []Source, []string, error) {
-		prepared, err := preparePurchaseOrderCreate(ctx, db, input)
-		return prepared.response("draft"), mutationSources(prepared, "procurementcore", "purchase_order_draft"), append(untrustedTextWarning(), prepared.Warnings...), err
+	addWritePreparationTool(server, "procurement.orders.prepare_create", "Prepare purchase order", "Review complete supplier/product references, every line, canonical totals, dates, duplicates and exact bound owner context.", func(ctx context.Context, input PurchaseOrderCreateInput) (any, []Source, []string, error) {
+		return invokeProcurementOrderDraft(ctx, cfg, "create", input, true)
 	})
-	addCreateTool(server, "procurement.orders.create", "Create purchase order", "Create one ProcurementCore purchase order. First call procurement.orders.prepare_create, show supplier, every line and the total, and obtain explicit confirmation. ProcurementCore administrator rights are required.", func(ctx context.Context, input PurchaseOrderCreateInput) (any, []Source, []string, error) {
-		prepared, err := preparePurchaseOrderCreate(ctx, db, input)
-		if err != nil || !prepared.Ready {
-			return prepared.response("needs_input"), mutationSources(prepared, "procurementcore", "purchase_order_draft"), prepared.Warnings, err
-		}
-		if !input.ConfirmCreation {
-			return prepared.response("confirmation_required"), mutationSources(prepared, "procurementcore", "purchase_order_draft"), append(prepared.Warnings, "No data was changed."), nil
-		}
-		var created map[string]any
-		payload := cloneMap(prepared.Draft)
-		delete(payload, "supplier")
-		if err := api.doJSON(ctx, cfg.ProcurementURL, "/api/v1/orders", http.MethodPost, payload, &created); err != nil {
-			return nil, nil, prepared.Warnings, err
-		}
-		return map[string]any{"operation_status": "created", "purchase_order": created}, []Source{{Service: "procurementcore", Entity: "purchase_order", ID: fmt.Sprint(created["id"])}}, prepared.Warnings, nil
+	addCreateTool(server, "procurement.orders.create", "Create purchase order draft", "Create one confirmed context-bound draft through the atomic owner workflow with current administrator/create rights.", func(ctx context.Context, input PurchaseOrderCreateInput) (any, []Source, []string, error) {
+		return invokeProcurementOrderDraft(ctx, cfg, "create", input, false)
 	})
 
 	addWritePreparationTool(server, "warehouse.movements.prepare_create", "Prepare warehouse movement", "Resolve the scanned device or quantity item and validate the action, job, destination zone and quantity before changing physical inventory state.", func(ctx context.Context, input WarehouseMovementCreateInput) (any, []Source, []string, error) {
@@ -416,99 +404,6 @@ func prepareRequirementUpdate(ctx context.Context, db *store.Store, input Requir
 			}
 		}
 	}
-	p.finish()
-	return p, nil
-}
-
-func preparePurchaseOrderCreate(ctx context.Context, db *store.Store, input PurchaseOrderCreateInput) (preparedMutation, error) {
-	p := preparedMutation{Draft: map[string]any{}}
-	supplier, options, err := resolveReference(ctx, db, `SELECT id,name AS label,concat_ws(' · ',code,website) AS context FROM proc_suppliers WHERE active=true`, input.SupplierID, input.SupplierQuery)
-	if err != nil {
-		return p, err
-	}
-	if supplier == nil {
-		p.require("supplier_id", "Bei welchem aktiven Lieferanten soll bestellt werden?", options)
-	} else {
-		p.Draft["supplierId"], p.Draft["supplier"] = supplier["id"], supplier["label"]
-	}
-	status := strings.ToLower(strings.TrimSpace(input.Status))
-	if status == "" {
-		status = "draft"
-	}
-	if status != "draft" {
-		p.require("status", "MCP/KI legt Bestellungen als Entwurf an. Versand und Bestätigung erfolgen getrennt.", "draft")
-	}
-	currency := strings.ToUpper(strings.TrimSpace(input.Currency))
-	if currency == "" {
-		currency = "EUR"
-	}
-	if !containsString([]string{"EUR", "CHF", "USD", "GBP"}, currency) {
-		p.require("currency", "Welche unterstützte Währung soll verwendet werden: EUR, CHF, USD oder GBP?", nil)
-	}
-	p.Draft["status"], p.Draft["currency"] = status, currency
-	p.Draft["supplierOrderNumber"], p.Draft["notes"] = strings.TrimSpace(input.SupplierOrderNumber), strings.TrimSpace(input.Notes)
-	for field, raw := range map[string]string{"orderDate": input.OrderDate, "expectedDelivery": input.ExpectedDelivery} {
-		if strings.TrimSpace(raw) == "" {
-			continue
-		}
-		parsed, parseErr := time.Parse("2006-01-02", raw)
-		if parseErr != nil {
-			p.require(toSnake(field), "Welches gültige Datum im Format YYYY-MM-DD soll verwendet werden?", nil)
-		} else {
-			p.Draft[field] = parsed.UTC().Format(time.RFC3339)
-		}
-	}
-	if len(input.Lines) == 0 {
-		p.require("lines", "Welche mindestens eine Bestellposition soll angelegt werden?", nil)
-	}
-	lines := make([]map[string]any, 0, len(input.Lines))
-	var total int64
-	for index, line := range input.Lines {
-		field := fmt.Sprintf("lines.%d", index)
-		description := strings.TrimSpace(line.Description)
-		var productID any
-		if line.ProductID > 0 {
-			products, queryErr := db.Query(ctx, `SELECT id,sku,name FROM proc_products WHERE id=$1 AND active=true`, line.ProductID)
-			if queryErr != nil {
-				return p, queryErr
-			}
-			if len(products) != 1 {
-				p.require(field+".product_id", "Die Produkt-ID ist nicht aktiv oder existiert nicht. Welche gültige Produkt-ID soll verwendet werden?", products)
-			} else {
-				productID = line.ProductID
-				if description == "" {
-					description = fmt.Sprint(products[0]["name"])
-				}
-			}
-		}
-		if description == "" {
-			p.require(field+".description", "Wie lautet die eindeutige Beschreibung dieser Bestellposition?", nil)
-		}
-		if line.Quantity <= 0 || math.IsNaN(line.Quantity) || math.IsInf(line.Quantity, 0) || line.Quantity > 1e9 {
-			p.require(field+".quantity", "Welche positive Menge soll bestellt werden?", nil)
-		}
-		if line.UnitPriceCents < 0 || line.UnitPriceCents > 1e9 {
-			p.require(field+".unit_price_cents", "Welcher nicht-negative Stückpreis in Cent gilt?", nil)
-		}
-		unit := strings.TrimSpace(line.Unit)
-		if unit == "" {
-			unit = "Stk."
-		}
-		item := map[string]any{"productId": productID, "description": description, "quantity": line.Quantity, "unit": unit, "unitPriceCents": line.UnitPriceCents, "purchaseUrl": strings.TrimSpace(line.PurchaseURL)}
-		lines = append(lines, item)
-		total += int64(line.Quantity * float64(line.UnitPriceCents))
-	}
-	p.Draft["lines"], p.Draft["totalCents"] = lines, total
-	if supplier != nil && strings.TrimSpace(input.SupplierOrderNumber) != "" {
-		duplicates, queryErr := db.Query(ctx, `SELECT id AS purchase_order_id,number,status,supplier_order_number FROM proc_purchase_orders WHERE supplier_id=$1 AND lower(supplier_order_number)=lower($2) LIMIT 20`, supplier["id"], strings.TrimSpace(input.SupplierOrderNumber))
-		if queryErr != nil {
-			return p, queryErr
-		}
-		if len(duplicates) > 0 {
-			p.require("duplicate_order", "Eine Bestellung mit derselben Lieferanten-Bestellnummer existiert bereits. Bitte die bestehende Bestellung verwenden oder die Nummer korrigieren.", duplicates)
-		}
-	}
-	p.Warnings = append(p.Warnings, "Das Anlegen einer Bestellung erfordert ProcurementCore-Administratorrechte.")
 	p.finish()
 	return p, nil
 }

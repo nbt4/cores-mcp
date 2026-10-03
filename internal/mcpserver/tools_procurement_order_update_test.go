@@ -2,106 +2,121 @@ package mcpserver
 
 import (
 	"context"
-	"database/sql"
+	"encoding/json"
+	"io"
 	"net/http"
-	"net/http/httptest"
-	"net/url"
-	"os"
 	"strings"
 	"testing"
-	"time"
 
-	_ "github.com/jackc/pgx/v5/stdlib"
-	"github.com/modelcontextprotocol/go-sdk/auth"
-	"github.com/nbt4/cores-mcp/internal/store"
+	"github.com/golang-jwt/jwt/v5"
+	"github.com/nbt4/cores-mcp/internal/config"
 )
 
-func TestPrepareOrderDraftUpdateDiffAndGuards(t *testing.T) {
-	dsn := os.Getenv("CORES_MCP_PROCUREMENT_TEST_DATABASE_URL")
-	if dsn == "" {
-		t.Skip("set CORES_MCP_PROCUREMENT_TEST_DATABASE_URL to a disposable PostgreSQL database ending in _test")
-	}
-	parsed, err := url.Parse(dsn)
-	if err != nil || !strings.HasSuffix(strings.TrimPrefix(parsed.Path, "/"), "_test") {
-		t.Fatal("integration test requires a dedicated _test database")
-	}
-	database, err := sql.Open("pgx", dsn)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer database.Close()
-	database.SetMaxOpenConns(1)
-	const schema = "mcp_order_draft_update_test"
-	if _, err := database.Exec("DROP SCHEMA IF EXISTS " + schema + " CASCADE"); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := database.Exec("CREATE SCHEMA " + schema); err != nil {
-		t.Fatal(err)
-	}
-	defer database.Exec("DROP SCHEMA IF EXISTS " + schema + " CASCADE")
-	if _, err := database.Exec("SET search_path TO " + schema); err != nil {
-		t.Fatal(err)
-	}
-	for _, statement := range []string{
-		`CREATE TABLE proc_purchase_orders(id BIGINT PRIMARY KEY,number TEXT,status TEXT,supplier_id BIGINT,supplier_order_number TEXT,currency TEXT,order_date TIMESTAMPTZ,expected_delivery TIMESTAMPTZ,notes TEXT,total_cents BIGINT,updated_at TIMESTAMPTZ)`,
-		`CREATE TABLE proc_purchase_order_lines(id BIGINT PRIMARY KEY,purchase_order_id BIGINT,product_id BIGINT,description TEXT,quantity DOUBLE PRECISION,received_quantity DOUBLE PRECISION,unit TEXT,unit_price_cents BIGINT,purchase_url TEXT)`,
-		`CREATE TABLE proc_suppliers(id BIGINT PRIMARY KEY,name TEXT,active BOOLEAN)`,
-		`CREATE TABLE proc_products(id BIGINT PRIMARY KEY,name TEXT,active BOOLEAN)`,
-		`INSERT INTO proc_suppliers VALUES(3,'Supply',true),(4,'Old',false)`,
-		`INSERT INTO proc_products VALUES(8,'Cable',true),(9,'Old cable',false)`,
-		`INSERT INTO proc_purchase_orders VALUES(7,'PO-7','draft',3,'S-7','EUR',NULL,NULL,'Original',2000,'2026-09-24T08:15:00.123456Z')`,
-		`INSERT INTO proc_purchase_order_lines VALUES(9,7,8,'Cable',2,0,'Stk.',1000,'')`,
-	} {
-		if _, err := database.Exec(statement); err != nil {
+func TestOrderDraftOwnerDelegationRetryAndCachedRevocation(t *testing.T) {
+	old := http.DefaultTransport
+	t.Cleanup(func() { http.DefaultTransport = old })
+	secret := strings.Repeat("requester-owner-", 3)
+	cfg := config.Config{JWTSecret: secret, ProcurementURL: "http://procurement.invalid"}
+	calls := 0
+	revoked := false
+	failed := map[string]bool{}
+	http.DefaultTransport = inventoryTestRoundTripper(func(r *http.Request) (*http.Response, error) {
+		op := strings.TrimPrefix(r.URL.Path, "/api/v1/mcp/order-drafts/")
+		if r.Method != "POST" || (op != "create" && op != "update") {
+			t.Fatal(r.URL)
+		}
+		cookie, err := r.Cookie("cores_token")
+		if err != nil {
 			t.Fatal(err)
 		}
-	}
-	db := store.New(database, 5*time.Second, 200)
-	run := func(admin bool, input OrderDraftUpdateInput) (preparedMutation, error) {
-		var p preparedMutation
-		var prepareErr error
-		verifier := func(context.Context, string, *http.Request) (*auth.TokenInfo, error) {
-			return &auth.TokenInfo{UserID: "41", Expiration: time.Now().Add(time.Hour), Extra: map[string]any{"is_admin": admin}}, nil
+		claims := &suiteServiceClaims{}
+		tok, err := jwt.ParseWithClaims(cookie.Value, claims, func(*jwt.Token) (any, error) { return []byte(secret), nil }, jwt.WithValidMethods([]string{"HS256"}), jwt.WithExpirationRequired())
+		if err != nil || !tok.Valid || claims.UserID != 42 || !claims.IsAdmin || claims.MutationScope != "cores:procurement:"+op {
+			t.Fatal("real requester/action", err, claims)
 		}
-		handler := auth.RequireBearerToken(verifier, nil)(http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
-			p, prepareErr = prepareOrderDraftUpdate(r.Context(), db, input)
-		}))
-		r := httptest.NewRequest(http.MethodGet, "/", nil)
-		r.Header.Set("Authorization", "Bearer test")
-		handler.ServeHTTP(httptest.NewRecorder(), r)
-		return p, prepareErr
+		body := map[string]any{}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			t.Fatal(err)
+		}
+		if body["expected_context"] != strings.Repeat("a", 64) || body["confirmation_text"] == "" {
+			t.Fatal("exact context omitted", body)
+		}
+		if op == "update" {
+			if _, ok := body["lines"]; ok {
+				t.Fatal("omitted lines replaced", body)
+			}
+		}
+		for _, key := range []string{"idempotency_key", "dry_run", "requester_id", "total_cents", "table", "column"} {
+			if _, ok := body[key]; ok {
+				t.Fatal("arbitrary owner field", key)
+			}
+		}
+		calls++
+		status := 200
+		out := `{"operation_status":"updated","purchase_order":{"id":7}}`
+		if body["preview"] == true {
+			if r.Header.Get("Idempotency-Key") != "" || body["confirm_change"] != false {
+				t.Fatal("dry-run", body)
+			}
+			out = `{"preview":true,"dependencies":{"products":[{"id":3}],"suppliers":[{"id":4}]}}`
+		} else if revoked {
+			status = 403
+			out = `{"error":"Current requester rights revoked"}`
+		} else if !failed[op] {
+			failed[op] = true
+			status = 500
+			out = `{"error":"Forced final audit rollback"}`
+		}
+		return &http.Response{StatusCode: status, Header: make(http.Header), Body: io.NopCloser(strings.NewReader(out)), Request: r}, nil
+	})
+
+	ctx := inventoryTestContext(t, "42", true, "cores:procurement:update")
+	draft := OrderDraftUpdateInput{MutationControl: MutationControl{DryRun: true}, OrderID: 7, ExpectedContext: strings.Repeat("a", 64), ConfirmationText: "FINAL ORDER DRAFT CONTEXT", ConfirmUpdate: true}
+	fn := func(ctx context.Context, in OrderDraftUpdateInput) (any, []Source, []string, error) {
+		return invokeProcurementOrderDraft(ctx, cfg, "update", in, false)
 	}
-	notes := "Updated"
-	input := OrderDraftUpdateInput{OrderID: 7, Notes: &notes}
-	if _, err := run(false, input); err == nil {
-		t.Fatal("non-admin draft preview accepted")
+	call := func(ctx context.Context, wantErr bool) {
+		t.Helper()
+		r, o, e := executeMutationTool(ctx, "procurement.orders.update", "Draft", draft, fn)
+		if e != nil || (r != nil && r.IsError) != wantErr {
+			t.Fatal(r, o, e)
+		}
 	}
-	p, err := run(true, input)
-	if err != nil || !p.Ready || len(p.Diff) != 1 || p.Diff["notes"]["before"] != "Original" || p.Draft["expectedUpdatedAt"] != "2026-09-24T08:15:00.123456Z" {
-		t.Fatalf("draft preview: %#v %v", p, err)
+	call(ctx, false)
+	draft.DryRun = false
+	draft.IdempotencyKey = "order-draft-owner-update"
+	call(ctx, true)
+	call(ctx, false)
+	call(ctx, false)
+	revoked = true
+	call(ctx, true)
+	revoked = false
+	call(inventoryTestContext(t, "42", false, "cores:procurement:update"), true)
+	call(inventoryTestContext(t, "42", true, "cores:procurement:receive"), true)
+	call(inventoryTestContext(t, "service:test", true, "cores:procurement:update"), true)
+	create := PurchaseOrderCreateInput{MutationControl: MutationControl{IdempotencyKey: "order-draft-owner-create"}, ExpectedContext: strings.Repeat("a", 64), ConfirmationText: "FINAL ORDER CREATE CONTEXT", ConfirmCreation: true, SupplierID: 3, Lines: []PurchaseOrderLineInput{{ProductID: 4, Description: "Line", Quantity: 2.5, UnitPriceCents: 101}}}
+	createFn := func(ctx context.Context, in PurchaseOrderCreateInput) (any, []Source, []string, error) {
+		return invokeProcurementOrderDraft(ctx, cfg, "create", in, false)
 	}
-	input.ConfirmUpdate = true
-	p, err = run(true, input)
-	if err != nil || p.Ready || !containsString(p.Missing, "expected_updated_at") {
-		t.Fatalf("missing version accepted: %#v %v", p, err)
+	createCtx := inventoryTestContext(t, "42", true, "cores:procurement:create")
+	for _, wantErr := range []bool{true, false, false} {
+		r, o, e := executeMutationTool(createCtx, "procurement.orders.create", "Create", create, createFn)
+		if e != nil || (r != nil && r.IsError) != wantErr {
+			t.Fatal(r, o, e)
+		}
 	}
-	input.ExpectedUpdatedAt = "2026-09-24T08:15:00.123456Z"
-	lines := []PurchaseOrderLineInput{{ProductID: 8, Description: "Replacement", Quantity: 3, UnitPriceCents: 1200}}
-	input.Lines = &lines
-	p, err = run(true, input)
-	if err != nil || !p.Ready || p.Draft["totalCents"] != int64(3600) || len(p.Diff) != 3 {
-		t.Fatalf("replacement preview: %#v %v", p, err)
+	revoked = true
+	r, o, e := executeMutationTool(createCtx, "procurement.orders.create", "Create", create, createFn)
+	if e != nil || r == nil || !r.IsError {
+		t.Fatal(r, o, e)
 	}
-	lines[0].ProductID = 9
-	p, err = run(true, input)
-	if err != nil || p.Ready || !containsString(p.Missing, "lines[0].product_id") {
-		t.Fatalf("archived product accepted: %#v %v", p, err)
+	if calls != 9 {
+		t.Fatal("cached/retry owner authorization", calls)
 	}
-	if _, err := database.Exec(`UPDATE proc_purchase_orders SET status='sent' WHERE id=7`); err != nil {
-		t.Fatal(err)
-	}
-	p, err = run(true, input)
-	if err != nil || p.Ready || !containsString(p.Missing, "status") {
-		t.Fatalf("sent order accepted: %#v %v", p, err)
+	raw, _ := json.Marshal(renderWritableEntitySchema(writableEntitySchemas()["procurement.orders"]))
+	for _, field := range []string{"expected_context", "confirmation_text", "line_id"} {
+		if !strings.Contains(string(raw), field) {
+			t.Fatal("missing entity schema", field)
+		}
 	}
 }
