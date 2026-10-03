@@ -23,7 +23,7 @@ and production verification. Optional event streams are separate follow-up work.
 | Procurement suppliers/products/offers | Create/update, retained named archive/restore, exact record/dependency context, current owner rights, atomic audit/activity/durable replay, per-entity redacted versioned history | — |
 | Procurement categories | Full parameter schema create/update, retained named archive/restore, active product/parent guards, redacted audit and atomic owner activity/replay | — |
 | Procurement requisitions | Complete owner context-bound draft create/update/submit with retained line IDs, distinct-administrator decisions, retained archive/restore, verified return → revise → resubmit, exact atomic supplier order conversion and redacted versioned history | Scoped read/financial verification |
-| Procurement orders | Complete owner context-bound draft create/update with retained line IDs, status transitions, full context-bound receipt, retained archive/restore with putaway blockers and versioned history | Supplier submission |
+| Procurement orders | Complete owner context-bound draft create/update with retained line IDs, status transitions, full context-bound receipt, retained archive/restore with putaway blockers, durable Amazon supplier submission and versioned history | Adam-Hall supplier submission; guided human reconciliation of uncertain submissions |
 | Procurement product mapping | Audited versioned link | Supplier-link lifecycle verification |
 | Planner plans/tasks | Create, membership-protected reads | Complete update/archive/restore, durable atomic audit/replay |
 | Planner buckets/labels/dependencies/sprints/goals | Read context | Schema discovery, guided create/update/archive/restore |
@@ -424,3 +424,41 @@ original fields/IDs, offer business constraints, redacted history, existing publ
 golden draft results and durable owner/MCP restart replay. Deploy owner first, MCP
 second; verify the complete read-only catalog and all installed guards.
 Parent issues remain open for the remaining rows above.
+
+## Durable Amazon supplier submission verification
+
+Procurement 1.0.74 / MCP 1.5.49 adds two tools: 387 total (105 reads / 141
+preparations / 141 executions), native 012 / umbrella 041. Explicit supplier
+send scope and current administrator rights protect preparation, execution and
+all cached/durable replay; legacy write and other action scopes do not grant send.
+The pure final preview binds complete original order/approved source, references,
+actual supplier payload, exact EUR total, destinations, account fingerprint and
+mode. A source requisition decided by a different user and unchanged approved
+cart references, quantities and prices are mandatory. Exact microsecond version,
+full context and paid-order phrase are required.
+Secrets and authenticated XML are excluded; preview and dry-run perform no supplier
+request or business mutation. OAuth consent documents supplier send explicitly in
+German and English, retaining read-only defaults and canonical suite primitives.
+
+A unique durable claim, reviewed business context, submitting status, audit/activity
+and pending idempotency response commit before the single external call. Supplier
+acknowledgement/outcome is saved with audit/activity before atomic final order/status/
+audit/receipt storage. Same-key retry can finalize a stored acknowledgement without
+resending. Losing outcome storage or receiving an ambiguous response preserves a
+pending/unknown duplicate barrier across keys/restarts and native status-reset paths;
+external reconciliation is a human action. All-writer guards retain submission
+identity/context, block deletion/resubmission/commercial line changes and permit
+separate receiving. Native UI submission shares this workflow and audits; unreviewed
+old MCP submission receives 428. External transactions cannot be rolled back by the
+local database; this limit and safe retry semantics are explicit in tool results.
+
+Verification covers full PostgreSQL/race suites, Vet/builds, unchanged frontend
+checks, committed design check and actual DE/EN OAuth browser layouts, focus,
+contrast and light/dark at all suite breakpoints. Upgraded and fresh real MCP against
+a local TLS supplier mock verify current/revoked admin and explicit send rights,
+complete pure preview/dry-run, exact phrase/context/version, claim audit rollback
+before sending, final audit retry from durable acknowledgement without another
+supplier call, lost outcome and ambiguous response barriers, concurrent claims,
+legacy/all-writer guards, redacted history and durable owner/MCP restart replay.
+Production deployment uses only read-only catalog/guard verification; parent issues
+remain open for Adam Hall and every remaining acceptance row above.

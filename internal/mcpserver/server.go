@@ -68,6 +68,7 @@ func New(cfg config.Config, db *store.Store, logger *slog.Logger) *mcp.Server {
 		registerProcurementOrderTransitionTools(server, cfg, db)
 		registerProcurementOrderDraftTools(server, cfg, db)
 		registerProcurementRequisitionOrderTools(server, cfg)
+		registerProcurementAmazonSendTools(server, cfg)
 		registerProcurementProductLinkTools(server, cfg, db)
 		registerCategoryTools(server, cfg, db)
 		registerWarehouseProductCreateTools(server, cfg, db)

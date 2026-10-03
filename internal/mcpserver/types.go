@@ -131,7 +131,7 @@ func executeMutationTool[In any](ctx context.Context, name, permissionLabel stri
 			return &mcp.CallToolResult{IsError: true, Content: []mcp.Content{&mcp.TextContent{Text: message}}}, Output{AsOf: now(), Summary: message}, nil
 		}
 	}
-	if isProcurementMasterLifecycleTool(name) || isProcurementWorkflowLifecycleTool(name) && strings.HasPrefix(name, "procurement.orders.") || name == "procurement.orders.receive" || isProcurementApprovalTool(name) || isProcurementOrderDraftTool(name) || isProcurementRequisitionOrderTool(name) {
+	if isProcurementMasterLifecycleTool(name) || isProcurementWorkflowLifecycleTool(name) && strings.HasPrefix(name, "procurement.orders.") || name == "procurement.orders.receive" || isProcurementApprovalTool(name) || isProcurementOrderDraftTool(name) || isProcurementRequisitionOrderTool(name) || isProcurementSupplierSendTool(name) {
 		if err := requireProcurementAdmin(ctx); err != nil {
 			return &mcp.CallToolResult{IsError: true, Content: []mcp.Content{&mcp.TextContent{Text: err.Error()}}}, Output{AsOf: now(), Summary: err.Error()}, nil
 		}
@@ -167,10 +167,13 @@ func executeMutationTool[In any](ctx context.Context, name, permissionLabel stri
 		if !owner {
 			// Rental jobs/requirements authorize replay against current owner-side rights.
 			// The durable receipt supplies the result without repeating the write.
-			if isProcurementMasterLifecycleTool(name) || isProcurementWorkflowLifecycleTool(name) || name == "procurement.orders.receive" || isProcurementApprovalTool(name) || isProcurementRequisitionDraftTool(name) || isProcurementOrderDraftTool(name) || isProcurementRequisitionOrderTool(name) || strings.HasPrefix(name, "rental.jobs.") || strings.HasPrefix(name, "rental.requirements.") {
+			if isProcurementMasterLifecycleTool(name) || isProcurementWorkflowLifecycleTool(name) || name == "procurement.orders.receive" || isProcurementApprovalTool(name) || isProcurementRequisitionDraftTool(name) || isProcurementOrderDraftTool(name) || isProcurementRequisitionOrderTool(name) || isProcurementSupplierSendTool(name) || strings.HasPrefix(name, "rental.jobs.") || strings.HasPrefix(name, "rental.requirements.") {
 				data, sources, warnings, err := fn(withMutationIdempotency(ctx, mutationControlsKey(input)), invocation.Input)
 				if err != nil {
 					message := fmt.Sprintf("%s failed: %v", name, err)
+					if isProcurementSupplierSendTool(name) {
+						warnings = append(warnings, mutationFailureWarning(name))
+					}
 					return &mcp.CallToolResult{IsError: true, Content: []mcp.Content{&mcp.TextContent{Text: message}}}, Output{AsOf: now(), Summary: message, Warnings: warnings}, nil
 				}
 				return nil, Output{AsOf: now(), Summary: summarize(data), Data: data, Sources: sources, Warnings: append(warnings, "Durable owner replay: current user rights rechecked; no additional mutation.")}, nil
@@ -197,7 +200,7 @@ func executeMutationTool[In any](ctx context.Context, name, permissionLabel stri
 	if err != nil {
 		message := fmt.Sprintf("%s failed: %v", name, err)
 		return &mcp.CallToolResult{IsError: true, Content: []mcp.Content{&mcp.TextContent{Text: message}}}, Output{
-			AsOf: now(), Summary: message, Warnings: append(warnings, "No further data was changed."),
+			AsOf: now(), Summary: message, Warnings: append(warnings, mutationFailureWarning(name)),
 		}, nil
 	}
 	if invocation.DryRun {
@@ -213,7 +216,7 @@ func mutationControlsKey(input any) string {
 }
 
 func mutationPermissionMessage(tool string) string {
-	if tool == "warehouse.inventory_counts.approve" || tool == "procurement.orders.receive" || tool == "procurement.orders.transition" || tool == "procurement.requisitions.decide" {
+	if isProcurementSupplierSendTool(tool) || tool == "warehouse.inventory_counts.approve" || tool == "procurement.orders.receive" || tool == "procurement.orders.transition" || tool == "procurement.requisitions.decide" {
 		return tool + " requires the explicit " + requiredMutationScope(tool) + " scope and current administrator rights. Legacy cores:write, create and update access do not grant this workflow. Reconnect and explicitly grant the required scope."
 	}
 	return tool + " requires " + requiredMutationScope(tool) + " (or legacy cores:write). Reconnect the Cores MCP connector, choose Read and write (Lesen und Schreiben) in the Cores authorization dialog and confirm the selected access."
@@ -222,7 +225,7 @@ func mutationPermissionMessage(tool string) string {
 func authorizeMutation(ctx context.Context, tool string) (context.Context, error) {
 	info := auth.TokenInfoFromContext(ctx)
 	required := requiredMutationScope(tool)
-	if info == nil || (tool == "warehouse.inventory_counts.approve" || tool == "procurement.orders.receive" || tool == "procurement.orders.transition" || tool == "procurement.requisitions.decide") && !containsString(info.Scopes, required) || (!containsString(info.Scopes, coresauth.WriteScope()) && !containsString(info.Scopes, required)) {
+	if info == nil || (isProcurementSupplierSendTool(tool) || tool == "warehouse.inventory_counts.approve" || tool == "procurement.orders.receive" || tool == "procurement.orders.transition" || tool == "procurement.requisitions.decide") && !containsString(info.Scopes, required) || (!containsString(info.Scopes, coresauth.WriteScope()) && !containsString(info.Scopes, required)) {
 		return ctx, errorsNew("mutation scope is required")
 	}
 	return withMutationPermission(ctx, required), nil
@@ -298,6 +301,8 @@ func requiredMutationScope(tool string) string {
 		return coresauth.ServiceWriteScope("procurement", "approve")
 	case "procurement.requisitions.submit":
 		return coresauth.ServiceWriteScope("procurement", "submit")
+	case "procurement.orders.send_amazon":
+		return coresauth.ServiceWriteScope("procurement", "send")
 	case "procurement.orders.receive":
 		return coresauth.ServiceWriteScope("procurement", "receive")
 	default:
@@ -473,4 +478,11 @@ func intID(value string) (int64, error) {
 		return 0, errorsNew("id must be a positive integer")
 	}
 	return parsed, nil
+}
+
+func mutationFailureWarning(name string) string {
+	if isProcurementSupplierSendTool(name) {
+		return "A durable supplier claim or external order may already exist. Retry only the original unchanged idempotency key to inspect or finalize its saved outcome. Never create a replacement order until the supplier outcome is reconciled."
+	}
+	return "No further data was changed."
 }

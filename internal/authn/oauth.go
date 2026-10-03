@@ -48,6 +48,7 @@ var granularWriteScopes = []string{
 	"cores:procurement:archive",
 	"cores:procurement:approve",
 	"cores:procurement:submit",
+	"cores:procurement:send",
 	"cores:procurement:receive",
 }
 
@@ -779,7 +780,7 @@ var consentMessages = map[string][2]string{
 	"heading":             {"Cores MCP verbinden", "Connect Cores MCP"},
 	"client":              {"möchte im Namen von", "would like to access Cores data on behalf of"},
 	"user":                {"auf freigegebene Cores-Daten zugreifen.", "."},
-	"write_help":          {"Wähle den Zugriff für diese Verbindung. Lesen verändert keine Daten. Lesen und Schreiben erlaubt die dokumentierten Anlagen und Änderungen sowie freigegebene Archivierungs-, Freigabe- und Wareneingangsworkflows. Jede Schreibaktion braucht eine Vorschau und ausdrückliche Bestätigung; deine Rechte im jeweiligen Core gelten weiterhin.", "Choose access for this connection. Reading does not change data. Read and write enables documented creation and updates, plus supported archiving, approval and receipt workflows. Each write requires a preview and explicit confirmation; your permissions in each Core still apply."},
+	"write_help":          {"Wähle den Zugriff für diese Verbindung. Lesen verändert keine Daten. Lesen und Schreiben erlaubt die dokumentierten Anlagen und Änderungen sowie freigegebene Archivierungs-, Freigabe- und Wareneingangsworkflows. Lieferantenbestellungen werden ausschließlich mit dem gesondert angefragten Senderecht und erneuter Bestätigung des konkreten Auftrags abgesendet. Jede Schreibaktion braucht eine Vorschau und ausdrückliche Bestätigung; deine Rechte im jeweiligen Core gelten weiterhin.", "Choose access for this connection. Reading does not change data. Read and write enables documented creation and updates, plus supported archiving, approval and receipt workflows. Sending supplier orders requires the specifically requested send permission and renewed confirmation of the exact order. Each write requires a preview and explicit confirmation; your permissions in each Core still apply."},
 	"read_help":           {"Die Verbindung darf Bestände, Jobs, Planungen und Beschaffungsinformationen ausschließlich lesen. Sie kann keine Daten verändern.", "This connection can only read inventory, jobs, planning and procurement information. It cannot change data."},
 	"access":              {"Zugriff erlauben", "Allow access"},
 	"read":                {"Nur Lesen", "Read only"},
