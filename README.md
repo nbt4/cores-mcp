@@ -1,6 +1,6 @@
 # Cores MCP
 
-## Vollständige Case-Abläufe — Warehouse 5.9.110 / MCP 1.5.55
+## Vollständige Case-Abläufe — Warehouse 5.9.111 / MCP 1.5.56
 
 Der Katalog enthält 433 Werkzeuge: 109 Abfragen, 162 Vorschauen und
 162 Ausführungen. `warehouse.case_workflows` ergänzt jeweils `prepare_*`

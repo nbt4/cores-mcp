@@ -569,7 +569,7 @@ Production verification is read-only; supplier integrations are never called.
 Further seal/open/move/dispatch/return workflows and all other remaining rows
 stay open. This block does not close issues #4/#5.
 
-### Whole-case workflows (Warehouse 5.9.110 / MCP 1.5.55)
+### Whole-case workflows (Warehouse 5.9.111 / MCP 1.5.56)
 
 Adds thirteen tools: 433 total (109 reads / 162 preparations / 162 executions),
 Warehouse 062 / umbrella 046. Six closed whole-tree prepare/execute pairs cover
