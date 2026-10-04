@@ -117,7 +117,7 @@ func smokeArguments(name string) map[string]any {
 		return map[string]any{"entity": "warehouse.products"}
 	case name == "cores.master_data.resolve":
 		return map[string]any{"entity": "warehouse.category", "query": "Licht", "limit": 5}
-	case name == "warehouse.case_templates.list" || name == "warehouse.case_contents.get":
+	case name == "warehouse.case_templates.list" || name == "warehouse.case_contents.get" || name == "warehouse.case_workflows.events":
 		return map[string]any{"case_id": 1}
 	case name == "rental.requirements.search":
 		return map[string]any{"query": "", "limit": 5}

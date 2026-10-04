@@ -12,7 +12,7 @@ and production verification. Optional event streams are separate follow-up work.
 | Warehouse locations | Create/update/archive/restore, audit | — |
 | Warehouse packages | Atomic lines/create/update/archive/restore, audit | — |
 | Warehouse devices | Create/update/archive/restore, audit, own last-update revert, atomic bulk creation | — |
-| Warehouse cases | Create/update/archive/restore, models search, audit; full retained template line create/update/archive/restore, content comparison and redacted history; physical device/quantity/nested-case pack/unpack/all with complete capacity context and atomic stock/event/audit/replay | Seal/unseal, move, job dispatch/return workflow tools |
+| Warehouse cases | Create/update/archive/restore, models search, audit; full retained template line create/update/archive/restore, content comparison and redacted history; physical device/quantity/nested-case pack/unpack/all; whole-tree seal/unseal/move/dispatch/return/inspection with exact physical/scheduling/capacity context, atomic job/device/history/audit/replay and immutable events | — |
 | Warehouse maintenance/defects | Full recurring plans and manual work/defect create/update/transition/complete/cancel/reopen/archive/restore; atomic schedule/condition/legacy effects, events, redacted audits and explicit cost scope | — |
 | Warehouse inventory | Full guided count/create/update/lines/review/correction/approve/cancel/archive/restore, explicit approve scope, precise context/line/event/start-stock protection, atomic physical adjustments/movements/audits/replay and redacted history | — |
 | Warehouse tasks | Full create/partial update/start/complete/cancel/reopen/archive/restore, exact task/reference versions, atomic events/audits/durable replay and redacted history | — |
@@ -568,3 +568,18 @@ single-winner, migration/restart replay and retained prior-release goldens.
 Production verification is read-only; supplier integrations are never called.
 Further seal/open/move/dispatch/return workflows and all other remaining rows
 stay open. This block does not close issues #4/#5.
+
+### Whole-case workflows (Warehouse 5.9.110 / MCP 1.5.55)
+
+Adds thirteen tools: 433 total (109 reads / 162 preparations / 162 executions),
+Warehouse 062 / umbrella 046. Six closed whole-tree prepare/execute pairs cover
+seal/unseal/move/dispatch/return/returned inspection; cursor-paged immutable
+physical events remain readable for archived cases. Exact full context freezes
+all physical/reference/reservation/job/editor/task/location versions. Current
+owner action scope and database administrator rights are checked before replay,
+including existing case metadata actions. State, device movement, per-case
+physical events, job history, owner audit and durable response share one commit.
+Inspection explicitly attests completed physical checking without clearing
+maintenance/defects. Native removal archives with history/audit; hard deletion
+of cases and history rewriting are prohibited. The parent issues remain open
+for every other incomplete row above.

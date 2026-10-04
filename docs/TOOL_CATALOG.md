@@ -1,5 +1,51 @@
 # Tool-Katalog
 
+### Vollständige Case-Abläufe — Warehouse 5.9.110 / MCP 1.5.55
+
+Der Katalog enthält 433 Werkzeuge: 109 Abfragen, 162 Vorschauen und
+162 Ausführungen. `warehouse.case_workflows` ergänzt jeweils `prepare_*`
+und Ausführung für `seal`, `unseal`, `move`, `dispatch`, `return` und
+`inspect_return`. `events` liest die unveränderliche physische Historie mit
+`case_id`, optionalem `after_event_id` und `limit` (Standard 100, maximal 200),
+auch für archivierte Cases; private Notizen und rohe Metadaten bleiben verborgen.
+
+Jede Aktion prüft den gesamten verschachtelten Baum und benötigt aktuelle
+Warehouse-Administrator-/Update-Rechte, die genaue äußere Case-Version,
+`expected_context`, ausdrückliches `confirm_change`, den endgültigen
+Bestätigungstext und einen `idempotency_key`. Vorschau und `dry_run` schreiben
+nichts. Änderungen an Inhalt, Geräten, Produkten, Sollvorlagen, Reservierungen,
+Jobs, Bearbeitungssitzungen, Aufgaben, Lagerhierarchie oder Kapazität erfordern
+eine neue Vorschau. Fremde laufende Aufgaben und unvollständige physische
+Komponentenverbünde sperren widersprüchliche Aktionen.
+
+`seal` prüft verfügbare Geräte sowie Gewichtsgrenzen aller Teilbäume; bei
+unvollständigen festen/hybriden Sollvorlagen ist zusätzlich ausdrücklich
+`accept_incomplete_template=true` erforderlich. `unseal` öffnet einen verfügbaren
+versiegelten äußeren Case. `move` benötigt einen eindeutigen
+`destination_zone_id` und erhält Gerätezustände und innere Versiegelungen.
+`dispatch` erfordert einen versiegelten einsatzbereiten Baum sowie einen
+bestätigten, lebenden, zeitlich geplanten `job_id`; überlappende Reservierungen,
+fremde ausgegebene Geräte und andere aktive Job-Bearbeiter blockieren.
+
+`return` übernimmt den gespeicherten Job und verlangt Zielzone und ausdrücklich
+`return_mode=inspect|sealed`. `inspect` führt Geräte in `return_pending` und
+Cases in `return_check`; die Zone muss return/inspection/quarantine sein.
+`sealed` benötigt ein erhaltenes äußeres Siegel und einsatzbereite Geräte.
+`inspect_return` bestätigt mit `inspection_passed=true` eine abgeschlossene
+physische Prüfung des gesamten Baums; offene Wartung/Defekte sperren weiterhin.
+Diese Bestätigung verändert keine Zustandsbewertung und schließt keine Aufgaben.
+
+Case-/Gerätestatus, Job-Gerätezuordnung, Bewegungen, Ereignisse für alle
+betroffenen Cases, Job-Historie, Audit und dauerhafte Antwort sind atomar.
+Physische Mitgliedschaften, Mengenbestand, Sollvorlagen, Reservierungszuordnungen
+und Aufgaben bleiben erhalten. Warehouse-Migration 062 / Suite-Migration 046
+verhindert Case-Harddelete und Änderungen/Löschen physischer Ereignisse.
+Native Case-Entfernung archiviert mit atomarer Historie/Audit, reserviert IDs
+und deaktiviert Scan-Aliase; Standardlisten blenden Archive aus.
+Auch bestehende MCP-Metadatenaktionen prüfen aktuelle Eigentümerrechte vor Replay.
+Warehouse samt Migration zuerst ausrollen, danach MCP. Die Gesamtissues bleiben
+für die übrigen [Abnahmepunkte](ISSUE_COMPLETION.md) offen.
+
 ## Case-Sollvorlagen — Warehouse 5.9.108 / MCP 1.5.53
 
 `warehouse.case_templates.list` liefert aktive Sollzeilen, Artikel, tatsächliche

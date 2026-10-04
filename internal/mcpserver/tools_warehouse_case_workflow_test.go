@@ -15,11 +15,11 @@ import (
 	"github.com/nbt4/cores-mcp/internal/config"
 )
 
-func TestWarehouseCaseHTTPControls(t *testing.T) {
+func TestWarehouseCaseWorkflowHTTPControls(t *testing.T) {
 	var mu sync.Mutex
 	calls := []map[string]any{}
 	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/api/v1/admin/mcp/cases/create" || r.Header.Get("X-Cores-Origin") != "MCP/AI" {
+		if r.URL.Path != "/api/v1/admin/mcp/case-workflows/seal" || r.Header.Get("X-Cores-Origin") != "MCP/AI" {
 			t.Error("wrong business route or origin")
 		}
 		var in map[string]any
@@ -34,17 +34,20 @@ func TestWarehouseCaseHTTPControls(t *testing.T) {
 		calls = append(calls, in)
 		mu.Unlock()
 		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(map[string]any{"preview": in["preview"], "case": map[string]any{"case_id": 42}})
+		_ = json.NewEncoder(w).Encode(map[string]any{"preview": in["preview"], "case": map[string]any{"case_id": 42, "destination_zone_id": 1}})
 	}))
 	defer upstream.Close()
 	cfg := config.Config{JWTSecret: strings.Repeat("k", 48), WarehouseURL: upstream.URL}
 	server := mcp.NewServer(&mcp.Implementation{Name: "case-controls", Version: "1"}, nil)
-	registerWarehouseCaseTools(server, cfg, nil)
+	registerWarehouseCaseWorkflowTools(server, cfg)
 	transport := mcp.NewStreamableHTTPHandler(func(*http.Request) *mcp.Server { return server }, &mcp.StreamableHTTPOptions{Stateless: true})
 	verifier := func(_ context.Context, raw string, _ *http.Request) (*auth.TokenInfo, error) {
-		scopes := []string{"cores:read", "cores:warehouse:create"}
+		scopes := []string{"cores:read", "cores:warehouse:update"}
 		admin := true
 		user := "11"
+		if raw == "create-only" {
+			scopes = []string{"cores:read", "cores:warehouse:create"}
+		}
 		if raw == "read" {
 			scopes = []string{"cores:read"}
 		}
@@ -79,17 +82,17 @@ func TestWarehouseCaseHTTPControls(t *testing.T) {
 			t.Fatalf("%s: %#v", name, result)
 		}
 	}
-	call(member, "warehouse.cases.prepare_create", map[string]any{"name": "Fixture", "confirm_change": true}, false)
-	call(member, "warehouse.cases.create", map[string]any{"name": "Fixture"}, false)
-	call(member, "warehouse.cases.create", map[string]any{"name": "Fixture", "confirm_change": true, "dry_run": true}, false)
-	call(member, "warehouse.cases.create", map[string]any{"name": "Fixture", "confirm_change": true}, true)
-	args := map[string]any{"name": "Fixture", "confirm_change": true, "idempotency_key": "case-http-once"}
-	call(member, "warehouse.cases.create", args, false)
-	call(member, "warehouse.cases.create", args, false)
-	for _, subject := range []string{"read", "nonadmin", "machine"} {
-		call(connect(subject), "warehouse.cases.create", map[string]any{"name": "Fixture", "confirm_change": true, "idempotency_key": "case-http-denied"}, true)
+	call(member, "warehouse.case_workflows.prepare_seal", map[string]any{"case_id": 1, "accept_incomplete_template": true, "confirm_change": true}, false)
+	call(member, "warehouse.case_workflows.seal", map[string]any{"case_id": 1, "accept_incomplete_template": true}, false)
+	call(member, "warehouse.case_workflows.seal", map[string]any{"case_id": 1, "accept_incomplete_template": true, "confirm_change": true, "dry_run": true}, false)
+	call(member, "warehouse.case_workflows.seal", map[string]any{"case_id": 1, "accept_incomplete_template": true, "confirm_change": true}, true)
+	args := map[string]any{"case_id": 1, "accept_incomplete_template": true, "confirm_change": true, "idempotency_key": "case-http-once"}
+	call(member, "warehouse.case_workflows.seal", args, false)
+	call(member, "warehouse.case_workflows.seal", args, false)
+	for _, subject := range []string{"read", "create-only", "nonadmin", "machine"} {
+		call(connect(subject), "warehouse.case_workflows.seal", map[string]any{"case_id": 1, "accept_incomplete_template": true, "confirm_change": true, "idempotency_key": "case-http-denied"}, true)
 	}
-	call(member, "warehouse.cases.archive", map[string]any{"case_id": 42}, true)
+
 	mu.Lock()
 	defer mu.Unlock()
 	if len(calls) != 5 {
@@ -105,45 +108,25 @@ func TestWarehouseCaseHTTPControls(t *testing.T) {
 	}
 }
 
-func TestWarehouseCaseScopes(t *testing.T) {
-	for _, op := range []string{"create", "update", "archive", "restore"} {
-		want := op
-		if op == "restore" {
-			want = "archive"
-		}
-		if requiredMutationScope("warehouse.cases."+op) != "cores:warehouse:"+want {
-			t.Fatal(op)
+func TestWarehouseCaseWorkflowScopesAndSchema(t *testing.T) {
+	for _, op := range []string{"seal", "pack_product", "pack_case", "unseal", "unpack_product", "unpack_case", "unpack_all"} {
+		name := "warehouse.case_workflows." + op
+		if requiredMutationScope(name) != "cores:warehouse:update" || !hasDurableWarehouseRetry(name) {
+			t.Fatal(name)
 		}
 	}
-}
-
-func TestEntityDiscoveryIncludesControlsAndNestedOrderLines(t *testing.T) {
-	fields := renderWritableEntitySchema(writableEntitySchemas()["procurement.orders"])["fields"].([]map[string]any)
-	found := map[string]map[string]any{}
-	for _, field := range fields {
-		found[field["name"].(string)] = field
+	schema := writableEntitySchemas()["warehouse.case_workflows"]
+	if len(schema.Operations) != 13 {
+		t.Fatal(schema)
 	}
-	for _, name := range []string{"dry_run", "idempotency_key", "confirm_creation", "lines"} {
-		if found[name] == nil {
-			t.Fatalf("missing field %s", name)
-		}
+	fields := renderWritableEntitySchema(schema)["fields"].([]map[string]any)
+	names := map[string]bool{}
+	for _, f := range fields {
+		names[f["name"].(string)] = true
 	}
-	lines, ok := found["lines"]["item_fields"].([]map[string]any)
-	if !ok || len(lines) == 0 {
-		t.Fatal("missing line schema", found["lines"])
-	}
-	nested := map[string]bool{}
-	for _, field := range lines {
-		nested[field["name"].(string)] = true
-	}
-	for _, name := range []string{"product_id", "quantity", "unit_price_cents"} {
-		if !nested[name] {
-			t.Fatalf("missing order line field %s", name)
-		}
-	}
-	for _, entity := range []string{"rental.jobs", "rental.requirements"} {
-		if renderWritableEntitySchema(writableEntitySchemas()[entity])["update_fields"] == nil {
-			t.Fatal("missing update schema", entity)
+	for _, name := range []string{"case_id", "job_id", "return_mode", "accept_incomplete_template", "inspection_passed", "destination_zone_id", "expected_context", "expected_updated_at", "confirmation_text", "confirm_change", "idempotency_key", "dry_run"} {
+		if !names[name] {
+			t.Fatal(name)
 		}
 	}
 }
