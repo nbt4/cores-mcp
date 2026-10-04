@@ -12,7 +12,7 @@ and production verification. Optional event streams are separate follow-up work.
 | Warehouse locations | Create/update/archive/restore, audit | — |
 | Warehouse packages | Atomic lines/create/update/archive/restore, audit | — |
 | Warehouse devices | Create/update/archive/restore, audit, own last-update revert, atomic bulk creation | — |
-| Warehouse cases | Create/update/archive/restore, models search, audit; full retained template line create/update/archive/restore, content comparison and redacted history | Physical content/packing workflow tools |
+| Warehouse cases | Create/update/archive/restore, models search, audit; full retained template line create/update/archive/restore, content comparison and redacted history; physical device/quantity/nested-case pack/unpack/all with complete capacity context and atomic stock/event/audit/replay | Seal/unseal, move, job dispatch/return workflow tools |
 | Warehouse maintenance/defects | Full recurring plans and manual work/defect create/update/transition/complete/cancel/reopen/archive/restore; atomic schedule/condition/legacy effects, events, redacted audits and explicit cost scope | — |
 | Warehouse inventory | Full guided count/create/update/lines/review/correction/approve/cancel/archive/restore, explicit approve scope, precise context/line/event/start-stock protection, atomic physical adjustments/movements/audits/replay and redacted history | — |
 | Warehouse tasks | Full create/partial update/start/complete/cancel/reopen/archive/restore, exact task/reference versions, atomic events/audits/durable replay and redacted history | — |
@@ -540,3 +540,31 @@ Concurrent drafts against one case version execute once. Owner/MCP restart
 preserves exact receipts, stock, scan counts, template/case versions and audits.
 Startup no-op stock/tracking updates are suppressed, with a dedicated regression
 covering active and archived cable references. Physical packing remains open.
+
+
+### Physical case contents (Warehouse 5.9.109 / MCP 1.5.54)
+
+Adds fifteen tools: 420 total (108 reads / 156 preparations / 156 executions),
+native 061 / umbrella 045. Seven closed physical actions review and apply exact
+serialized device, quantity-product and nested-case membership, or detach all
+direct contents while preserving sealed child trees. Explicit quantity source
+and unpack destination; unpack_all moves the empty outer case as well.
+
+Pure previews bind the complete case tree, precise case/product/device/content,
+location/profile/hierarchy, stock/capacity/weight/volume, task and job versions.
+Confirmed writes require fresh owner-side administrator/update rights, exact
+context and phrase. Membership, location, conserved quantity totals (including
+packed quantities), device movements, case events, audit and durable receipt
+commit atomically. Current rights are rechecked before cached owner replay;
+transaction failures retry the original key. Templates, reservations and tasks
+are retained. Issued/unavailable equipment, defects, maintenance, conflicting
+tasks, nested outer cases, cycles and blocked/sealed trees reject unsafe drafts.
+Signed delegation cannot strip Origin to use unreviewed legacy physical writers.
+
+PG/race and real Streamable HTTP validation cover all seven actions, stock and
+nested seal preservation, precise stale context, role/scope checks, pure
+preview/dry-run, final event/audit/receipt failures, same-key retry, concurrent
+single-winner, migration/restart replay and retained prior-release goldens.
+Production verification is read-only; supplier integrations are never called.
+Further seal/open/move/dispatch/return workflows and all other remaining rows
+stay open. This block does not close issues #4/#5.

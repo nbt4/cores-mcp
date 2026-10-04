@@ -14,7 +14,7 @@ import (
 	"github.com/nbt4/cores-mcp/internal/store"
 )
 
-const Version = "1.5.53"
+const Version = "1.5.54"
 
 func New(cfg config.Config, db *store.Store, logger *slog.Logger) *mcp.Server {
 	description := "Read-only operational context and safe cross-core queries for RentalCore, WarehouseCore, PlannerCore and ProcurementCore."
@@ -48,6 +48,7 @@ func New(cfg config.Config, db *store.Store, logger *slog.Logger) *mcp.Server {
 	registerWarehouseLocationAuditTool(server, db)
 	registerWarehouseCaseReadTools(server, db)
 	registerWarehouseCaseTemplateReads(server, db)
+	registerWarehouseCaseContentReads(server, db)
 	registerWarehouseMasterTools(server, db)
 	registerMasterDataTools(server, db)
 	registerPlannerTools(server, db)
@@ -92,6 +93,7 @@ func New(cfg config.Config, db *store.Store, logger *slog.Logger) *mcp.Server {
 		registerWarehouseProductImportTools(server, cfg)
 		registerWarehouseCaseTools(server, cfg, db)
 		registerWarehouseCaseTemplateTools(server, cfg)
+		registerWarehouseCaseContentTools(server, cfg)
 		registerWarehouseMasterUpdateTools(server, cfg, db)
 		registerWarehouseMasterLifecycleTools(server, cfg)
 		registerWarehouseCategoryLifecycleTools(server, cfg)
@@ -208,21 +210,28 @@ var mutationTools = map[string]struct{}{
 	"warehouse.product_relations.archive":            {},
 	"warehouse.product_relations.restore":            {},
 	"warehouse.manufacturers.archive":                {}, "warehouse.manufacturers.restore": {}, "warehouse.brands.archive": {}, "warehouse.brands.restore": {},
-	"warehouse.case_templates.create":  {},
-	"warehouse.case_templates.update":  {},
-	"warehouse.case_templates.archive": {},
-	"warehouse.case_templates.restore": {},
-	"warehouse.cases.create":           {},
-	"warehouse.cases.update":           {},
-	"warehouse.cases.archive":          {},
-	"warehouse.cases.restore":          {},
-	"warehouse.products.bulk_create":   {},
-	"warehouse.devices.bulk_create":    {},
-	"warehouse.devices.create":         {},
-	"warehouse.devices.update":         {},
-	"warehouse.devices.archive":        {},
-	"warehouse.devices.restore":        {},
-	"warehouse.devices.revert_update":  {},
+	"warehouse.case_contents.pack_device":    {},
+	"warehouse.case_contents.pack_product":   {},
+	"warehouse.case_contents.pack_case":      {},
+	"warehouse.case_contents.unpack_device":  {},
+	"warehouse.case_contents.unpack_product": {},
+	"warehouse.case_contents.unpack_case":    {},
+	"warehouse.case_contents.unpack_all":     {},
+	"warehouse.case_templates.create":        {},
+	"warehouse.case_templates.update":        {},
+	"warehouse.case_templates.archive":       {},
+	"warehouse.case_templates.restore":       {},
+	"warehouse.cases.create":                 {},
+	"warehouse.cases.update":                 {},
+	"warehouse.cases.archive":                {},
+	"warehouse.cases.restore":                {},
+	"warehouse.products.bulk_create":         {},
+	"warehouse.devices.bulk_create":          {},
+	"warehouse.devices.create":               {},
+	"warehouse.devices.update":               {},
+	"warehouse.devices.archive":              {},
+	"warehouse.devices.restore":              {},
+	"warehouse.devices.revert_update":        {},
 
 	"planner.plans.create":              {},
 	"planner.tasks.create":              {},

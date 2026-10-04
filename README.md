@@ -1,5 +1,42 @@
 # Cores MCP
 
+## Case packen und entpacken — Warehouse 5.9.109 / MCP 1.5.54
+
+Der aktuelle Katalog umfasst 420 Werkzeuge: 108 Abfragen, 156 Vorschauen und
+156 Ausführungen. `warehouse.case_contents.get` zeigt den vollständigen,
+begrenzten physischen Case-Baum mit Geräte- und Mengenbestand und Versionen.
+Für `pack_device`, `pack_product`, `pack_case`, `unpack_device`,
+`unpack_product`, `unpack_case` und `unpack_all` stehen jeweils separate
+`prepare_*`- und Ausführungswerkzeuge bereit.
+
+Jede Aktion benötigt `case_id` und genau die passende Geräte-, Artikel- oder
+Child-Case-ID. Mengenaktionen benötigen eine positive Menge mit höchstens drei
+Dezimalstellen; `pack_product` zusätzlich den eindeutigen `source_zone_id`.
+Entpacken erfordert einen ausdrücklichen `destination_zone_id`; `unpack_all`
+lagert auch den leeren äußeren Case dort ein und erhält versiegelte Child-Cases
+mit ihrem vollständigen Inhalt. Der äußere Case muss aktiv, geöffnet,
+verfügbar und nicht selbst verschachtelt sein. Reservierungen, Aufgaben und
+Sollvorlagen bleiben erhalten. Ausgegebene Geräte, Defekte, Wartung, fremde
+Case-Zuordnungen, widersprüchliche Aufgaben und verschlossene Vorfahren blockieren
+unzulässige Änderungen.
+
+Die Vorschau prüft den gesamten Inhalt, Artikel-/Geräte-/Job-/Aufgabenversionen,
+Lagerhierarchie, Profil, Kapazität, Volumen und Gesamtgewicht. Der finale
+Kontext, die genaue Case-Version und der zurückgegebene Bestätigungstext müssen
+zur ausdrücklichen Bestätigung passen. Aktuelle Administrator-/Update-Rechte
+werden auch bei gespeicherten Wiederholungen geprüft. Inhalt, Bestand,
+Gerätebewegungen, Case-Ereignis, Audit und dauerhafte Antwort werden gemeinsam
+gespeichert oder vollständig zurückgerollt. Vorschau und Dry-Run schreiben nichts.
+
+Warehouse-Migration 061 / Suite-Migration 045 schützt physische Inhalte vor
+Änderungen in gesperrten Case-Bäumen und synchronisiert Gerätezuordnungen.
+Mengenartikel in Cases zählen zum Gesamtbestand; Packen und Entpacken erhalten
+diesen Bestand auch beim Neustart. Nach der Legacy-Übernahme werden
+Case-Modelle beim Start nicht mehr aus Case-Namen zugewiesen. Signierte MCP-Delegationen können die
+ungeprüften Scanner-/Entpack-Altwege auch ohne Origin-Header nicht benutzen.
+Zuerst Warehouse samt Migration bereitstellen, danach MCP. Versiegeln/Öffnen,
+Umsetzen, Job-Ausgabe und Rücknahme bleiben im Issue-Prüfplan offen.
+
 ## Case-Sollvorlagen — Warehouse 5.9.108 / MCP 1.5.53
 
 `warehouse.case_templates.list` liefert aktive Sollzeilen, Artikel, tatsächliche
@@ -26,9 +63,9 @@ ihre genauen Versionen, auch für archivierte Artikel. Die bestehende UI
 archiviert entfernte Sollzeilen; aktive Case-Ansichten
 und Vollständigkeitsprüfungen berücksichtigen nur aktive Vorlagen. Zuerst
 Warehouse bereitstellen und Migration prüfen, danach MCP aktualisieren.
-Pack-/Entpack- und weitere ausstehende Workflows bleiben im Issue-Prüfplan offen.
+Weitere ausstehende Case-Workflows bleiben im Issue-Prüfplan offen.
 
-Der aktuelle Katalog umfasst 405 Werkzeuge: 107 Abfragen, 149 Vorschauen und
+Dieser Vorlagen-Release umfasste 405 Werkzeuge: 107 Abfragen, 149 Vorschauen und
 149 Ausführungen.
 
 ## Produkt-Batch und Hersteller-URL — Warehouse 5.9.107 / MCP 1.5.52
