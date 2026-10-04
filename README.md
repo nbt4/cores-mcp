@@ -1,5 +1,49 @@
 # Cores MCP
 
+## Produkt-Batch und Hersteller-URL — Warehouse 5.9.107 / MCP 1.5.52
+
+Der Katalog umfasst 395 Werkzeuge: 105 Abfragen, 145 Vorschauen und 145
+Ausführungen. `warehouse.products.prepare_bulk_create/bulk_create` verarbeitet
+1–100 vollständige Produktentwürfe in einer Transaktion. `cores.entities.schema`
+für `warehouse.product_batches` beschreibt alle erlaubten Anlagefelder.
+
+Zuerst je Produkt `warehouse.products.prepare_create` für Fuzzy-Auflösung und
+Rückfragen nutzen; anschließend dessen native `draft`-Felder in `products`
+übernehmen. Vorhandene Stammdaten mit ID referenzieren. `*_name_input` bestätigt
+die Anlage eines fehlenden exakten Stammdatensatzes ausdrücklich; neue Kategorien
+benötigen `category_abbreviation_input`. Gemeinsame Stammdaten werden einmal
+angelegt, widersprüchliche Definitionen blockiert. Unvollständige empfohlene
+Angaben erfordern pro Produkt `accept_incomplete`, ähnliche Artikel eine explizite
+Prüfung mit `allow_similar_product`; bestehende eindeutige Kennungen einschließlich
+archivierter Artikel werden niemals dupliziert.
+
+Die reine Batch-Vorschau zeigt alle Produkte, Referenzen, Stammdatenpläne,
+Datenlücken und gemeinsame Lagerkapazität. Aktuelle aktive Administratorrechte,
+Create-Scope, unveränderter `expected_context`, `confirm_creation`, exakte
+`CREATE WAREHOUSE PRODUCT BATCH ...`-Phrase und Idempotenzschlüssel sind Pflicht.
+Preise benötigen zusätzlich ausdrücklich `cores:warehouse:financial`. Produkte,
+Hersteller, Marke, Kategoriehierarchie, optionale Procurement-Zuordnung,
+Anfangsbestand/Geräte (zusammen höchstens 1000), Audit und dauerhafter Beleg
+werden zusammen gespeichert. Ein Fehler rollt alle Datensätze zurück. Dieselbe
+Anfrage mit demselben Schlüssel liefert auch nach Neustart den ursprünglichen
+Beleg; aktuelle Rechte werden vor jeder Wiederholung erneut im Eigentümer geprüft.
+`dry_run` und Vorbereitung erzeugen weder Datensätze noch IDs/Audits/Belege.
+
+`warehouse.products.prepare_create` akzeptiert nun `product_url` einer öffentlichen
+HTTP(S)-Produktseite. Warehouse liest begrenzte HTML-/Schema.org-Produktdaten ohne
+Shop-Login, Bilddownload oder Warenkorbzugriff. Interne Ziele, Zugangsdaten,
+abweichende Ports und zu viele Weiterleitungen sind gesperrt. Erkannte Maße werden
+nur mit bekannter Einheit in kg/cm umgerechnet. Mehrdeutige Produktseiten werden
+abgewiesen. Ausdrücklich eingegebene Werte haben Vorrang; Text bleibt ungeprüfte
+Geschäftsdaten, keine Anweisung. Quelle und ein `creation_input` ohne URL werden
+zurückgegeben. Dieser eingefrorene Entwurf wird erneut geprüft und bestätigt;
+`create` mit noch gesetzter URL wird abgewiesen, damit die Anlage keine veränderte
+Produktseite neu einliest. Für gemeinsame Anlage die geprüften nativen Entwürfe
+an die Batch-Vorschau übergeben. Es gibt keine generischen Datei-/HTTP-/SQL-Tools.
+
+Keine neue Schema-Migration. Warehouse zuerst ausrollen, dann MCP. Die übrigen
+Anforderungen der Eltern-Issues #4 und #5 bleiben offen.
+
 ## Adam-Hall-Warenkorb und Bestellung getrennt bestätigen — Procurement 1.0.76 / MCP 1.5.51
 
 Vier benannte Werkzeuge ergänzen den Lieferantenablauf:

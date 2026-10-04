@@ -6,7 +6,7 @@ and production verification. Optional event streams are separate follow-up work.
 
 | Area | Available | Remaining |
 | --- | --- | --- |
-| Warehouse products | Atomic master resolution/create, metadata update, archive/restore, full typed relation create/update/archive/restore and redacted history | URL/bulk imports |
+| Warehouse products | Atomic master resolution/create, metadata update, archive/restore, full typed relation create/update/archive/restore and redacted history; bounded manufacturer-page extraction and context-bound atomic product batches | — |
 | Warehouse manufacturers/brands | Resolve, create, update with diff/version, archive/restore, retained redacted per-entity audit | — |
 | Warehouse categories | Three hierarchy levels: resolve/create/update/archive/restore, exact record/dependency protection, atomic audit/replay, redacted history; authorized dependency-checked removal | — |
 | Warehouse locations | Create/update/archive/restore, audit | — |
@@ -501,3 +501,16 @@ The frontend build and 29 tests cover two confirmations, lost-response exact
 retry, stale/empty/blocked/pending outcomes. Browser checks cover DE/EN,
 light/dark, seven breakpoints, AA contrast, focus containment and no overflow.
 Production verification uses read-only catalog/guard checks and exact image IDs.
+
+## Warehouse product import verification
+
+Warehouse 5.9.107 / MCP 1.5.52 adds two tools: 395 total (105 reads /
+145 preparations / 145 executions), with public product-page extraction in the
+existing prepare_create tool. Full service race/PostgreSQL tests, Vet and builds
+pass. Batch previews are pure, including sequence allocation. Current owner
+admin/action/financial rights, retained duplicate identities, precise complete
+reference/storage context, explicit missing-data consent, shared-master conflict
+checks, combined capacity, full audit rollback and same-key/restart replay are
+verified. Extraction never creates records, downloads images, contacts carts or
+re-fetches a mutable page during confirmed creation. No migration. Parent issues
+remain open for every other outstanding area above.
