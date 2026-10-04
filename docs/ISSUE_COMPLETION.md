@@ -23,7 +23,7 @@ and production verification. Optional event streams are separate follow-up work.
 | Procurement suppliers/products/offers | Create/update, retained named archive/restore, exact record/dependency context, current owner rights, atomic audit/activity/durable replay, per-entity redacted versioned history | — |
 | Procurement categories | Full parameter schema create/update, retained named archive/restore, active product/parent guards, redacted audit and atomic owner activity/replay | — |
 | Procurement requisitions | Complete owner context-bound draft create/update/submit with retained line IDs, distinct-administrator decisions, retained archive/restore, verified return → revise → resubmit, exact atomic supplier order conversion and redacted versioned history | Scoped read/financial verification |
-| Procurement orders | Complete owner context-bound draft create/update with retained line IDs, status transitions, full context-bound receipt, retained archive/restore with putaway blockers, durable Amazon supplier submission, retained human reconciliation of uncertain claims and versioned history | Adam-Hall supplier submission |
+| Procurement orders | Complete owner context-bound draft create/update with retained line IDs, status transitions, full context-bound receipt, retained archive/restore with putaway blockers, durable Amazon/Adam-Hall supplier submission with separately confirmed cart preparation, retained human reconciliation of uncertain claims and versioned history | — |
 | Procurement product mapping | Audited versioned link | Supplier-link lifecycle verification |
 | Planner plans/tasks | Create, membership-protected reads | Complete update/archive/restore, durable atomic audit/replay |
 | Planner buckets/labels/dependencies/sprints/goals | Read context | Schema discovery, guided create/update/archive/restore |
@@ -476,3 +476,28 @@ commercial lines and acknowledgements remain immutable. Resolution, order status
 full audit/activity and durable receipt commit together; historical submission
 receipts preserve their original results. Production checks remain read-only.
 Parent issues remain open for Adam Hall and the other remaining acceptance rows.
+
+## Adam Hall checkout verification
+
+ProcurementCore 1.0.76 / MCP 1.5.51 adds four named supplier tools: 393 total
+(105 reads / 144 preparations / 144 executions), native 014 / root 043.
+Pure local/saved-quote previews, explicit send/current-admin rights, retained
+unrelated merchant carts, complete business prices/destinations/methods,
+15-minute quote validity, exact context/checkout/phrases and separate durable
+cart/paid requests define the flow. Private supplier contexts are encrypted,
+record-bound and absent from responses/audits. The shared immutable supplier
+claim preserves reviewed line identities/prices before the only paid request;
+audited saved outcomes and original-key retries never rebuild/resend. Native UI
+uses the same confirmations and phases. Headerless signed delegations cannot
+bypass owner scopes through native routes. Parent issues remain open for every
+remaining acceptance row above.
+
+Validation for this release includes full PostgreSQL/race suites in both
+services, Vet/builds, fresh-root and retained-upgrade real Streamable HTTP
+flows through an isolated TLS/SSO/PKCE supplier mock, final-audit rollback,
+concurrent single-send protection, changed merchant method identity, retained
+private context, restart replay and unchanged published request/order receipts.
+The frontend build and 29 tests cover two confirmations, lost-response exact
+retry, stale/empty/blocked/pending outcomes. Browser checks cover DE/EN,
+light/dark, seven breakpoints, AA contrast, focus containment and no overflow.
+Production verification uses read-only catalog/guard checks and exact image IDs.

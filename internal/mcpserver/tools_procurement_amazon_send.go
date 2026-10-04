@@ -19,7 +19,7 @@ type AmazonOrderSendInput struct {
 }
 
 func isProcurementSupplierSendTool(name string) bool {
-	return name == "procurement.orders.send_amazon" || name == "procurement.orders.reconcile_submission"
+	return name == "procurement.orders.send_amazon" || name == "procurement.orders.reconcile_submission" || name == "procurement.orders.build_adam_hall_cart" || name == "procurement.orders.send_adam_hall"
 }
 
 func registerProcurementAmazonSendTools(server *mcp.Server, cfg config.Config) {

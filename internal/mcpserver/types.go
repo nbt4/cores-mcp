@@ -160,8 +160,12 @@ func executeMutationTool[In any](ctx context.Context, name, permissionLabel stri
 		replay, owner, err = mutationReplays.begin(ctx, invocation.ReplayKey, invocation.Fingerprint)
 		if err != nil {
 			message := fmt.Sprintf("%s rejected: %v", name, err)
+			warning := "No data was changed."
+			if isProcurementSupplierSendTool(name) {
+				warning = mutationFailureWarning(name)
+			}
 			return &mcp.CallToolResult{IsError: true, Content: []mcp.Content{&mcp.TextContent{Text: message}}}, Output{
-				AsOf: now(), Summary: message, Warnings: []string{"No data was changed."},
+				AsOf: now(), Summary: message, Warnings: []string{warning},
 			}, nil
 		}
 		if !owner {
@@ -301,7 +305,7 @@ func requiredMutationScope(tool string) string {
 		return coresauth.ServiceWriteScope("procurement", "approve")
 	case "procurement.requisitions.submit":
 		return coresauth.ServiceWriteScope("procurement", "submit")
-	case "procurement.orders.send_amazon", "procurement.orders.reconcile_submission":
+	case "procurement.orders.send_amazon", "procurement.orders.reconcile_submission", "procurement.orders.build_adam_hall_cart", "procurement.orders.send_adam_hall":
 		return coresauth.ServiceWriteScope("procurement", "send")
 	case "procurement.orders.receive":
 		return coresauth.ServiceWriteScope("procurement", "receive")
@@ -481,6 +485,9 @@ func intID(value string) (int64, error) {
 }
 
 func mutationFailureWarning(name string) string {
+	if name == "procurement.orders.build_adam_hall_cart" {
+		return "The remote supplier cart may already have changed. Retry only the original unchanged idempotency key to inspect its saved outcome; this cart action never places a paid supplier order."
+	}
 	if isProcurementSupplierSendTool(name) {
 		return "A durable supplier claim or external order may already exist. Retry only the original unchanged idempotency key to inspect or finalize its saved outcome. Never create a replacement order until the supplier outcome is reconciled."
 	}
