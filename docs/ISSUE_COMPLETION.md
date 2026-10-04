@@ -12,7 +12,7 @@ and production verification. Optional event streams are separate follow-up work.
 | Warehouse locations | Create/update/archive/restore, audit | — |
 | Warehouse packages | Atomic lines/create/update/archive/restore, audit | — |
 | Warehouse devices | Create/update/archive/restore, audit, own last-update revert, atomic bulk creation | — |
-| Warehouse cases | Create/update/archive/restore, models search, audit | Template/content workflow tools |
+| Warehouse cases | Create/update/archive/restore, models search, audit; full retained template line create/update/archive/restore, content comparison and redacted history | Physical content/packing workflow tools |
 | Warehouse maintenance/defects | Full recurring plans and manual work/defect create/update/transition/complete/cancel/reopen/archive/restore; atomic schedule/condition/legacy effects, events, redacted audits and explicit cost scope | — |
 | Warehouse inventory | Full guided count/create/update/lines/review/correction/approve/cancel/archive/restore, explicit approve scope, precise context/line/event/start-stock protection, atomic physical adjustments/movements/audits/replay and redacted history | — |
 | Warehouse tasks | Full create/partial update/start/complete/cancel/reopen/archive/restore, exact task/reference versions, atomic events/audits/durable replay and redacted history | — |
@@ -514,3 +514,29 @@ checks, combined capacity, full audit rollback and same-key/restart replay are
 verified. Extraction never creates records, downloads images, contacts carts or
 re-fetches a mutable page during confirmed creation. No migration. Parent issues
 remain open for every other outstanding area above.
+
+## Case template lifecycle verification
+
+Warehouse 5.9.108 / MCP 1.5.53 adds ten named tools: 405 total (107 reads /
+149 preparations / 149 executions), native 060 / umbrella 044. Typed expected
+quantities preserve immutable case/product line identity, archived records and
+history. Exact case and complete product/template/physical context bind each
+confirmation. Current owner administrator/action rights protect previews,
+execution and cached/restarted replay. Expected quantities never move stock.
+All-writer guards require an active open unnested case, physical active products,
+whole serialized quantities and retained lifecycle; hard deletion is rejected.
+Legacy native removal archives instead, and active displays/completeness exclude
+archives. One-time legacy template migration stops after lifecycle installation.
+Parent issues remain open for physical packing and every other remaining row.
+
+Full Warehouse/MCP PostgreSQL race suites, Vet/builds and identical runtime/native/
+umbrella migrations pass. Actual Streamable HTTP against upgraded and freshly
+initialized complete stacks verifies strict typed schemas, pure preparation and
+dry-run, current action/admin rights on cached replay, stale product and legacy
+case/line context, wrong confirmation, final-audit rollback and original-key
+retry, retained archive/restore, default archive exclusion, redacted history,
+native UI compatibility and denial of delegated legacy writes even without origin.
+Concurrent drafts against one case version execute once. Owner/MCP restart
+preserves exact receipts, stock, scan counts, template/case versions and audits.
+Startup no-op stock/tracking updates are suppressed, with a dedicated regression
+covering active and archived cable references. Physical packing remains open.

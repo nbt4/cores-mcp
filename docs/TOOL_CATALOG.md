@@ -1,5 +1,36 @@
 # Tool-Katalog
 
+## Case-Sollvorlagen — Warehouse 5.9.108 / MCP 1.5.53
+
+`warehouse.case_templates.list` liefert aktive Sollzeilen, Artikel, tatsächliche
+Packmengen, Vollständigkeit und genaue Versionen; `include_archived` zeigt
+auf Wunsch erhaltene Archive. Separate `prepare_create/create`,
+`prepare_update/update`, `prepare_archive/archive`, `prepare_restore/restore`
+und `audit_history` ergänzen den vollständigen Vorlagen-Lebenszyklus.
+
+Anlegen erfordert `case_id`, einen aktiven physischen `product_id` und eine
+positive Sollmenge mit höchstens drei Dezimalstellen; Einzelgeräte benötigen
+Ganzzahlen. Änderungen und Lebenszyklus verwenden die unveränderliche
+`template_line_id`. Archivierung erhält ID, Menge und Historie. Zum Editieren
+muss der Case aktiv, geöffnet, nicht verschachtelt und außerhalb eines Jobs sein.
+Die final geprüfte Case-Version und der vollständige Vorlagen-/Artikel-/Inhalt-
+Kontext binden die ausdrückliche Bestätigung. Aktuelle Administrator- und
+Create/Update/Archive-Rechte werden auch bei gespeicherten Wiederholungen geprüft.
+Vorlage, Audit und dauerhafte Antwort werden gemeinsam gespeichert oder komplett
+zurückgerollt. Sollmengenänderungen bewegen keinen physischen Bestand.
+
+Warehouse-Migration 060 / Suite-Migration 044 schützt auch native Schreiber,
+verhindert dauerhaftes Löschen und beendet die wiederholte Legacy-Übernahme beim
+Neustart. Unveränderte Lager- und Kabelreferenzen behalten beim Start
+ihre genauen Versionen, auch für archivierte Artikel. Die bestehende UI
+archiviert entfernte Sollzeilen; aktive Case-Ansichten
+und Vollständigkeitsprüfungen berücksichtigen nur aktive Vorlagen. Zuerst
+Warehouse bereitstellen und Migration prüfen, danach MCP aktualisieren.
+Pack-/Entpack- und weitere ausstehende Workflows bleiben im Issue-Prüfplan offen.
+
+Der aktuelle Katalog umfasst 405 Werkzeuge: 107 Abfragen, 149 Vorschauen und
+149 Ausführungen.
+
 ## Produkt-Batch und Hersteller-URL — Warehouse 5.9.107 / MCP 1.5.52
 
 Der Katalog umfasst 395 Werkzeuge: 105 Abfragen, 145 Vorschauen und 145
