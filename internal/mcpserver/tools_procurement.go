@@ -40,7 +40,7 @@ func registerProcurementTools(server *mcp.Server, db *store.Store) {
 		if err != nil {
 			return nil, nil, nil, err
 		}
-		demand, err := db.Query(ctx, `SELECT r.id AS requisition_id,r.number,r.title,r.status,r.needed_by,rl.quantity,rl.unit,rl.estimated_price_cents FROM proc_requisition_lines rl JOIN proc_requisitions r ON r.id=rl.requisition_id WHERE rl.product_id=$1 ORDER BY r.created_at DESC LIMIT 100`, productID)
+		demand, err := db.Query(ctx, `SELECT r.id AS requisition_id,r.number,r.title,r.status,r.needed_by,rl.quantity,rl.unit,rl.estimated_price_cents FROM proc_requisition_lines rl JOIN proc_requisitions r ON r.id=rl.requisition_id WHERE rl.product_id=$1 AND `+procurementRequisitionReadAccess+` ORDER BY r.created_at DESC LIMIT 100`, productID)
 		if err != nil {
 			return nil, nil, nil, err
 		}
@@ -77,11 +77,11 @@ func registerProcurementTools(server *mcp.Server, db *store.Store) {
 		         ORDER BY s.preferred DESC,s.rating DESC NULLS LAST,s.name LIMIT $3 OFFSET $4`, []any{input.Query, searchPattern(input.Query), db.Limit(input.Limit), cleanOffset(input.Offset)}
 	})
 
-	rowsTool(server, db, "procurement.requisitions.list", "List purchase requisitions", "List requisitions with requester, need date, decision, line count and estimated value.", "procurementcore", "requisition", func(input SearchInput) (string, []any) {
+	rowsTool(server, db, "procurement.requisitions.list", "List purchase requisitions", "List requester-owned requisitions, or all requisitions for a current active administrator, with need date, decision, line count and estimated value.", "procurementcore", "requisition", func(input SearchInput) (string, []any) {
 		return `SELECT r.id AS requisition_id,r.number,r.title,r.status,r.requester_name,r.cost_center,r.justification,r.needed_by,r.estimated_total_cents,
                        r.approved_by_name,r.decision_note,r.submitted_at,r.decided_at,count(rl.id) AS lines,sum(rl.quantity) AS total_quantity,r.updated_at
                   FROM proc_requisitions r LEFT JOIN proc_requisition_lines rl ON rl.requisition_id=r.id
-                 WHERE NOT r.is_archived AND ($1='' OR r.number ILIKE $2 OR r.title ILIKE $2 OR r.status ILIKE $2 OR r.requester_name ILIKE $2 OR r.cost_center ILIKE $2 OR r.justification ILIKE $2)
+                 WHERE ` + procurementRequisitionReadAccess + ` AND NOT r.is_archived AND ($1='' OR r.number ILIKE $2 OR r.title ILIKE $2 OR r.status ILIKE $2 OR r.requester_name ILIKE $2 OR r.cost_center ILIKE $2 OR r.justification ILIKE $2)
                  GROUP BY r.id ORDER BY r.created_at DESC LIMIT $3 OFFSET $4`, []any{input.Query, searchPattern(input.Query), db.Limit(input.Limit), cleanOffset(input.Offset)}
 	})
 

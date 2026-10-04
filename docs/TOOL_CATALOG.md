@@ -1,5 +1,21 @@
 # Tool-Katalog
 
+## Bedarfsmeldungen nach Nutzerrechten — MCP 1.5.58
+
+Bedarfsmeldungen und ihre Positionen sind nur für den ursprünglichen Anforderer
+oder aktuell aktive Administratoren sichtbar. Die Datenbank prüft diese Rechte
+bei jeder Abfrage, bevor Suche, Filter, Sortierung, Seitennavigation, Verknüpfung
+oder Aggregation ausgeführt werden. Veraltete Rollen im Token erweitern keine
+Rechte; Diensttokens ohne echte Nutzeridentität erhalten keine Bedarfsmeldungen.
+
+Dies gilt für `procurement.requisitions.list`, Produktkontexte, `cores.search`,
+`cores.query.records/aggregate`, operative Übersichten, Aktivitäten und
+Nachbeschaffungsempfehlungen. Bedarfszahlen dieser Werkzeuge beziehen sich daher
+auf die für den aktuellen Nutzer sichtbaren Meldungen. Die bestehende
+Produktänderungsvorschau prüft aktive Administratorrechte ebenfalls erneut.
+Der Katalog bleibt bei 433 Werkzeugen; Finanz- und Dokumentrechte sowie die
+weiteren offenen Abnahmepunkte werden separat fertiggestellt.
+
 ### Vollständige Case-Abläufe — Warehouse 5.9.112 / MCP 1.5.57
 
 Der Katalog enthält 433 Werkzeuge: 109 Abfragen, 162 Vorschauen und

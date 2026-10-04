@@ -43,13 +43,15 @@ func TestPrepareProcurementProductUpdateDiffVersionAndArchive(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, statement := range []string{
+		`CREATE TABLE users(userid BIGINT PRIMARY KEY,is_active BOOLEAN,is_admin BOOLEAN)`,
+		`INSERT INTO users VALUES(1,true,true)`,
 		`CREATE TABLE proc_products (id BIGSERIAL PRIMARY KEY,sku TEXT,name TEXT,description TEXT,category_id BIGINT,unit TEXT,manufacturer TEXT,model TEXT,parameters JSONB,attributes JSONB,active BOOLEAN,reorder_point DOUBLE PRECISION,target_stock DOUBLE PRECISION,updated_at TIMESTAMP)`,
 		`CREATE TABLE proc_categories (id BIGINT PRIMARY KEY,name TEXT,parameter_schema JSONB,active BOOLEAN NOT NULL DEFAULT true)`,
 		`CREATE TABLE proc_suppliers (id BIGINT PRIMARY KEY,name TEXT,code TEXT,active BOOLEAN)`,
 		`CREATE TABLE proc_offers (id BIGSERIAL PRIMARY KEY,product_id BIGINT,supplier_id BIGINT,supplier_sku TEXT,price_cents BIGINT,currency TEXT,minimum_quantity DOUBLE PRECISION,pack_size DOUBLE PRECISION,lead_days BIGINT,purchase_url TEXT,valid_until TIMESTAMP,active BOOLEAN,updated_at TIMESTAMP)`,
 		`CREATE TABLE proc_purchase_orders (id BIGINT PRIMARY KEY,number TEXT,status TEXT)`,
 		`CREATE TABLE proc_purchase_order_lines (id BIGSERIAL PRIMARY KEY,purchase_order_id BIGINT,product_id BIGINT)`,
-		`CREATE TABLE proc_requisitions (id BIGINT PRIMARY KEY,number TEXT,status TEXT)`,
+		`CREATE TABLE proc_requisitions (id BIGINT PRIMARY KEY,number TEXT,status TEXT,requester_id BIGINT)`,
 		`CREATE TABLE proc_requisition_lines (id BIGSERIAL PRIMARY KEY,requisition_id BIGINT,product_id BIGINT)`,
 		`INSERT INTO proc_categories(id,name,parameter_schema) VALUES (1,'Lighting','[]')`,
 		`INSERT INTO proc_suppliers VALUES (1,'Light Supply','LS',true)`,
@@ -161,6 +163,18 @@ func TestPrepareProcurementProductUpdateDiffVersionAndArchive(t *testing.T) {
 	prepared, err = runOfferUpdate(offerUpdate)
 	if err != nil || !prepared.Ready {
 		t.Fatalf("offer matching version rejected: %#v %v", prepared, err)
+	}
+	if _, err := database.Exec("UPDATE users SET is_admin=false WHERE userid=1"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := run(true, ProductUpdateInput{ProductID: 1, Name: &name}); err == nil {
+		t.Fatal("stale administrator claims read dependency preview after revocation")
+	}
+	if _, err := database.Exec("UPDATE users SET is_admin=true,is_active=false WHERE userid=1"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := run(true, ProductUpdateInput{ProductID: 1, Name: &name}); err == nil {
+		t.Fatal("inactive administrator read dependency preview")
 	}
 }
 

@@ -22,7 +22,7 @@ and production verification. Optional event streams are separate follow-up work.
 | Rental staffing/external equipment | Read context | Create/update/lifecycle and personnel assignment |
 | Procurement suppliers/products/offers | Create/update, retained named archive/restore, exact record/dependency context, current owner rights, atomic audit/activity/durable replay, per-entity redacted versioned history | — |
 | Procurement categories | Full parameter schema create/update, retained named archive/restore, active product/parent guards, redacted audit and atomic owner activity/replay | — |
-| Procurement requisitions | Complete owner context-bound draft create/update/submit with retained line IDs, distinct-administrator decisions, retained archive/restore, verified return → revise → resubmit, exact atomic supplier order conversion and redacted versioned history | Scoped read/financial verification |
+| Procurement requisitions | Complete owner context-bound draft create/update/submit with retained line IDs, distinct-administrator decisions, retained archive/restore, verified return → revise → resubmit, exact atomic supplier order conversion, redacted versioned history and requester/current-admin read restrictions before search/counts/pagination/joins | Financial scope verification |
 | Procurement orders | Complete owner context-bound draft create/update with retained line IDs, status transitions, full context-bound receipt, retained archive/restore with putaway blockers, durable Amazon/Adam-Hall supplier submission with separately confirmed cart preparation, retained human reconciliation of uncertain claims and versioned history | — |
 | Procurement product mapping | Audited versioned link | Supplier-link lifecycle verification |
 | Planner plans/tasks | Create, membership-protected reads | Complete update/archive/restore, durable atomic audit/replay |
@@ -583,3 +583,14 @@ Inspection explicitly attests completed physical checking without clearing
 maintenance/defects. Native removal archives with history/audit; hard deletion
 of cases and history rewriting are prohibited. The parent issues remain open
 for every other incomplete row above.
+
+### Requisition read permissions (MCP 1.5.58)
+
+All requisition and line reads mirror ProcurementCore's original-requester or
+current active administrator rule. One transaction-local, parameter-bound suite
+identity and fresh users table predicate applies before search, filters, limits,
+joins and aggregates. Direct lists, product context, suite search/overview/
+activity, recommendations and legacy product dependency previews are covered.
+Machine, absent and inactive identities cannot inherit a pooled user's access;
+stale administrator claims cannot preserve revoked rights. Tool count remains
+433. Financial fields and every other remaining acceptance row stay open.

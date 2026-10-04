@@ -83,6 +83,13 @@ func prepareProcurementProductUpdate(ctx context.Context, db *store.Store, input
 	if info == nil || info.Extra["is_admin"] != true {
 		return p, fmt.Errorf("Procurement administrator permission is required to update product details")
 	}
+	accounts, err := db.Query(ctx, `SELECT userid FROM users WHERE userid::text=$1 AND is_active AND is_admin`, info.UserID)
+	if err != nil {
+		return p, err
+	}
+	if len(accounts) != 1 {
+		return p, fmt.Errorf("current active Procurement administrator permission is required")
+	}
 	rows, err := db.Query(ctx, `SELECT id,sku,name,description,category_id,unit,manufacturer,model,parameters,attributes,active,reorder_point,target_stock,
 		to_char(updated_at AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS updated_at FROM proc_products WHERE id=$1`, input.ProductID)
 	if err != nil {
@@ -193,7 +200,7 @@ func prepareProcurementProductUpdate(ctx context.Context, db *store.Store, input
 		if queryErr != nil {
 			return p, queryErr
 		}
-		requisitions, queryErr := db.Query(ctx, `SELECT r.id AS requisition_id,r.number,r.status FROM proc_requisition_lines rl JOIN proc_requisitions r ON r.id=rl.requisition_id WHERE rl.product_id=$1 AND r.status IN ('draft','submitted','approved') ORDER BY r.id LIMIT 50`, input.ProductID)
+		requisitions, queryErr := db.Query(ctx, `SELECT r.id AS requisition_id,r.number,r.status FROM proc_requisition_lines rl JOIN proc_requisitions r ON r.id=rl.requisition_id WHERE rl.product_id=$1 AND `+procurementRequisitionReadAccess+` AND r.status IN ('draft','submitted','approved') ORDER BY r.id LIMIT 50`, input.ProductID)
 		if queryErr != nil {
 			return p, queryErr
 		}

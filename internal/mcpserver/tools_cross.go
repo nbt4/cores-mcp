@@ -128,7 +128,7 @@ func registerCrossCoreTools(server *mcp.Server, db *store.Store) {
                      COALESCE(d.peak_demand,0) AS peak_demand,m.min_stock_level,
                      GREATEST(GREATEST(COALESCE(d.peak_demand,0),COALESCE(m.min_stock_level,0))-(CASE WHEN m.tracking_mode='individual' THEN COALESCE(m.available_devices,0) ELSE COALESCE(m.stock_quantity,0) END),0) AS suggested_quantity,
                      pp.id AS procurement_product_id,pp.sku,pp.target_stock,
-                     (SELECT count(*) FROM proc_requisition_lines rl JOIN proc_requisitions r ON r.id=rl.requisition_id WHERE rl.product_id=pp.id AND lower(r.status) NOT IN ('ordered','rejected','cancelled','closed')) AS open_requisitions,
+                     (SELECT count(*) FROM proc_requisition_lines rl JOIN proc_requisitions r ON r.id=rl.requisition_id WHERE rl.product_id=pp.id AND `+procurementRequisitionReadAccess+` AND lower(r.status) NOT IN ('ordered','rejected','cancelled','closed')) AS open_requisitions,
                      (SELECT COALESCE(sum(pol.quantity-pol.received_quantity),0) FROM proc_purchase_order_lines pol JOIN proc_purchase_orders po ON po.id=pol.purchase_order_id WHERE pol.product_id=pp.id AND lower(po.status) NOT IN ('received','completed','cancelled','closed')) AS inbound_quantity,
                      offer.supplier,offer.price_cents,offer.currency,offer.lead_days,offer.last_checked_at
                 FROM metrics m LEFT JOIN demand d ON d.product_id=m.productid LEFT JOIN core_product_links cpl ON cpl.warehouse_product_id=m.productid

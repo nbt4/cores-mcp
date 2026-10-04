@@ -247,7 +247,7 @@ var queryEntities = map[string]queryEntitySpec{
 	"procurement.requisitions": {
 		Service: "procurementcore", SourceEntity: "requisition",
 		BaseSQL: `SELECT r.id AS requisition_id,r.number,r.title,r.status,r.requester_name,r.cost_center,r.justification,r.needed_by,r.estimated_total_cents,
-                   r.approved_by_name,r.decision_note,r.submitted_at,r.decided_at,r.created_at,r.updated_at FROM proc_requisitions r`,
+                   r.approved_by_name,r.decision_note,r.submitted_at,r.decided_at,r.created_at,r.updated_at FROM proc_requisitions r WHERE ` + procurementRequisitionReadAccess,
 		Fields:        map[string]queryFieldKind{"requisition_id": queryInteger, "number": queryString, "title": queryString, "status": queryString, "requester_name": queryString, "cost_center": queryString, "justification": queryString, "needed_by": queryTime, "estimated_total_cents": queryNumber, "approved_by_name": queryString, "decision_note": queryString, "submitted_at": queryTime, "decided_at": queryTime, "created_at": queryTime, "updated_at": queryTime},
 		DefaultFields: []string{"requisition_id", "number", "title", "status", "requester_name", "cost_center", "needed_by", "estimated_total_cents", "approved_by_name", "submitted_at", "decided_at", "updated_at"}, SearchFields: []string{"number", "title", "status", "requester_name", "cost_center", "justification", "approved_by_name", "decision_note"},
 	},
@@ -255,7 +255,7 @@ var queryEntities = map[string]queryEntitySpec{
 		Service: "procurementcore", SourceEntity: "requisition_line",
 		BaseSQL: `SELECT rl.id AS requisition_line_id,rl.requisition_id,r.number AS requisition_number,r.status,rl.product_id AS procurement_product_id,
                    COALESCE(p.name,rl.description) AS product,rl.quantity,rl.unit,rl.estimated_price_cents,r.needed_by
-              FROM proc_requisition_lines rl JOIN proc_requisitions r ON r.id=rl.requisition_id LEFT JOIN proc_products p ON p.id=rl.product_id`,
+              FROM proc_requisition_lines rl JOIN proc_requisitions r ON r.id=rl.requisition_id LEFT JOIN proc_products p ON p.id=rl.product_id WHERE ` + procurementRequisitionReadAccess,
 		Fields:        map[string]queryFieldKind{"requisition_line_id": queryInteger, "requisition_id": queryInteger, "requisition_number": queryString, "status": queryString, "procurement_product_id": queryInteger, "product": queryString, "quantity": queryNumber, "unit": queryString, "estimated_price_cents": queryNumber, "needed_by": queryTime},
 		DefaultFields: []string{"requisition_line_id", "requisition_id", "requisition_number", "status", "procurement_product_id", "product", "quantity", "unit", "estimated_price_cents", "needed_by"}, SearchFields: []string{"requisition_number", "status", "product", "unit"},
 	},
@@ -358,6 +358,9 @@ func queryCatalog() map[string]any {
 			fields = append(fields, map[string]string{"name": field, "type": string(spec.Fields[field])})
 		}
 		entities[name] = map[string]any{"service": spec.Service, "fields": fields, "default_fields": spec.DefaultFields, "search_fields": spec.SearchFields}
+		if name == "procurement.requisitions" || name == "procurement.requisition_lines" {
+			entities[name].(map[string]any)["read_access"] = "Original requester or current active administrator; applies before filters, search, pagination, joins and aggregates. Machine identities have no requisition access."
+		}
 	}
 	relationships := make([]queryRelationship, len(queryRelationships))
 	copy(relationships, queryRelationships)
