@@ -14,7 +14,7 @@ import (
 	"github.com/nbt4/cores-mcp/internal/store"
 )
 
-const Version = "1.5.58"
+const Version = "1.5.59"
 
 func New(cfg config.Config, db *store.Store, logger *slog.Logger) *mcp.Server {
 	description := "Read-only operational context and safe cross-core queries for RentalCore, WarehouseCore, PlannerCore and ProcurementCore."
@@ -34,6 +34,7 @@ func New(cfg config.Config, db *store.Store, logger *slog.Logger) *mcp.Server {
 	registerRentalMasterReads(server, db)
 	registerRentalJobAudit(server, db)
 	registerRentalRequirementReads(server, db)
+	registerRentalJobPositionReads(server, db)
 	registerWarehouseTools(server, db)
 	registerWarehouseAuditTool(server, db)
 	registerWarehouseDeviceAuditTool(server, db)
@@ -62,6 +63,7 @@ func New(cfg config.Config, db *store.Store, logger *slog.Logger) *mcp.Server {
 		registerRentalMasterWrites(server, cfg)
 		registerRentalJobLifecycle(server, cfg, db)
 		registerRentalRequirementLifecycle(server, cfg, db)
+		registerRentalJobPositionWrites(server, cfg, db)
 		registerCreateTools(server, cfg, db)
 		registerSupplierCreateTools(server, cfg, db)
 		registerSupplierUpdateTools(server, cfg, db)
@@ -143,6 +145,9 @@ func auditMiddleware(logger *slog.Logger) mcp.Middleware {
 }
 
 var mutationTools = map[string]struct{}{
+	"rental.job_positions.create":                    {},
+	"rental.job_positions.update":                    {},
+	"rental.job_positions.archive":                   {},
 	"procurement.categories.archive":                 {},
 	"procurement.categories.restore":                 {},
 	"procurement.suppliers.archive":                  {},
