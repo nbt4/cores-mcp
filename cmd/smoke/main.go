@@ -47,6 +47,10 @@ func main() {
 			fmt.Printf("FAIL %s: empty tool result\n", tool.Name)
 			continue
 		}
+		if result.IsError && (tool.Name == "rental.job_positions.get" || tool.Name == "rental.job_positions.search") && strings.Contains(contentText(result.Content), "cores:rental:financial") {
+			fmt.Printf("OK   %s (financial scope denied)\n", tool.Name)
+			continue
+		}
 		if result.IsError && tool.Name == "warehouse.maintenance_orders.financial_get" && strings.Contains(contentText(result.Content), "cores:warehouse:financial") {
 			fmt.Printf("OK   %s (financial scope denied)\n", tool.Name)
 			continue
@@ -119,9 +123,9 @@ func smokeArguments(name string) map[string]any {
 		return map[string]any{"entity": "warehouse.category", "query": "Licht", "limit": 5}
 	case name == "warehouse.case_templates.list" || name == "warehouse.case_contents.get" || name == "warehouse.case_workflows.events":
 		return map[string]any{"case_id": 1}
-	case name == "rental.requirements.search":
+	case name == "rental.job_positions.search" || name == "rental.requirements.search":
 		return map[string]any{"query": "", "limit": 5}
-	case name == "rental.requirements.get" || name == "rental.requirements.audit_history" || name == "rental.jobs.audit_history" || name == "rental.customers.get" || name == "rental.venues.get" || name == "rental.customers.audit_history" || name == "rental.venues.audit_history" || name == "warehouse.product_relations.audit_history" || name == "warehouse.categories.audit_history" || name == "warehouse.subcategories.audit_history" || name == "warehouse.third_categories.audit_history" || name == "warehouse.inventory_counts.get" || name == "warehouse.inventory_counts.audit_history" || name == "warehouse.tasks.audit_history" || name == "warehouse.maintenance_orders.audit_history" || name == "warehouse.defects.audit_history" || name == "warehouse.maintenance_plans.audit_history" || name == "warehouse.cases.audit_history" || name == "warehouse.case_templates.audit_history" || name == "warehouse.manufacturers.audit_history" || name == "warehouse.brands.audit_history":
+	case name == "rental.job_positions.get" || name == "rental.job_positions.audit_history" || name == "rental.requirements.get" || name == "rental.requirements.audit_history" || name == "rental.jobs.audit_history" || name == "rental.customers.get" || name == "rental.venues.get" || name == "rental.customers.audit_history" || name == "rental.venues.audit_history" || name == "warehouse.product_relations.audit_history" || name == "warehouse.categories.audit_history" || name == "warehouse.subcategories.audit_history" || name == "warehouse.third_categories.audit_history" || name == "warehouse.inventory_counts.get" || name == "warehouse.inventory_counts.audit_history" || name == "warehouse.tasks.audit_history" || name == "warehouse.maintenance_orders.audit_history" || name == "warehouse.defects.audit_history" || name == "warehouse.maintenance_plans.audit_history" || name == "warehouse.cases.audit_history" || name == "warehouse.case_templates.audit_history" || name == "warehouse.manufacturers.audit_history" || name == "warehouse.brands.audit_history":
 		return map[string]any{"id": "1"}
 	case name == "warehouse.maintenance_orders.financial_get":
 		return map[string]any{"id": "1"}
