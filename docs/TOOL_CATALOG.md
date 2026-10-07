@@ -1,5 +1,35 @@
 # Tool-Katalog
 
+## OAuth-Nachfreigabe für Auftragspositionen — MCP 1.5.60
+
+Die neun `rental.job_positions`-Werkzeuge veröffentlichen ihre benötigten
+OAuth-Scopes direkt im Tool-Descriptor (`securitySchemes` und `_meta`-Spiegel).
+Vorschau/Anlage/Update/Archivierung benötigen den passenden Rental-Aktionsscope
+und `cores:rental:financial`; `get/search` benötigen den Finanzscope, die
+redigierte Historie nur den Basis-Lesescope plus unveränderte Adminprüfung.
+Legacy `cores:write` erfüllt weiterhin die Aktionsprüfung, niemals den Finanzscope.
+
+Fehlt eine Freigabe, antwortet der MCP vor jedem Geschäftsaufruf mit einem
+strukturierten `_meta["mcp/www_authenticate"]`-Challenge: Metadaten-URL,
+`insufficient_scope`, verständliche Beschreibung und genau die fehlenden Rechte.
+Vorhandene gültige Grants werden in der erneuten Anfrage erhalten. ChatGPT kann
+so die OAuth-Nachfreigabe starten und den Finanzschalter im bestehenden
+Cores-Dialog anzeigen; Nutzer müssen die gewünschte Freigabe ausdrücklich
+bestätigen. Token-Refresh erweitert keine Rechte, und abgelehnter Finanzzugriff
+bleibt abgelehnt. Geschäftliche Bestätigungen werden dabei nicht ausgeführt
+oder automatisch wiederholt; danach eine frische Positionsvorschau erstellen.
+
+Tool-Namen, Eingabe-/Geschäftsschemas und Kataloggröße (442) bleiben stabil.
+Keine neue Konfiguration oder Migration; nur MCP ausrollen und im Client die
+Tool-Definitionen aktualisieren. Statische Maschinentokens sind weiterhin reine
+Lesezugänge und kein PAT-Ersatz für diese persönlichen Schreibabläufe.
+
+Der lokale HTTP-Regressionslauf prüft beide Descriptor-Felder, alle relevanten
+Positionstools, alte/lesende/falsche Finanzgrants, gültige granulare und
+Legacy-Schreibrechte, unveränderte Adminprüfung und signierte Owner-Vorschauen.
+OAuth-Code-/Refresh-Tests prüfen ausdrückliche Finanzfreigabe und deren Ablehnung;
+zusätzlich laufen vollständige Tests, Vet und PostgreSQL-Rechteprüfungen mit Race.
+
 ## Auftragspositionen — Rental 5.3.121 / Warehouse 5.9.113 / MCP 1.5.59
 
 `rental.job_positions.prepare_create/create`, `prepare_update/update` und

@@ -14,7 +14,7 @@ import (
 	"github.com/nbt4/cores-mcp/internal/store"
 )
 
-const Version = "1.5.59"
+const Version = "1.5.60"
 
 func New(cfg config.Config, db *store.Store, logger *slog.Logger) *mcp.Server {
 	description := "Read-only operational context and safe cross-core queries for RentalCore, WarehouseCore, PlannerCore and ProcurementCore."
@@ -26,7 +26,7 @@ func New(cfg config.Config, db *store.Store, logger *slog.Logger) *mcp.Server {
 		Description: description,
 		WebsiteURL:  cfg.PublicURL,
 	}, nil)
-	server.AddReceivingMiddleware(auditMiddleware(logger))
+	server.AddReceivingMiddleware(auditMiddleware(logger), toolOAuthMiddleware(cfg))
 	registerSuiteTools(server, cfg, db)
 	registerSchemaTools(server)
 	registerQueryTools(server, db)

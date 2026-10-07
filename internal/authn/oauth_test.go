@@ -82,6 +82,10 @@ func TestOAuthAuthorizationCodeFlow(t *testing.T) {
 		{"invalid selection is rejected", readScope, "admin", "invalid_scope", true, ""},
 		{"rental financial defaults denied", readScope + " cores:rental:financial", "write", readScope + " " + writeScope, true, ""},
 		{"rental financial explicit consent", readScope + " cores:rental:update cores:rental:financial", "write", readScope + " cores:rental:financial cores:rental:update", true, "allow"},
+		{"position create financial consent", readScope + " cores:rental:create cores:rental:financial", "write", readScope + " cores:rental:financial cores:rental:create", true, "allow"},
+		{"position create financial declined", readScope + " cores:rental:create cores:rental:financial", "write", readScope + " cores:rental:create", true, "deny"},
+		{"position archive financial consent", readScope + " cores:rental:archive cores:rental:financial", "write", readScope + " cores:rental:financial cores:rental:archive", true, "allow"},
+
 		{"rental archive remains granular", readScope + " cores:rental:archive", "write", readScope + " cores:rental:archive", true, ""},
 		{"procurement archive remains granular", readScope + " cores:procurement:archive", "write", readScope + " cores:procurement:archive", true, ""},
 		{"only requested finance is granted", readScope + " cores:warehouse:financial cores:rental:financial", "read", readScope + " cores:warehouse:financial cores:rental:financial", true, "allow"},
