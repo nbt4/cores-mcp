@@ -163,8 +163,8 @@ func TestWriteToolsExposeSafeAnnotationsAndSchemas(t *testing.T) {
 	for _, tool := range listed.Tools {
 		tools[tool.Name] = tool
 	}
-	if len(tools) != 442 {
-		t.Fatalf("tool count = %d, want 442", len(tools))
+	if len(tools) != 444 {
+		t.Fatalf("tool count = %d, want 444", len(tools))
 	}
 	for _, action := range []string{"prepare_build_adam_hall_cart", "build_adam_hall_cart", "prepare_send_adam_hall", "send_adam_hall"} {
 		tool := tools["procurement.orders."+action]

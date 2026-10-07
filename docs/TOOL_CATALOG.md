@@ -1,5 +1,11 @@
 # Tool-Katalog
 
+## Mietprodukte am Job zuweisen
+
+Neu: `rental.job_external_equipment.prepare_create` und `.create` für die
+bestätigte Zuweisung vorhandener Fremdmietprodukte unter „Mietprodukte“.
+Der Katalog enthält jetzt **444 Werkzeuge**. [Ablauf und Grenzen](JOB_EXTERNAL_EQUIPMENT_MCP.md).
+
 ## OAuth-Nachfreigabe für Auftragspositionen — MCP 1.5.60
 
 Die neun `rental.job_positions`-Werkzeuge veröffentlichen ihre benötigten
@@ -1071,6 +1077,8 @@ Alle Query-Namen und Felder stammen aus einer festen Registry. Nutzwerte werden 
 | `rental.revenue.summary` | Geplanter und finaler Umsatz nach Monat und Status |
 | `rental.staffing.requirements` | Personalzuordnung und Skills für Jobs |
 | `rental.external_equipment.list` | Fremdmietkatalog, Nutzung und historische Kosten |
+| `rental.job_external_equipment.prepare_create` | Vorhandenes Mietprodukt am Job auflösen; Menge, Miettage, Live-Preise, Kosten, Duplikate und exakte Bestätigung prüfen |
+| `rental.job_external_equipment.create` | Bestätigte neue Zuordnung unter „Mietprodukte“ atomar mit Jobhistorie, Audit und Wiederholungsbeleg anlegen |
 | `rental.jobs.prepare_create` | Kunde, Status, Kategorie, Ort und Datumswerte auflösen; konkrete Rückfragen liefern |
 | `rental.jobs.create` | Einen bestätigten, vollständig aufgelösten Job über die RentalCore-API anlegen |
 | `rental.requirements.prepare_create` | Job/Produkt auflösen, Gesamt-/manuelle/Positionsmengen, Duplikate und exakte Job-/Kontextversion prüfen |

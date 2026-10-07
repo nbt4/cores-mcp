@@ -1,5 +1,11 @@
 # Cores MCP
 
+## Mietprodukte am Job zuweisen — MCP 1.5.61
+
+Neu: `rental.job_external_equipment.prepare_create` und `.create` für die
+bestätigte Zuweisung vorhandener Fremdmietprodukte unter „Mietprodukte“.
+Der Katalog enthält jetzt **444 Werkzeuge**. [Ablauf und Grenzen](docs/JOB_EXTERNAL_EQUIPMENT_MCP.md).
+
 ## OAuth-Nachfreigabe für Auftragspositionen — MCP 1.5.60
 
 Die neun `rental.job_positions`-Werkzeuge veröffentlichen ihre benötigten

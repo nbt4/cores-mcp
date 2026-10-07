@@ -24,7 +24,7 @@ func TestPositionOAuthDiscoveryAndChallengeAcrossHTTP(t *testing.T) {
 	secret := strings.Repeat("scope-upgrade-test-", 4)
 	owner := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		ownerCalls.Add(1)
-		if r.URL.Path != "/api/v1/mcp/job-positions/create" {
+		if r.URL.Path != "/api/v1/mcp/job-positions/create" && r.URL.Path != "/api/v1/mcp/jobs/external-equipment-create" {
 			t.Errorf("unexpected owner path %s", r.URL.Path)
 		}
 		cookie, err := r.Cookie("cores_token")
@@ -86,6 +86,9 @@ func TestPositionOAuthDiscoveryAndChallengeAcrossHTTP(t *testing.T) {
 	call := func(session *mcp.ClientSession, name string) *mcp.CallToolResult {
 		t.Helper()
 		args := map[string]any{"job_id": 1, "product_id": 2, "quantity": 1, "unit_price": 0}
+		if strings.HasPrefix(name, "rental.job_external_equipment.") {
+			args = map[string]any{"job_id": 1, "equipment_id": 2, "quantity": 1, "days_used": 3}
+		}
 		if name == "rental.job_positions.get" {
 			args = map[string]any{"id": "1"}
 		}
@@ -112,7 +115,7 @@ func TestPositionOAuthDiscoveryAndChallengeAcrossHTTP(t *testing.T) {
 		}
 	}
 	old := connect("old")
-	for _, name := range []string{"rental.job_positions.prepare_create", "rental.job_positions.create", "rental.job_positions.prepare_update", "rental.job_positions.update", "rental.job_positions.prepare_archive", "rental.job_positions.archive", "rental.job_positions.get", "rental.job_positions.search"} {
+	for _, name := range []string{"rental.job_external_equipment.prepare_create", "rental.job_external_equipment.create", "rental.job_positions.prepare_create", "rental.job_positions.create", "rental.job_positions.prepare_update", "rental.job_positions.update", "rental.job_positions.prepare_archive", "rental.job_positions.archive", "rental.job_positions.get", "rental.job_positions.search"} {
 		if strings.HasSuffix(name, "search") {
 			result, err := old.CallTool(context.Background(), &mcp.CallToolParams{Name: name, Arguments: map[string]any{}})
 			if err != nil {
@@ -150,8 +153,17 @@ func TestPositionOAuthDiscoveryAndChallengeAcrossHTTP(t *testing.T) {
 	if ownerCalls.Load() != 2 {
 		t.Fatal("wrong preview count", ownerCalls.Load())
 	}
+	for _, token := range []string{"create", "legacy-financial"} {
+		result := call(connect(token), "rental.job_external_equipment.prepare_create")
+		if result.IsError {
+			t.Fatal("authorized external rental preparation rejected", result)
+		}
+	}
+	if ownerCalls.Load() != 4 {
+		t.Fatal("external rental preview did not reach owner", ownerCalls.Load())
+	}
 	nonAdmin := call(connect("non-admin"), "rental.job_positions.prepare_create")
-	if !nonAdmin.IsError || nonAdmin.Meta["mcp/www_authenticate"] != nil || ownerCalls.Load() != 2 {
+	if !nonAdmin.IsError || nonAdmin.Meta["mcp/www_authenticate"] != nil || ownerCalls.Load() != 4 {
 		t.Fatal("administrator denial mistaken for missing scope", nonAdmin)
 	}
 	// Inspect raw JSON because the Go SDK only models the standard tool fields.
@@ -212,7 +224,7 @@ func TestPositionOAuthDiscoveryAndChallengeAcrossHTTP(t *testing.T) {
 			t.Fatal("metadata mirror differs", tool.Name)
 		}
 	}
-	if found != 9 {
+	if found != 11 {
 		t.Fatal("missing position discovery policies", found, response.StatusCode, string(data))
 	}
 }
