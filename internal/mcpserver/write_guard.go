@@ -275,7 +275,7 @@ func hasDurableWarehouseRetry(tool string) bool {
 	if isProcurementMasterLifecycleTool(tool) || isProcurementWorkflowLifecycleTool(tool) || tool == "procurement.orders.receive" || isProcurementApprovalTool(tool) || isProcurementRequisitionDraftTool(tool) || isProcurementOrderDraftTool(tool) || isProcurementRequisitionOrderTool(tool) || isProcurementSupplierSendTool(tool) {
 		return true
 	}
-	if tool == "warehouse.products.link_relation" || tool == "warehouse.products.bulk_create" {
+	if tool == "warehouse.products.link_relation" || tool == "warehouse.products.bulk_create" || tool == "rental.job_external_equipment.create" {
 		return true
 	}
 	for _, prefix := range []string{"warehouse.case_workflows.", "warehouse.cases.", "warehouse.case_contents.", "warehouse.case_templates.", "rental.job_positions.", "rental.requirements.", "rental.jobs.", "rental.customers.", "rental.venues.", "warehouse.product_relations.", "warehouse.categories.", "warehouse.subcategories.", "warehouse.third_categories.", "warehouse.inventory_counts.", "warehouse.tasks.", "warehouse.maintenance_plans.", "warehouse.maintenance_orders.", "warehouse.defects."} {
