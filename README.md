@@ -1,5 +1,7 @@
 # Cores MCP
 
+## Mietprodukt-Positionen — MCP 1.5.62
+
 Mietprodukt-Korrektur: echte Rental-Auftragspositionen zu `customer_price`,
 separate Lieferantenkosten zu `rental_price` und bestätigter Altfall-Repair.
 [Modell, Migration und Ablauf](docs/JOB_EXTERNAL_EQUIPMENT_MCP.md).

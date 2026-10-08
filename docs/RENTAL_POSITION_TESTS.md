@@ -54,3 +54,21 @@ Keine Bestandsmigration oder fremder Dienstcode wurde geändert. Beide neuen
 Rental-Kostenlink-Migrationen sind lokal geprüft; ihre Inhalte sind identisch.
 Der abschließende vollständige Testlauf enthält auch den zuvor roten allgemeinen
 Suite-Abfragetest. Produktionsdaten wurden nicht abgefragt oder verändert.
+
+## Release-Kandidat 1.5.62 nach Aktualisierung auf main
+
+MCP origin/main fe8c76e wurde übernommen. Der Kandidat trägt die Version 1.5.62.
+Die vollständigen Tests wurden erneut mit `-count=1` und der ausschließlich
+lokalen PostgreSQL-16-Testdatenbank ausgeführt. Exit 0. Echte Ausgabe:
+
+```text
+ok  	github.com/nbt4/cores-mcp/cmd/server	0.014s
+ok  	github.com/nbt4/cores-mcp/cmd/smoke	0.010s
+ok  	github.com/nbt4/cores-mcp/internal/authn	0.054s
+ok  	github.com/nbt4/cores-mcp/internal/config	0.007s
+ok  	github.com/nbt4/cores-mcp/internal/httpx	0.012s
+ok  	github.com/nbt4/cores-mcp/internal/mcpserver	4.094s
+?   	github.com/nbt4/cores-mcp/internal/store	[no test files]
+```
+
+`go vet ./...` und `go build ./cmd/server`: jeweils Exit 0, leere Ausgabe.
