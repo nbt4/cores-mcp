@@ -20,6 +20,7 @@ type RentalJobExternalEquipmentInput struct {
 	EquipmentQuery       string `json:"equipment_query,omitempty" jsonschema:"Resolve external rental catalog name/supplier during preparation only."`
 	Quantity             *int64 `json:"quantity,omitempty" jsonschema:"Explicit whole quantity 1–1000; no inferred stock or default quantity."`
 	DaysUsed             *int64 `json:"days_used,omitempty" jsonschema:"Explicit rental duration 1–365 days; the job multiply_by_days setting controls cost calculation."`
+	RepairExisting       bool   `json:"repair_existing,omitempty" jsonschema:"Explicit repair: create only a missing rental position for an existing unlinked supplier assignment; preserve its quantity, days, costs and history. Blocks existing rental positions."`
 	Notes                string `json:"notes,omitempty" jsonschema:"Optional assignment notes up to 500 bytes."`
 	ExpectedJobUpdatedAt string `json:"expected_job_updated_at,omitempty" jsonschema:"Exact microsecond job version from final preview; required on execution."`
 	ExpectedContext      string `json:"expected_context,omitempty" jsonschema:"Exact SHA-256 binding job, catalog prices, assignments, active editors and draft from final preview."`
@@ -81,14 +82,18 @@ func invokeRentalJobExternalEquipment(ctx context.Context, cfg config.Config, db
 			break
 		}
 	}
-	return out, []Source{{Service: "rentalcore", Entity: "job_rental_equipment", ID: jobID + "/" + equipmentID}, {Service: "rentalcore", Entity: "job", ID: jobID}, {Service: "warehousecore", Entity: "rental_equipment", ID: equipmentID}}, []string{"Adds an existing external rental catalog item to the job Mietprodukte section. Quantity and rental days must be explicit; costs use live rental_price and the job multiply_by_days setting. Missing catalog rental_price and existing assignments block creation. Customer price is displayed for review; this assignment creates no commercial order position and does not recalculate job revenue. Current administrator/create rights, separately selected rental financial access, exact job/context versions and bound confirmation are required. Assignment, job version, native history, audit and durable receipt commit atomically. Procurement and physical stock are unchanged."}, err
+	sources := []Source{{Service: "rentalcore", Entity: "job_rental_equipment", ID: jobID + "/" + equipmentID}, {Service: "rentalcore", Entity: "job", ID: jobID}, {Service: "warehousecore", Entity: "rental_equipment", ID: equipmentID}}
+	if position, ok := out["position"].(map[string]any); ok && position["position_id"] != nil {
+		sources = append(sources, Source{Service: "rentalcore", Entity: "job_position", ID: fmt.Sprint(position["position_id"])})
+	}
+	return out, sources, []string{"Creates a canonical rental job position at customer_price and a linked supplier-cost ledger at rental_price, then recalculates job revenue through RentalCore. Both prices must exist; explicit zero is allowed. Quantity and supplier rental days are explicit. Existing assignments block normal creation. repair_existing creates only a missing position and preserves existing costs/days/quantity; existing positions or linked assignments block repair. Current administrator/create rights, separately selected rental financial access, exact job/context versions and bound confirmation are required. Position, supplier costs, recalculated revenue, job version, native history, audit and durable receipt commit atomically. Procurement and physical stock are unchanged."}, err
 }
 
 func registerRentalJobExternalEquipmentWrites(server *mcp.Server, cfg config.Config, db *store.Store) {
-	addWritePreparationTool(server, "rental.job_external_equipment.prepare_create", "Prepare job external rental assignment", "Resolve an existing job and external rental catalog item; preview quantity, days, live prices, calculated costs, duplicates, editors and exact confirmation without changing data.", func(ctx context.Context, in RentalJobExternalEquipmentInput) (any, []Source, []string, error) {
+	addWritePreparationTool(server, "rental.job_external_equipment.prepare_create", "Prepare job external rental assignment", "Resolve an existing job and external rental catalog item; preview quantity, supplier days, both catalog prices, supplier costs, net/gross sales, net margin, job revenue changes, duplicates, editors and exact confirmation without changing data.", func(ctx context.Context, in RentalJobExternalEquipmentInput) (any, []Source, []string, error) {
 		return invokeRentalJobExternalEquipment(ctx, cfg, db, in, true)
 	})
-	addCreateTool(server, "rental.job_external_equipment.create", "Assign external rental equipment to job", "Insert the explicitly confirmed assignment into Mietprodukte through RentalCore. Refuse existing assignments; require exact preview, selected create/financial scopes and durable idempotency.", func(ctx context.Context, in RentalJobExternalEquipmentInput) (any, []Source, []string, error) {
+	addCreateTool(server, "rental.job_external_equipment.create", "Assign external rental equipment to job", "Create the explicitly confirmed rental position and linked costs atomically through RentalCore, or explicitly repair a missing legacy position. Refuse existing positions; require exact preview, selected create/financial scopes and durable idempotency.", func(ctx context.Context, in RentalJobExternalEquipmentInput) (any, []Source, []string, error) {
 		return invokeRentalJobExternalEquipment(ctx, cfg, db, in, false)
 	})
 }

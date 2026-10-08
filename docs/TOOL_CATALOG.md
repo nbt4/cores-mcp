@@ -1069,7 +1069,7 @@ Alle Query-Namen und Felder stammen aus einer festen Registry. Nutzwerte werden 
 | Tool | Zweck |
 |---|---|
 | `rental.jobs.search` | Jobs nach Code, Beschreibung, Kunde, Ort oder Status suchen |
-| `rental.jobs.get` | Vollständigen Jobkontext mit Material, Geräten, Paketen, Fremdmiete und Personal lesen |
+| `rental.jobs.get` | Jobkontext mit kanonischen positions/rental_positions und separaten external_rentals samt Repair-Kennzeichnung; Finanzscope erforderlich |
 | `rental.jobs.upcoming` | Überlappende Jobs in einem Zeitfenster |
 | `rental.requirements.list` | Produktmengen pro Job und Zeitraum |
 | `rental.customers.search` | Kundenstammdaten ohne private Kontaktdaten |
@@ -1077,8 +1077,8 @@ Alle Query-Namen und Felder stammen aus einer festen Registry. Nutzwerte werden 
 | `rental.revenue.summary` | Geplanter und finaler Umsatz nach Monat und Status |
 | `rental.staffing.requirements` | Personalzuordnung und Skills für Jobs |
 | `rental.external_equipment.list` | Fremdmietkatalog, Nutzung und historische Kosten |
-| `rental.job_external_equipment.prepare_create` | Vorhandenes Mietprodukt am Job auflösen; Menge, Miettage, Live-Preise, Kosten, Duplikate und exakte Bestätigung prüfen |
-| `rental.job_external_equipment.create` | Bestätigte neue Zuordnung unter „Mietprodukte“ atomar mit Jobhistorie, Audit und Wiederholungsbeleg anlegen |
+| `rental.job_external_equipment.prepare_create` | Vorhandenes Mietprodukt auflösen; beide Preise, Menge/Miettage, Kosten, Netto-/Bruttoumsatz, Marge, Umsatzänderung und bestätigten Repair prüfen |
+| `rental.job_external_equipment.create` | Echte Rental-Position zum Kundenpreis und verknüpfte Lieferantenkosten atomar anlegen; expliziter repair_existing ergänzt nur eine fehlende Altfall-Position |
 | `rental.jobs.prepare_create` | Kunde, Status, Kategorie, Ort und Datumswerte auflösen; konkrete Rückfragen liefern |
 | `rental.jobs.create` | Einen bestätigten, vollständig aufgelösten Job über die RentalCore-API anlegen |
 | `rental.requirements.prepare_create` | Job/Produkt auflösen, Gesamt-/manuelle/Positionsmengen, Duplikate und exakte Job-/Kontextversion prüfen |

@@ -22,40 +22,7 @@ func registerRentalTools(server *mcp.Server, db *store.Store) {
 	})
 
 	addTool(server, "rental.jobs.get", "Get rental job context", "Get a job and its product, device, package, rental-equipment, venue, and staffing context by numeric ID or job code.", func(ctx context.Context, input IDInput) (any, []Source, []string, error) {
-		jobRows, err := db.Query(ctx, `SELECT j.jobid AS job_id,j.job_code,j.description,s.status,j.startdate AS start_date,j.enddate AS end_date,
-                   COALESCE(NULLIF(c.companyname,''),NULLIF(c.name,''),TRIM(CONCAT_WS(' ',c.firstname,c.lastname))) AS customer,
-                   v.name AS venue,v.city AS venue_city,j.revenue,j.final_revenue,j.discount,j.discount_type,j.customerid AS customer_id,j.statusid AS status_id,j.jobcategoryid AS job_category_id,j.venue_id,j.multiply_by_days,j.prices_include_tax,j.revision,j.deleted_at IS NOT NULL AS is_archived,j.deleted_at AS archived_at,to_char(j.updated_at,'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS updated_at
-              FROM jobs j LEFT JOIN status s ON s.statusid=j.statusid LEFT JOIN customers c ON c.customerid=j.customerid
-              LEFT JOIN venues v ON v.id=j.venue_id WHERE (j.jobid::text=$1 OR j.job_code=$1) LIMIT 1`, input.ID)
-		if err != nil || len(jobRows) == 0 {
-			return jobRows, []Source{{Service: "rentalcore", Entity: "job", ID: input.ID}}, nil, err
-		}
-		jobID := jobRows[0]["job_id"]
-		requirements, err := db.Query(ctx, `SELECT p.productid AS product_id,p.name,p.product_code,p.tracking_mode,r.quantity,
-                   count(DISTINCT jd.deviceid) FILTER (WHERE d.productid=p.productid) AS assigned_devices
-              FROM (SELECT * FROM job_product_requirements src WHERE COALESCE(to_jsonb(src)->>'deleted_at','')='') r JOIN products p ON p.productid=r.product_id
-              LEFT JOIN job_devices jd ON jd.jobid=r.job_id LEFT JOIN devices d ON d.deviceid=jd.deviceid
-             WHERE r.job_id=$1 GROUP BY p.productid,r.quantity ORDER BY p.name`, jobID)
-		if err != nil {
-			return nil, nil, nil, err
-		}
-		packages, err := db.Query(ctx, `SELECT jp.job_package_id,pp.id AS package_id,pp.name,jp.quantity,jp.custom_price,jp.notes
-              FROM job_packages jp JOIN product_packages pp ON pp.id=jp.package_id WHERE jp.job_id=$1 ORDER BY pp.name`, jobID)
-		if err != nil {
-			return nil, nil, nil, err
-		}
-		rental, err := db.Query(ctx, `SELECT re.id,re.name,re.supplier,re.category,jre.quantity,jre.days_used,jre.total_cost
-              FROM job_rental_equipment jre JOIN rental_equipment re ON re.id=jre.equipment_id WHERE jre.job_id=$1 ORDER BY re.name`, jobID)
-		if err != nil {
-			return nil, nil, nil, err
-		}
-		staff, err := db.Query(ctx, `SELECT e.id,TRIM(CONCAT_WS(' ',e.first_name,e.last_name)) AS employee,je.role
-              FROM job_employees je JOIN employees e ON e.id=je.employee_id WHERE je.job_id=$1 ORDER BY employee`, jobID)
-		if err != nil {
-			return nil, nil, nil, err
-		}
-		return map[string]any{"job": jobRows[0], "product_requirements": requirements, "packages": packages, "external_rentals": rental, "staffing": staff},
-			[]Source{{Service: "rentalcore", Entity: "job", ID: fmt.Sprint(jobID)}}, nil, nil
+		return rentalJobContext(ctx, db, input)
 	})
 
 	windowRowsTool(server, db, "rental.jobs.upcoming", "List upcoming rental jobs", "List jobs overlapping a date window with requirement, device, and package counts.", "rentalcore", "job", func(input WindowInput, from, to time.Time) (string, []any) {
@@ -115,4 +82,56 @@ func registerRentalTools(server *mcp.Server, db *store.Store) {
                  WHERE re.is_active=true AND ($1='' OR re.name ILIKE $2 OR re.supplier ILIKE $2 OR re.category ILIKE $2)
                  GROUP BY re.id ORDER BY job_uses DESC,re.name LIMIT $3 OFFSET $4`, []any{input.Query, searchPattern(input.Query), db.Limit(input.Limit), cleanOffset(input.Offset)}
 	})
+}
+
+func rentalJobContext(ctx context.Context, db *store.Store, input IDInput) (any, []Source, []string, error) {
+	if err := requireRentalPositionFinancial(ctx); err != nil {
+		return nil, nil, nil, err
+	}
+
+	jobRows, err := db.Query(ctx, `SELECT j.jobid AS job_id,j.job_code,j.description,s.status,j.startdate AS start_date,j.enddate AS end_date,
+                   COALESCE(NULLIF(c.companyname,''),NULLIF(c.name,''),TRIM(CONCAT_WS(' ',c.firstname,c.lastname))) AS customer,
+                   v.name AS venue,v.city AS venue_city,j.revenue,j.final_revenue,j.discount,j.discount_type,j.customerid AS customer_id,j.statusid AS status_id,j.jobcategoryid AS job_category_id,j.venue_id,j.multiply_by_days,j.prices_include_tax,j.revision,j.deleted_at IS NOT NULL AS is_archived,j.deleted_at AS archived_at,to_char(j.updated_at,'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS updated_at
+              FROM jobs j LEFT JOIN status s ON s.statusid=j.statusid LEFT JOIN customers c ON c.customerid=j.customerid
+              LEFT JOIN venues v ON v.id=j.venue_id WHERE (j.jobid::text=$1 OR j.job_code=$1) LIMIT 1`, input.ID)
+	if err != nil || len(jobRows) == 0 {
+		return jobRows, []Source{{Service: "rentalcore", Entity: "job", ID: input.ID}}, nil, err
+	}
+	jobID := jobRows[0]["job_id"]
+	requirements, err := db.Query(ctx, `SELECT p.productid AS product_id,p.name,p.product_code,p.tracking_mode,r.quantity,
+                   count(DISTINCT jd.deviceid) FILTER (WHERE d.productid=p.productid) AS assigned_devices
+              FROM (SELECT * FROM job_product_requirements src WHERE COALESCE(to_jsonb(src)->>'deleted_at','')='') r JOIN products p ON p.productid=r.product_id
+              LEFT JOIN job_devices jd ON jd.jobid=r.job_id LEFT JOIN devices d ON d.deviceid=jd.deviceid
+             WHERE r.job_id=$1 GROUP BY p.productid,r.quantity ORDER BY p.name`, jobID)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	packages, err := db.Query(ctx, `SELECT jp.job_package_id,pp.id AS package_id,pp.name,jp.quantity,jp.custom_price,jp.notes
+              FROM job_packages jp JOIN product_packages pp ON pp.id=jp.package_id WHERE jp.job_id=$1 ORDER BY pp.name`, jobID)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	rental, err := db.Query(ctx, `SELECT re.id,re.name,re.supplier,re.category,re.rental_price,re.customer_price,jre.quantity,jre.days_used,jre.total_cost,jre.position_id,jre.position_id IS NULL AS repair_required
+              FROM job_rental_equipment jre JOIN rental_equipment re ON re.id=jre.equipment_id LEFT JOIN job_positions linked ON linked.position_id=jre.position_id WHERE jre.job_id=$1 AND (jre.position_id IS NULL OR linked.deleted_at IS NULL) ORDER BY re.name`, jobID)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	positions, err := db.Query(ctx, `SELECT position_id,job_id,position_type,rental_equipment_id,description,quantity,unit,unit_price,follow_day_factor,discount_percent,discount_amount,tax_rate FROM job_positions WHERE job_id=$1 AND deleted_at IS NULL ORDER BY sort_order,position_id`, jobID)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	rentalPositions := []map[string]any{}
+	for _, p := range positions {
+		if p["position_type"] == "rental" {
+			rentalPositions = append(rentalPositions, p)
+		}
+	}
+
+	staff, err := db.Query(ctx, `SELECT e.id,TRIM(CONCAT_WS(' ',e.first_name,e.last_name)) AS employee,je.role
+              FROM job_employees je JOIN employees e ON e.id=je.employee_id WHERE je.job_id=$1 ORDER BY employee`, jobID)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	return map[string]any{"job": jobRows[0], "product_requirements": requirements, "packages": packages, "external_rentals": rental, "positions": positions, "rental_positions": rentalPositions, "staffing": staff},
+		[]Source{{Service: "rentalcore", Entity: "job", ID: fmt.Sprint(jobID)}}, nil, nil
 }

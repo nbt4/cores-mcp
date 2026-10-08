@@ -42,7 +42,7 @@ func TestExternalRentalAssignmentDelegationDryRunRetryAndRights(t *testing.T) {
 		}
 		body["forwarded_key"] = r.Header.Get("Idempotency-Key")
 		calls = append(calls, body)
-		status, out := 201, `{"operation_status":"created","assignment":{"job_id":3,"equipment_id":4,"quantity":2,"days_used":3,"total_cost":60}}`
+		status, out := 201, `{"operation_status":"created","assignment":{"job_id":3,"equipment_id":4,"quantity":2,"days_used":3,"total_cost":60},"position":{"position_id":9,"position_type":"rental","rental_equipment_id":4,"unit_price":50}}`
 		if revoked {
 			status, out = 403, `{"error":"Current rental administrator rights required"}`
 		} else if body["forwarded_key"] == "external-rental-owner-retry" && !failed {
@@ -63,7 +63,7 @@ func TestExternalRentalAssignmentDelegationDryRunRetryAndRights(t *testing.T) {
 		if err != nil || (result != nil && result.IsError) != wantError {
 			t.Fatal(result, out, err)
 		}
-		if !wantError && !in.DryRun && (out.AsOf == "" || len(out.Sources) != 3 || out.Sources[0].ID != "3/4") {
+		if !wantError && !in.DryRun && (out.AsOf == "" || len(out.Sources) != 4 || out.Sources[0].ID != "3/4" || out.Sources[3].Entity != "job_position" || out.Sources[3].ID != "9") {
 			t.Fatal("missing timestamp/source identities", out)
 		}
 	}
@@ -80,12 +80,18 @@ func TestExternalRentalAssignmentDelegationDryRunRetryAndRights(t *testing.T) {
 	if len(calls) != 4 || calls[3]["quantity"] != float64(2) || calls[3]["days_used"] != float64(3) || calls[3]["expected_job_updated_at"] != in.ExpectedJobUpdatedAt || calls[3]["forwarded_key"] != in.IdempotencyKey {
 		t.Fatal("retry/replay/controls", calls)
 	}
+	in.RepairExisting = true
+	in.IdempotencyKey = "external-rental-explicit-repair"
+	call(ctx, false)
+	if calls[len(calls)-1]["repair_existing"] != true {
+		t.Fatal("repair intent was dropped")
+	}
 	revoked = true
 	call(ctx, true)
 	for _, denied := range []context.Context{inventoryTestContext(t, "42", false, "cores:rental:create", "cores:rental:financial"), inventoryTestContext(t, "42", true, "cores:rental:update", "cores:rental:financial"), inventoryTestContext(t, "service:test", true, "cores:rental:create", "cores:rental:financial"), inventoryTestContext(t, "42", true, "cores:rental:create"), inventoryTestContext(t, "42", true, "cores:read")} {
 		call(denied, true)
 	}
-	if len(calls) != 5 {
+	if len(calls) != 6 {
 		t.Fatal("unauthorized request reached owner", len(calls))
 	}
 	// A query is never used to pick an identity during confirmed replay.
@@ -93,7 +99,7 @@ func TestExternalRentalAssignmentDelegationDryRunRetryAndRights(t *testing.T) {
 	in.JobQuery = "Ambiguous job"
 	in.IdempotencyKey = "external-rental-unresolved"
 	call(ctx, true)
-	if len(calls) != 5 {
+	if len(calls) != 6 {
 		t.Fatal("unresolved execution reached owner")
 	}
 }
@@ -104,7 +110,7 @@ func TestExternalRentalAssignmentScopesAndCompleteSchema(t *testing.T) {
 		t.Fatal("missing mutation guard", name)
 	}
 	encoded, _ := json.Marshal(renderWritableEntitySchema(writableEntitySchemas()["rental.job_external_equipment"]))
-	for _, field := range []string{"job_id", "equipment_id", "quantity", "days_used", "expected_job_updated_at", "expected_context", "confirmation_text", "prepare_create", "idempotency_key"} {
+	for _, field := range []string{"job_id", "equipment_id", "quantity", "days_used", "repair_existing", "expected_job_updated_at", "expected_context", "confirmation_text", "prepare_create", "idempotency_key"} {
 		if !strings.Contains(string(encoded), field) {
 			t.Fatal("missing schema", field)
 		}

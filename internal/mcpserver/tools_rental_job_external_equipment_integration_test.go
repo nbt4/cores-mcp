@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"net/url"
@@ -83,4 +84,42 @@ func TestExternalRentalAssignmentReferenceResolution(t *testing.T) {
 	if len(calls) != 1 {
 		t.Fatal("exact equipment identity was not resolved")
 	}
+	// The ordinary job context exposes canonical rental positions, separate from supplier costs.
+	_, err = db.Exec(`
+      ALTER TABLE jobs ADD COLUMN customerid INT,ADD COLUMN statusid INT,ADD COLUMN startdate DATE,ADD COLUMN enddate DATE,ADD COLUMN venue_id INT,ADD COLUMN revenue NUMERIC DEFAULT 119,ADD COLUMN final_revenue NUMERIC DEFAULT 119,ADD COLUMN discount NUMERIC DEFAULT 0,ADD COLUMN discount_type TEXT DEFAULT 'amount',ADD COLUMN jobcategoryid INT,ADD COLUMN multiply_by_days BOOL DEFAULT true,ADD COLUMN prices_include_tax BOOL DEFAULT false,ADD COLUMN revision INT DEFAULT 1,ADD COLUMN updated_at TIMESTAMP DEFAULT NOW();
+      CREATE TABLE customers(customerid INT PRIMARY KEY,companyname TEXT,name TEXT,firstname TEXT,lastname TEXT);
+      CREATE TABLE status(statusid INT PRIMARY KEY,status TEXT);
+      CREATE TABLE venues(id INT PRIMARY KEY,name TEXT,city TEXT);
+      CREATE TABLE products(productid INT PRIMARY KEY,name TEXT,product_code TEXT,tracking_mode TEXT);
+      CREATE TABLE job_product_requirements(id INT,job_id INT,product_id INT,quantity INT);
+      CREATE TABLE job_devices(jobid INT,deviceid TEXT);
+      CREATE TABLE devices(deviceid TEXT,productid INT);
+      CREATE TABLE product_packages(id INT,name TEXT);
+      CREATE TABLE job_packages(job_package_id INT,job_id INT,package_id INT,quantity INT,custom_price NUMERIC,notes TEXT);
+      ALTER TABLE rental_equipment ADD COLUMN rental_price NUMERIC DEFAULT 37.50,ADD COLUMN customer_price NUMERIC DEFAULT 50;
+      CREATE TABLE job_positions(position_id INT,job_id INT,position_type TEXT,rental_equipment_id INT,description TEXT,quantity NUMERIC,unit TEXT,unit_price NUMERIC,follow_day_factor NUMERIC,discount_percent NUMERIC DEFAULT 0,discount_amount NUMERIC DEFAULT 0,tax_rate NUMERIC DEFAULT 19,sort_order INT DEFAULT 0,deleted_at TIMESTAMP);
+      INSERT INTO job_positions(position_id,job_id,position_type,rental_equipment_id,description,quantity,unit,unit_price,follow_day_factor) VALUES(1,1,'rental',10,'Synthetic rental',2,'Stück',50,0);
+      CREATE TABLE job_rental_equipment(job_id INT,equipment_id INT,position_id INT,quantity INT,days_used INT,total_cost NUMERIC);
+      INSERT INTO job_rental_equipment VALUES(1,10,1,2,1,75);
+      CREATE TABLE employees(id INT,first_name TEXT,last_name TEXT);
+      CREATE TABLE job_employees(job_id INT,employee_id INT,role TEXT);
+    `)
+	if err != nil {
+		t.Fatal(err)
+	}
+	repository := store.New(db, 5*time.Second, 200)
+	data, sources, _, err := rentalJobContext(ctx, repository, IDInput{ID: "JOB_TEST_A"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	contextData := data.(map[string]any)
+	positions := contextData["rental_positions"].([]map[string]any)
+	costs := contextData["external_rentals"].([]map[string]any)
+	if len(positions) != 1 || len(costs) != 1 || len(sources) == 0 || fmt.Sprint(positions[0]["unit_price"]) != "50" || fmt.Sprint(costs[0]["total_cost"]) != "75" || costs[0]["repair_required"] != false {
+		t.Fatal("normal job read conflates sales and costs", contextData)
+	}
+	if _, _, _, err := rentalJobContext(inventoryTestContext(t, "42", true, "cores:read"), repository, IDInput{ID: "JOB_TEST_A"}); err == nil {
+		t.Fatal("financial read scope bypass")
+	}
+
 }

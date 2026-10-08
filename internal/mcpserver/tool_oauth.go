@@ -16,6 +16,9 @@ import (
 // Position tools need a scope-specific linking signal: discovery alone does not
 // tell a client which additional grant to request for a particular invocation.
 func positionOAuthScopes(name string) []string {
+	if name == "rental.jobs.get" {
+		return []string{coresauth.ReadScope(), "cores:rental:financial"}
+	}
 	if name == "rental.job_external_equipment.prepare_create" || name == "rental.job_external_equipment.create" {
 		return []string{coresauth.ReadScope(), "cores:rental:financial", coresauth.ServiceWriteScope("rental", "create")}
 	}
