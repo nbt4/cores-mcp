@@ -224,7 +224,7 @@ func TestPositionOAuthDiscoveryAndChallengeAcrossHTTP(t *testing.T) {
 			t.Fatal("metadata mirror differs", tool.Name)
 		}
 	}
-	if found != 11 {
-		t.Fatal("missing position discovery policies", found, response.StatusCode, string(data))
+	if found != 12 {
+		t.Fatal("missing position and job-read discovery policies", found, response.StatusCode)
 	}
 }
