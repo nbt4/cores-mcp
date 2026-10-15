@@ -31,7 +31,7 @@ func TestOrderDraftOwnerDelegationRetryAndCachedRevocation(t *testing.T) {
 		}
 		claims := &suiteServiceClaims{}
 		tok, err := jwt.ParseWithClaims(cookie.Value, claims, func(*jwt.Token) (any, error) { return []byte(secret), nil }, jwt.WithValidMethods([]string{"HS256"}), jwt.WithExpirationRequired())
-		if err != nil || !tok.Valid || claims.UserID != 42 || !claims.IsAdmin || claims.MutationScope != "cores:procurement:"+op {
+		if err != nil || !tok.Valid || !claims.ProcurementFinancialScope || claims.UserID != 42 || !claims.IsAdmin || claims.MutationScope != "cores:procurement:"+op {
 			t.Fatal("real requester/action", err, claims)
 		}
 		body := map[string]any{}
@@ -70,7 +70,7 @@ func TestOrderDraftOwnerDelegationRetryAndCachedRevocation(t *testing.T) {
 		return &http.Response{StatusCode: status, Header: make(http.Header), Body: io.NopCloser(strings.NewReader(out)), Request: r}, nil
 	})
 
-	ctx := inventoryTestContext(t, "42", true, "cores:procurement:update")
+	ctx := inventoryTestContext(t, "42", true, "cores:procurement:update", procurementFinancialScope)
 	draft := OrderDraftUpdateInput{MutationControl: MutationControl{DryRun: true}, OrderID: 7, ExpectedContext: strings.Repeat("a", 64), ConfirmationText: "FINAL ORDER DRAFT CONTEXT", ConfirmUpdate: true}
 	fn := func(ctx context.Context, in OrderDraftUpdateInput) (any, []Source, []string, error) {
 		return invokeProcurementOrderDraft(ctx, cfg, "update", in, false)
@@ -91,14 +91,14 @@ func TestOrderDraftOwnerDelegationRetryAndCachedRevocation(t *testing.T) {
 	revoked = true
 	call(ctx, true)
 	revoked = false
-	call(inventoryTestContext(t, "42", false, "cores:procurement:update"), true)
-	call(inventoryTestContext(t, "42", true, "cores:procurement:receive"), true)
-	call(inventoryTestContext(t, "service:test", true, "cores:procurement:update"), true)
+	call(inventoryTestContext(t, "42", false, "cores:procurement:update", procurementFinancialScope), true)
+	call(inventoryTestContext(t, "42", true, "cores:procurement:receive", procurementFinancialScope), true)
+	call(inventoryTestContext(t, "service:test", true, "cores:procurement:update", procurementFinancialScope), true)
 	create := PurchaseOrderCreateInput{MutationControl: MutationControl{IdempotencyKey: "order-draft-owner-create"}, ExpectedContext: strings.Repeat("a", 64), ConfirmationText: "FINAL ORDER CREATE CONTEXT", ConfirmCreation: true, SupplierID: 3, Lines: []PurchaseOrderLineInput{{ProductID: 4, Description: "Line", Quantity: 2.5, UnitPriceCents: 101}}}
 	createFn := func(ctx context.Context, in PurchaseOrderCreateInput) (any, []Source, []string, error) {
 		return invokeProcurementOrderDraft(ctx, cfg, "create", in, false)
 	}
-	createCtx := inventoryTestContext(t, "42", true, "cores:procurement:create")
+	createCtx := inventoryTestContext(t, "42", true, "cores:procurement:create", procurementFinancialScope)
 	for _, wantErr := range []bool{true, false, false} {
 		r, o, e := executeMutationTool(createCtx, "procurement.orders.create", "Create", create, createFn)
 		if e != nil || (r != nil && r.IsError) != wantErr {

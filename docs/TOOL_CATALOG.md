@@ -1596,3 +1596,13 @@ angegebene Felder; `clear_fields` unterstützt instructions. `dry_run` schreibt
 nichts. Alle Core-Schreiber versionieren Pläne/Aufträge; Auftragsänderungen
 versionieren auch den referenzierten Plan. Audit-Ausgabe schließt Anweisungen
 und Roh-JSON aus. Manuelle Auftrags- und Defektabläufe folgen getrennt.
+
+## Procurement financial writes — 1.5.65
+
+Every offer, requisition and order mutation and `prepare_*` tool requires
+explicit `cores:procurement:financial` in addition to its existing action scope.
+Checks precede preparation, dry-run, execute and cached/durable replay. Product
+creation requires this grant when URL, supplier or price input is present;
+ordinary product metadata remains operational. Descriptors and runtime OAuth
+challenges advertise additional consent. No tool names or schemas change.
+See [owner contract and rollout](PROCUREMENT_FINANCIAL_WRITES.md).

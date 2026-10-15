@@ -117,6 +117,9 @@ func requireProcurementAdmin(ctx context.Context) error {
 }
 
 func prepareOfferCreate(ctx context.Context, db *store.Store, input OfferCreateInput) (preparedMutation, error) {
+	if err := requireProcurementFinancialWrite(ctx, "procurement.offers.create", input); err != nil {
+		return preparedMutation{}, err
+	}
 	p := preparedMutation{Draft: map[string]any{}}
 	if err := requireProcurementAdmin(ctx); err != nil {
 		return p, err
@@ -188,6 +191,9 @@ func prepareOfferCreate(ctx context.Context, db *store.Store, input OfferCreateI
 }
 
 func prepareOfferUpdate(ctx context.Context, db *store.Store, input OfferUpdateInput) (preparedMutation, error) {
+	if err := requireProcurementFinancialWrite(ctx, "procurement.offers.update", input); err != nil {
+		return preparedMutation{}, err
+	}
 	p := preparedMutation{Draft: map[string]any{}}
 	if input.OfferID <= 0 {
 		p.require("offer_id", "Welche gültige Angebots-ID soll geändert werden?", nil)

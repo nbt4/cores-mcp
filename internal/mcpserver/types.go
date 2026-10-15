@@ -127,6 +127,10 @@ func executeMutationTool[In any](ctx context.Context, name, permissionLabel stri
 		}, nil
 	}
 
+	if err := requireProcurementFinancialWrite(ctx, name, input); err != nil {
+		return &mcp.CallToolResult{IsError: true, Content: []mcp.Content{&mcp.TextContent{Text: err.Error()}}}, Output{AsOf: now(), Summary: err.Error(), Warnings: []string{"No business data was returned or changed."}}, nil
+	}
+
 	if strings.HasPrefix(name, "warehouse.product_relations.") || name == "warehouse.products.link_relation" || strings.HasPrefix(name, "warehouse.categories.") || strings.HasPrefix(name, "warehouse.subcategories.") || strings.HasPrefix(name, "warehouse.third_categories.") || strings.HasPrefix(name, "warehouse.maintenance_orders.") || strings.HasPrefix(name, "warehouse.defects.") || strings.HasPrefix(name, "warehouse.tasks.") || strings.HasPrefix(name, "warehouse.inventory_counts.") {
 		permissionErr = requireWarehouseMasterAdmin(ctx)
 		raw, _ := json.Marshal(input)
@@ -235,16 +239,20 @@ func mutationControlsKey(input any) string {
 }
 
 func mutationPermissionMessage(tool string) string {
-	if isProcurementSupplierSendTool(tool) || tool == "warehouse.inventory_counts.approve" || tool == "procurement.orders.receive" || tool == "procurement.orders.transition" || tool == "procurement.requisitions.decide" {
+	if requiresExplicitMutationScope(tool) {
 		return tool + " requires the explicit " + requiredMutationScope(tool) + " scope and current administrator rights. Legacy cores:write, create and update access do not grant this workflow. Reconnect and explicitly grant the required scope."
 	}
 	return tool + " requires " + requiredMutationScope(tool) + " (or legacy cores:write). Reconnect the Cores MCP connector, choose Read and write (Lesen und Schreiben) in the Cores authorization dialog and confirm the selected access."
 }
 
+func requiresExplicitMutationScope(tool string) bool {
+	return isProcurementSupplierSendTool(tool) || tool == "warehouse.inventory_counts.approve" || tool == "procurement.orders.receive" || tool == "procurement.orders.transition" || tool == "procurement.requisitions.decide"
+}
+
 func authorizeMutation(ctx context.Context, tool string) (context.Context, error) {
 	info := auth.TokenInfoFromContext(ctx)
 	required := requiredMutationScope(tool)
-	if info == nil || (isProcurementSupplierSendTool(tool) || tool == "warehouse.inventory_counts.approve" || tool == "procurement.orders.receive" || tool == "procurement.orders.transition" || tool == "procurement.requisitions.decide") && !containsString(info.Scopes, required) || (!containsString(info.Scopes, coresauth.WriteScope()) && !containsString(info.Scopes, required)) {
+	if info == nil || (requiresExplicitMutationScope(tool)) && !containsString(info.Scopes, required) || (!containsString(info.Scopes, coresauth.WriteScope()) && !containsString(info.Scopes, required)) {
 		return ctx, errorsNew("mutation scope is required")
 	}
 	return withMutationPermission(ctx, required), nil
@@ -361,6 +369,9 @@ func addWritePreparationTool[In any](server *mcp.Server, name, title, descriptio
 		if permissionErr != nil {
 			message := mutationPermissionMessage(executionTool)
 			return &mcp.CallToolResult{IsError: true, Content: []mcp.Content{&mcp.TextContent{Text: message}}}, Output{AsOf: time.Now().UTC().Format(time.RFC3339), Summary: message}, nil
+		}
+		if err := requireProcurementFinancialWrite(ctx, executionTool, input); err != nil {
+			return &mcp.CallToolResult{IsError: true, Content: []mcp.Content{&mcp.TextContent{Text: err.Error()}}}, Output{AsOf: time.Now().UTC().Format(time.RFC3339), Summary: err.Error()}, nil
 		}
 		data, sources, warnings, err := fn(ctx, input)
 		if err != nil {

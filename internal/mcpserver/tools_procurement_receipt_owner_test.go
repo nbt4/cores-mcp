@@ -28,7 +28,7 @@ func TestProcurementGoodsReceiptOwnerDelegationDurableRetryAndRevocation(t *test
 		}
 		claims := &suiteServiceClaims{}
 		tok, err := jwt.ParseWithClaims(cookie.Value, claims, func(*jwt.Token) (any, error) { return []byte(secret), nil }, jwt.WithValidMethods([]string{"HS256"}), jwt.WithExpirationRequired())
-		if err != nil || !tok.Valid || claims.UserID != 42 || claims.MutationScope != "cores:procurement:receive" {
+		if err != nil || !tok.Valid || !claims.ProcurementFinancialScope || claims.UserID != 42 || claims.MutationScope != "cores:procurement:receive" {
 			t.Fatal("wrong signed receipt actor/scope", err, claims)
 		}
 		body := map[string]any{}
@@ -66,7 +66,7 @@ func TestProcurementGoodsReceiptOwnerDelegationDurableRetryAndRevocation(t *test
 			t.Fatal(result, out, err)
 		}
 	}
-	ctx := inventoryTestContext(t, "42", true, "cores:procurement:receive")
+	ctx := inventoryTestContext(t, "42", true, "cores:procurement:receive", procurementFinancialScope)
 	call(ctx, false)
 	if calls[0]["preview"] != true || calls[0]["key"] != "" {
 		t.Fatal("dry-run executed", calls)
@@ -89,7 +89,7 @@ func TestProcurementGoodsReceiptOwnerDelegationDurableRetryAndRevocation(t *test
 	if len(calls) != 6 {
 		t.Fatal("cached result bypassed current owner rights")
 	}
-	for _, denied := range []context.Context{inventoryTestContext(t, "42", false, "cores:procurement:receive"), inventoryTestContext(t, "42", true, "cores:write"), inventoryTestContext(t, "42", true, "cores:procurement:approve"), inventoryTestContext(t, "service:test", true, "cores:procurement:receive")} {
+	for _, denied := range []context.Context{inventoryTestContext(t, "42", false, "cores:procurement:receive", procurementFinancialScope), inventoryTestContext(t, "42", true, "cores:write", procurementFinancialScope), inventoryTestContext(t, "42", true, "cores:procurement:approve", procurementFinancialScope), inventoryTestContext(t, "service:test", true, "cores:procurement:receive", procurementFinancialScope)} {
 		call(denied, true)
 	}
 	if len(calls) != 6 {
@@ -100,11 +100,11 @@ func TestProcurementGoodsReceiptOwnerDelegationDurableRetryAndRevocation(t *test
 func TestProcurementApprovalAndReceiptRequireExplicitSeparatedScopes(t *testing.T) {
 	for _, tool := range []string{"procurement.orders.receive", "procurement.orders.transition", "procurement.requisitions.decide"} {
 		for _, scope := range []string{"cores:write", "cores:procurement:create", "cores:procurement:update", "cores:read"} {
-			if _, err := authorizeMutation(inventoryTestContext(t, "42", true, scope), tool); err == nil {
+			if _, err := authorizeMutation(inventoryTestContext(t, "42", true, scope, procurementFinancialScope), tool); err == nil {
 				t.Fatal("legacy/write scope granted elevated workflow", tool, scope)
 			}
 		}
-		if _, err := authorizeMutation(inventoryTestContext(t, "42", true, requiredMutationScope(tool)), tool); err != nil {
+		if _, err := authorizeMutation(inventoryTestContext(t, "42", true, requiredMutationScope(tool), procurementFinancialScope), tool); err != nil {
 			t.Fatal(tool, err)
 		}
 		if strings.Contains(mutationPermissionMessage(tool), "or legacy") {

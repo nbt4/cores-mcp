@@ -31,7 +31,7 @@ func TestRequisitionOwnerDelegationRetryAndCachedRevocation(t *testing.T) {
 		}
 		claims := &suiteServiceClaims{}
 		tok, err := jwt.ParseWithClaims(cookie.Value, claims, func(*jwt.Token) (any, error) { return []byte(secret), nil }, jwt.WithValidMethods([]string{"HS256"}), jwt.WithExpirationRequired())
-		if err != nil || !tok.Valid || claims.UserID != 42 || claims.IsAdmin || claims.MutationScope != "cores:procurement:"+op {
+		if err != nil || !tok.Valid || !claims.ProcurementFinancialScope || claims.UserID != 42 || claims.IsAdmin || claims.MutationScope != "cores:procurement:"+op {
 			t.Fatal("real requester/action", err, claims)
 		}
 		body := map[string]any{}
@@ -70,7 +70,7 @@ func TestRequisitionOwnerDelegationRetryAndCachedRevocation(t *testing.T) {
 		return &http.Response{StatusCode: status, Header: make(http.Header), Body: io.NopCloser(strings.NewReader(out)), Request: r}, nil
 	})
 	for _, op := range []string{"create", "update", "submit"} {
-		ctx := inventoryTestContext(t, "42", false, "cores:procurement:"+op)
+		ctx := inventoryTestContext(t, "42", false, "cores:procurement:"+op, procurementFinancialScope)
 		name := "procurement.requisitions." + op
 		draft := RequisitionDraftInput{MutationControl: MutationControl{DryRun: true}, ExpectedContext: strings.Repeat("a", 64), ConfirmationText: "FINAL DRAFT CONTEXT", ConfirmCreation: op == "create", ConfirmUpdate: op == "update"}
 		if op == "update" {
@@ -111,8 +111,8 @@ func TestRequisitionOwnerDelegationRetryAndCachedRevocation(t *testing.T) {
 		revoked = true
 		call(ctx, true)
 		revoked = false
-		call(inventoryTestContext(t, "42", false, "cores:procurement:receive"), true)
-		call(inventoryTestContext(t, "service:test", false, "cores:procurement:"+op), true)
+		call(inventoryTestContext(t, "42", false, "cores:procurement:receive", procurementFinancialScope), true)
+		call(inventoryTestContext(t, "service:test", false, "cores:procurement:"+op, procurementFinancialScope), true)
 	}
 	if calls != 15 {
 		t.Fatal("cached/retry owner authorization", calls)

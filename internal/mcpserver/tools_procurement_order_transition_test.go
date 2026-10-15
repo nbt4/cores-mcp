@@ -29,7 +29,7 @@ func TestProcurementApprovalOwnerDelegationRetryAndCurrentRights(t *testing.T) {
 		}
 		claims := &suiteServiceClaims{}
 		tok, err := jwt.ParseWithClaims(cookie.Value, claims, func(*jwt.Token) (any, error) { return []byte(secret), nil }, jwt.WithValidMethods([]string{"HS256"}), jwt.WithExpirationRequired())
-		if err != nil || !tok.Valid || claims.UserID != 42 || !claims.IsAdmin || claims.MutationScope != "cores:procurement:approve" {
+		if err != nil || !tok.Valid || !claims.ProcurementFinancialScope || claims.UserID != 42 || !claims.IsAdmin || claims.MutationScope != "cores:procurement:approve" {
 			t.Fatal("real administrator/approval delegation", err, claims)
 		}
 		body := map[string]any{}
@@ -63,7 +63,7 @@ func TestProcurementApprovalOwnerDelegationRetryAndCurrentRights(t *testing.T) {
 		return &http.Response{StatusCode: status, Header: make(http.Header), Body: io.NopCloser(strings.NewReader(out)), Request: r}, nil
 	})
 	cfg := config.Config{JWTSecret: secret, ProcurementURL: "http://procurement.invalid"}
-	ctx := inventoryTestContext(t, "42", true, "cores:procurement:approve")
+	ctx := inventoryTestContext(t, "42", true, "cores:procurement:approve", procurementFinancialScope)
 	order := OrderTransitionInput{MutationControl: MutationControl{DryRun: true}, OrderID: 7, Status: "cancelled", Reason: "Reviewed cancel reason", ExpectedUpdatedAt: "2026-10-03T12:00:00.000123Z", ExpectedContext: strings.Repeat("a", 64), ConfirmTransition: true, ConfirmationText: "CANCEL ORDER 7 CONTEXT"}
 	req := RequisitionDecisionInput{MutationControl: MutationControl{DryRun: true}, RequisitionID: 7, Decision: "returned", Note: "Reviewed return reason", ExpectedUpdatedAt: order.ExpectedUpdatedAt, ExpectedContext: order.ExpectedContext, ConfirmDecision: true, ConfirmationText: "RETURN REQUISITION 7 CONTEXT"}
 	orderFn := func(ctx context.Context, in OrderTransitionInput) (any, []Source, []string, error) {
@@ -104,7 +104,7 @@ func TestProcurementApprovalOwnerDelegationRetryAndCurrentRights(t *testing.T) {
 	if calls != 10 {
 		t.Fatal("cached/retry owner invocation", calls)
 	}
-	for _, denied := range []context.Context{inventoryTestContext(t, "42", false, "cores:procurement:approve"), inventoryTestContext(t, "42", true, "cores:write"), inventoryTestContext(t, "42", true, "cores:procurement:receive"), inventoryTestContext(t, "service:test", true, "cores:procurement:approve")} {
+	for _, denied := range []context.Context{inventoryTestContext(t, "42", false, "cores:procurement:approve", procurementFinancialScope), inventoryTestContext(t, "42", true, "cores:write", procurementFinancialScope), inventoryTestContext(t, "42", true, "cores:procurement:receive", procurementFinancialScope), inventoryTestContext(t, "service:test", true, "cores:procurement:approve", procurementFinancialScope)} {
 		callOrder(denied, true)
 		callReq(denied, true)
 	}

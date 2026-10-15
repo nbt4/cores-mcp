@@ -270,6 +270,9 @@ func (p preparedProduct) response(status string) map[string]any {
 }
 
 func prepareProductCreate(ctx context.Context, db *store.Store, api *coreAPIClient, cfg config.Config, input ProductCreateInput) (preparedProduct, error) {
+	if err := requireProcurementFinancialWrite(ctx, "procurement.products.create", input); err != nil {
+		return preparedProduct{}, err
+	}
 	preview := productImportPreview{Attributes: map[string]string{}}
 	if strings.TrimSpace(input.ProductURL) != "" {
 		if err := api.doJSON(ctx, cfg.ProcurementURL, "/api/v1/products/import-preview", http.MethodPost, map[string]string{"url": input.ProductURL}, &preview); err != nil {

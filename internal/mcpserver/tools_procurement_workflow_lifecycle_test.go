@@ -28,7 +28,7 @@ func TestProcurementWorkflowOwnerScopeSchemaRetryAndCurrentRights(t *testing.T) 
 		}
 		claims := &suiteServiceClaims{}
 		tok, err := jwt.ParseWithClaims(cookie.Value, claims, func(*jwt.Token) (any, error) { return []byte(secret), nil }, jwt.WithValidMethods([]string{"HS256"}), jwt.WithExpirationRequired())
-		if err != nil || !tok.Valid || claims.UserID != 42 || claims.IsAdmin || claims.MutationScope != "cores:procurement:archive" {
+		if err != nil || !tok.Valid || !claims.ProcurementFinancialScope || claims.UserID != 42 || claims.IsAdmin || claims.MutationScope != "cores:procurement:archive" {
 			t.Fatal("signed requester/archive delegation", err, claims)
 		}
 		body := map[string]any{}
@@ -69,7 +69,7 @@ func TestProcurementWorkflowOwnerScopeSchemaRetryAndCurrentRights(t *testing.T) 
 			t.Fatal(result, out, err)
 		}
 	}
-	ctx := inventoryTestContext(t, "42", false, "cores:procurement:archive")
+	ctx := inventoryTestContext(t, "42", false, "cores:procurement:archive", procurementFinancialScope)
 	call(ctx, false)
 	input.DryRun = false
 	input.IdempotencyKey = "workflow-owner-durable-retry"
@@ -81,7 +81,7 @@ func TestProcurementWorkflowOwnerScopeSchemaRetryAndCurrentRights(t *testing.T) 
 	if calls != 5 {
 		t.Fatal("owner authorization bypassed on cached replay", calls)
 	}
-	for _, denied := range []context.Context{inventoryTestContext(t, "42", false, "cores:read"), inventoryTestContext(t, "42", false, "cores:procurement:update"), inventoryTestContext(t, "service:test", false, "cores:procurement:archive")} {
+	for _, denied := range []context.Context{inventoryTestContext(t, "42", false, "cores:read", procurementFinancialScope), inventoryTestContext(t, "42", false, "cores:procurement:update", procurementFinancialScope), inventoryTestContext(t, "service:test", false, "cores:procurement:archive", procurementFinancialScope)} {
 		call(denied, true)
 	}
 	if calls != 5 {

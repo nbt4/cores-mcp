@@ -23,12 +23,13 @@ type coreAPIClient struct {
 }
 
 type suiteServiceClaims struct {
-	UserID                  uint   `json:"uid"`
-	Username                string `json:"username"`
-	IsAdmin                 bool   `json:"is_admin"`
-	MutationScope           string `json:"mcp_scope,omitempty"`
-	FinancialScope          bool   `json:"mcp_financial,omitempty"`
-	WarehouseFinancialScope bool   `json:"mcp_warehouse_financial,omitempty"`
+	UserID                    uint   `json:"uid"`
+	Username                  string `json:"username"`
+	IsAdmin                   bool   `json:"is_admin"`
+	MutationScope             string `json:"mcp_scope,omitempty"`
+	FinancialScope            bool   `json:"mcp_financial,omitempty"`
+	ProcurementFinancialScope bool   `json:"mcp_procurement_financial,omitempty"`
+	WarehouseFinancialScope   bool   `json:"mcp_warehouse_financial,omitempty"`
 	jwtlib.RegisteredClaims
 }
 
@@ -108,7 +109,7 @@ func (c *coreAPIClient) suiteToken(ctx context.Context) (string, error) {
 	isAdmin, _ := info.Extra["is_admin"].(bool)
 	now := time.Now().UTC()
 	claims := suiteServiceClaims{
-		UserID: uint(parsed), Username: username, IsAdmin: isAdmin, MutationScope: mutationPermissionFromContext(ctx), FinancialScope: containsString(info.Scopes, "cores:rental:financial"), WarehouseFinancialScope: hasWarehouseFinancialScope(ctx),
+		UserID: uint(parsed), Username: username, IsAdmin: isAdmin, MutationScope: mutationPermissionFromContext(ctx), FinancialScope: containsString(info.Scopes, "cores:rental:financial"), WarehouseFinancialScope: hasWarehouseFinancialScope(ctx), ProcurementFinancialScope: hasFinancialScope(ctx, procurementFinancialScope),
 		RegisteredClaims: jwtlib.RegisteredClaims{IssuedAt: jwtlib.NewNumericDate(now), ExpiresAt: jwtlib.NewNumericDate(now.Add(2 * time.Minute))},
 	}
 	token, err := jwtlib.NewWithClaims(jwtlib.SigningMethodHS256, claims).SignedString([]byte(c.config.JWTSecret))

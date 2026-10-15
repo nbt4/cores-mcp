@@ -43,6 +43,9 @@ func registerProcurementAdamHallTools(server *mcp.Server, cfg config.Config) {
 }
 
 func invokeProcurementAdamHall(ctx context.Context, cfg config.Config, operation string, in AdamHallOrderControl, checkoutID int64, confirmed, preview bool) (any, []Source, []string, error) {
+	if err := requireProcurementFinancialWrite(ctx, "procurement.orders.send_adam_hall", in); err != nil {
+		return nil, nil, nil, err
+	}
 	if err := requireProcurementAdmin(ctx); err != nil {
 		return nil, nil, nil, err
 	}

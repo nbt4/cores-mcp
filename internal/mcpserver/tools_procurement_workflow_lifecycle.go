@@ -26,6 +26,9 @@ func isProcurementWorkflowLifecycleTool(name string) bool {
 }
 
 func invokeProcurementWorkflowLifecycle(ctx context.Context, cfg config.Config, entity, operation string, input ProcurementWorkflowLifecycleInput, preview bool) (any, []Source, []string, error) {
+	if err := requireProcurementFinancialWrite(ctx, "procurement."+entity+"."+operation, input); err != nil {
+		return nil, nil, nil, err
+	}
 	if entity == "orders" {
 		if err := requireProcurementAdmin(ctx); err != nil {
 			return nil, nil, nil, err

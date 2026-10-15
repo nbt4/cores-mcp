@@ -28,7 +28,7 @@ func TestProcurementMasterOwnerDelegationRetryAndRevocation(t *testing.T) {
 		}
 		claims := &suiteServiceClaims{}
 		tok, err := jwt.ParseWithClaims(cookie.Value, claims, func(*jwt.Token) (any, error) { return []byte(secret), nil }, jwt.WithValidMethods([]string{"HS256"}), jwt.WithExpirationRequired())
-		if err != nil || !tok.Valid || claims.UserID != 42 || claims.MutationScope != "cores:procurement:archive" {
+		if err != nil || !tok.Valid || !claims.ProcurementFinancialScope || claims.UserID != 42 || claims.MutationScope != "cores:procurement:archive" {
 			t.Fatal("signed real-user archive delegation", err, claims)
 		}
 		body := map[string]any{}
@@ -63,7 +63,7 @@ func TestProcurementMasterOwnerDelegationRetryAndRevocation(t *testing.T) {
 			t.Fatal(result, out, err)
 		}
 	}
-	ctx := inventoryTestContext(t, "42", true, "cores:procurement:archive")
+	ctx := inventoryTestContext(t, "42", true, "cores:procurement:archive", procurementFinancialScope)
 	call(ctx, false)
 	if calls[0]["preview"] != true || calls[0]["forwarded_key"] != "" {
 		t.Fatal("dry run", calls)
@@ -81,7 +81,7 @@ func TestProcurementMasterOwnerDelegationRetryAndRevocation(t *testing.T) {
 	if len(calls) != 5 {
 		t.Fatal("cache bypassed current owner rights")
 	}
-	for _, denied := range []context.Context{inventoryTestContext(t, "42", false, "cores:procurement:archive"), inventoryTestContext(t, "42", true, "cores:procurement:update"), inventoryTestContext(t, "service:test", true, "cores:procurement:archive"), inventoryTestContext(t, "42", true, "cores:read")} {
+	for _, denied := range []context.Context{inventoryTestContext(t, "42", false, "cores:procurement:archive", procurementFinancialScope), inventoryTestContext(t, "42", true, "cores:procurement:update", procurementFinancialScope), inventoryTestContext(t, "service:test", true, "cores:procurement:archive", procurementFinancialScope), inventoryTestContext(t, "42", true, "cores:read", procurementFinancialScope)} {
 		call(denied, true)
 	}
 	if len(calls) != 5 {
