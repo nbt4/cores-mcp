@@ -42,6 +42,7 @@ func requireFinancialReadToolScope(ctx context.Context, tool string) error {
 // metadata, validated flexible query aliases and mutation receipts are separate
 // contracts and must not be rewritten by a result projection.
 var financialMixedReadTools = map[string]bool{
+	"rental.external_equipment.get": true, "rental.external_equipment.search": true, "rental.external_equipment.audit_history": true,
 	"rental.jobs.search": true, "rental.jobs.get": true, "rental.external_equipment.list": true,
 	"warehouse.products.search": true, "warehouse.products.get": true, "warehouse.devices.get": true,
 	"warehouse.packages.search": true, "warehouse.maintenance.due": true, "warehouse.utilization.summary": true,
@@ -54,6 +55,7 @@ var financialMixedReadTools = map[string]bool{
 }
 
 var financialReadFields = map[string]string{
+	"rental_price_before": rentalFinancialScope, "rental_price_after": rentalFinancialScope, "customer_price_before": rentalFinancialScope, "customer_price_after": rentalFinancialScope,
 	"price_per_unit": warehouseFinancialScope, "itemcostperday": warehouseFinancialScope,
 	"total_revenue": warehouseFinancialScope, "last_maintenance_cost": warehouseFinancialScope,
 	"cost": warehouseFinancialScope, "price": warehouseFinancialScope, "asset_revenue": warehouseFinancialScope,

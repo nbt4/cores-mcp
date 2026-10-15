@@ -19,7 +19,7 @@ and production verification. Optional event streams are separate follow-up work.
 | Rental customers/venues | Full business fields, fuzzy resolve/minimal reads, partial create/update/archive/restore, signed owner action rights, active job guards, redacted audit and atomic durable replay | — |
 | Rental jobs | Complete fields, shared position-based totals, live editor/device/reference/context locks, archive/restore, redacted audit, atomic native history/audit/durable replay, device assignment | — |
 | Rental requirements | Full total/manual/source quantities, exact line/job/context versions, archive/restore, redacted audit, atomic native history/replay and retained native selections; archived demand excluded | — |
-| Rental staffing/external equipment | Read context, standalone external catalog create and canonical job assignment with linked supplier costs/customer revenue | Catalog and assignment update/archive/restore; personnel assignment |
+| Rental staffing/external equipment | Standalone catalog create/update/archive/restore, minimal active/inactive get/search, redacted audit and canonical job assignment with linked supplier costs/customer revenue; catalog actions retain job snapshots and custom fields | Assignment update/archive/restore; personnel assignment |
 | Procurement suppliers/products/offers | Create/update, retained named archive/restore, exact record/dependency context, current owner rights, atomic audit/activity/durable replay, per-entity redacted versioned history | — |
 | Procurement categories | Full parameter schema create/update, retained named archive/restore, active product/parent guards, redacted audit and atomic owner activity/replay | — |
 | Procurement requisitions | Complete owner context-bound draft create/update/submit with retained line IDs, distinct-administrator decisions, retained archive/restore, verified return → revise → resubmit, exact atomic supplier order conversion, redacted versioned history and requester/current-admin read restrictions before search/counts/pagination/joins | — |
@@ -625,3 +625,15 @@ partial creation, native bypass routes are closed and empty-cookie Bearer
 classification is consistent. Existing receipts and confirmation/version/context
 contracts remain intact. See [contract](PROCUREMENT_FINANCIAL_WRITES.md).
 Parent issues remain open for the acceptance rows above.
+
+## External catalog lifecycle — Rental5.3.127 / Warehouse5.9.116 / MCP1.5.66
+
+Adds nine tools:455 total (115 reads /170 preparations /170 executions).
+Exact partial update and retained archive/restore require current owner admin,
+action and independent financial permissions before preview/execution/replay.
+Atomic owner audit/receipt, exact context/version, supplier/duplicate checks,
+both live-reference sources, native soft archive/audit and database guards
+protect all writers. Historical job sales/cost snapshots and custom fields stay
+unchanged. New reads use current database admin checks and redacted finance
+projections. See [contract](EXTERNAL_EQUIPMENT_LIFECYCLE.md).
+Assignment lifecycle, personnel and every other remaining row stay open.

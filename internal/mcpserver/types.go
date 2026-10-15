@@ -131,6 +131,11 @@ func executeMutationTool[In any](ctx context.Context, name, permissionLabel stri
 		return &mcp.CallToolResult{IsError: true, Content: []mcp.Content{&mcp.TextContent{Text: err.Error()}}}, Output{AsOf: now(), Summary: err.Error(), Warnings: []string{"No business data was returned or changed."}}, nil
 	}
 
+	if isRentalExternalCatalogMutation(name) {
+		if err := requireRentalPositionFinancial(ctx); err != nil {
+			return &mcp.CallToolResult{IsError: true, Content: []mcp.Content{&mcp.TextContent{Text: err.Error()}}}, Output{AsOf: now(), Summary: err.Error()}, nil
+		}
+	}
 	if strings.HasPrefix(name, "warehouse.product_relations.") || name == "warehouse.products.link_relation" || strings.HasPrefix(name, "warehouse.categories.") || strings.HasPrefix(name, "warehouse.subcategories.") || strings.HasPrefix(name, "warehouse.third_categories.") || strings.HasPrefix(name, "warehouse.maintenance_orders.") || strings.HasPrefix(name, "warehouse.defects.") || strings.HasPrefix(name, "warehouse.tasks.") || strings.HasPrefix(name, "warehouse.inventory_counts.") {
 		permissionErr = requireWarehouseMasterAdmin(ctx)
 		raw, _ := json.Marshal(input)
@@ -155,7 +160,7 @@ func executeMutationTool[In any](ctx context.Context, name, permissionLabel stri
 			return &mcp.CallToolResult{IsError: true, Content: []mcp.Content{&mcp.TextContent{Text: err.Error()}}}, Output{AsOf: now(), Summary: err.Error()}, nil
 		}
 	}
-	if name == "rental.external_equipment.create" || name == "rental.job_external_equipment.create" || strings.HasPrefix(name, "rental.job_positions.") || strings.HasPrefix(name, "rental.requirements.") || strings.HasPrefix(name, "rental.jobs.") || strings.HasPrefix(name, "rental.customers.") || strings.HasPrefix(name, "rental.venues.") {
+	if isRentalExternalCatalogMutation(name) || name == "rental.job_external_equipment.create" || strings.HasPrefix(name, "rental.job_positions.") || strings.HasPrefix(name, "rental.requirements.") || strings.HasPrefix(name, "rental.jobs.") || strings.HasPrefix(name, "rental.customers.") || strings.HasPrefix(name, "rental.venues.") {
 		if err := requireRentalMasterAdmin(ctx); err != nil {
 			return &mcp.CallToolResult{IsError: true, Content: []mcp.Content{&mcp.TextContent{Text: err.Error()}}}, Output{AsOf: now(), Summary: err.Error()}, nil
 		}
@@ -190,7 +195,7 @@ func executeMutationTool[In any](ctx context.Context, name, permissionLabel stri
 		if !owner {
 			// Rental jobs/requirements authorize replay against current owner-side rights.
 			// The durable receipt supplies the result without repeating the write.
-			if name == "rental.external_equipment.create" || name == "rental.job_external_equipment.create" || strings.HasPrefix(name, "warehouse.case_workflows.") || strings.HasPrefix(name, "warehouse.cases.") || strings.HasPrefix(name, "warehouse.case_contents.") || strings.HasPrefix(name, "warehouse.case_templates.") || name == "warehouse.products.bulk_create" || isProcurementMasterLifecycleTool(name) || isProcurementWorkflowLifecycleTool(name) || name == "procurement.orders.receive" || isProcurementApprovalTool(name) || isProcurementRequisitionDraftTool(name) || isProcurementOrderDraftTool(name) || isProcurementRequisitionOrderTool(name) || isProcurementSupplierSendTool(name) || strings.HasPrefix(name, "rental.jobs.") || strings.HasPrefix(name, "rental.job_positions.") || strings.HasPrefix(name, "rental.requirements.") {
+			if isRentalExternalCatalogMutation(name) || name == "rental.job_external_equipment.create" || strings.HasPrefix(name, "warehouse.case_workflows.") || strings.HasPrefix(name, "warehouse.cases.") || strings.HasPrefix(name, "warehouse.case_contents.") || strings.HasPrefix(name, "warehouse.case_templates.") || name == "warehouse.products.bulk_create" || isProcurementMasterLifecycleTool(name) || isProcurementWorkflowLifecycleTool(name) || name == "procurement.orders.receive" || isProcurementApprovalTool(name) || isProcurementRequisitionDraftTool(name) || isProcurementOrderDraftTool(name) || isProcurementRequisitionOrderTool(name) || isProcurementSupplierSendTool(name) || strings.HasPrefix(name, "rental.jobs.") || strings.HasPrefix(name, "rental.job_positions.") || strings.HasPrefix(name, "rental.requirements.") {
 				data, sources, warnings, err := fn(withMutationIdempotency(ctx, mutationControlsKey(input)), invocation.Input)
 				if err != nil {
 					message := fmt.Sprintf("%s failed: %v", name, err)
@@ -259,7 +264,17 @@ func authorizeMutation(ctx context.Context, tool string) (context.Context, error
 }
 
 func requiredMutationScope(tool string) string {
-	if tool == "rental.external_equipment.create" || tool == "rental.job_external_equipment.create" {
+	if isRentalExternalCatalogMutation(tool) {
+		action := "update"
+		if strings.HasSuffix(tool, ".create") {
+			action = "create"
+		}
+		if strings.HasSuffix(tool, ".archive") || strings.HasSuffix(tool, ".restore") {
+			action = "archive"
+		}
+		return coresauth.ServiceWriteScope("rental", action)
+	}
+	if tool == "rental.job_external_equipment.create" {
 		return coresauth.ServiceWriteScope("rental", "create")
 	}
 	if isProcurementMasterLifecycleTool(tool) || isProcurementWorkflowLifecycleTool(tool) {
