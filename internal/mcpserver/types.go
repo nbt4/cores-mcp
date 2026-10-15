@@ -61,17 +61,32 @@ type queryFn[In any] func(context.Context, In) (any, []Source, []string, error)
 
 func addTool[In any](server *mcp.Server, name, title, description string, fn queryFn[In]) {
 	closed := false
+	if scope := financialOnlyReadTools[name]; scope != "" {
+		description += " Requires the explicitly granted " + scope + " scope; read, legacy write and another service's financial scope do not grant it."
+	} else if financialMixedReadTools[name] {
+		description += " Financial fields are omitted without their separately granted service financial scope. Operational quantities and dates remain readable; price-ranked supplier selection requires cores:procurement:financial."
+	} else if name == "cores.query.records" || name == "cores.query.aggregate" {
+		description += " Financial fields require their catalogued service financial scope for explicit projection, filtering, sorting, joining, grouping or metrics; default projections omit ungranted financial fields."
+	}
 	mcp.AddTool(server, &mcp.Tool{
 		Name: name, Title: title, Description: description,
 		Annotations: &mcp.ToolAnnotations{ReadOnlyHint: true, IdempotentHint: true, OpenWorldHint: &closed},
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, input In) (*mcp.CallToolResult, Output, error) {
-		data, sources, warnings, err := fn(ctx, input)
+		var data any
+		var sources []Source
+		var warnings []string
+		err := requireFinancialReadToolScope(ctx, name)
+		if err == nil {
+			data, sources, warnings, err = fn(ctx, input)
+		}
 		if err != nil {
 			message := fmt.Sprintf("%s failed: %v", name, err)
 			return &mcp.CallToolResult{IsError: true, Content: []mcp.Content{&mcp.TextContent{Text: message}}}, Output{
 				AsOf: time.Now().UTC().Format(time.RFC3339), Summary: message, Warnings: []string{"No data was returned."},
 			}, nil
 		}
+		data, financialWarnings := projectFinancialReadData(ctx, name, data)
+		warnings = append(warnings, financialWarnings...)
 		output := Output{AsOf: time.Now().UTC().Format(time.RFC3339), Summary: summarize(data), Data: data, Sources: sources, Warnings: warnings}
 		return nil, output, nil
 	})

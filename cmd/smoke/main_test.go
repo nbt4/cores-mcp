@@ -1,6 +1,12 @@
 package main
 
-import "testing"
+import (
+	"context"
+	"errors"
+	"net/http"
+	"testing"
+	"time"
+)
 
 func TestRequirementSmokeArgumentsExerciseManufacturerLookupWithoutMutation(t *testing.T) {
 	for _, name := range []string{"rental.requirements.prepare_create", "rental.requirements.create"} {
@@ -66,5 +72,19 @@ func TestReadSmokeArgumentsMatchMasterAndAuditSchemas(t *testing.T) {
 		if test.name != "cores.master_data.resolve" && arguments["query"] != nil {
 			t.Fatalf("audit smoke contains unsupported query: %#v", arguments)
 		}
+	}
+}
+
+func TestPacedBearerTransportHonorsCancellation(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	request, err := http.NewRequestWithContext(ctx, http.MethodGet, "http://127.0.0.1:1", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	start := time.Now()
+	response, err := (bearerTransport{delay: time.Hour}).RoundTrip(request)
+	if response != nil || !errors.Is(err, context.Canceled) || time.Since(start) > time.Second {
+		t.Fatalf("canceled validation waited or reached transport: %v %v", response, err)
 	}
 }

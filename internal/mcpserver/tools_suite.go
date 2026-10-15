@@ -111,11 +111,13 @@ func firstRow(rows []map[string]any) any {
 
 func dataDictionary(enableWrites bool) map[string]any {
 	return map[string]any{
-		"rental":      map[string]any{"entities": []string{"jobs", "customers (limited)", "venues", "commercial job positions", "requirements", "packages", "external rentals", "staffing"}, "time_basis": "job start/end dates"},
-		"warehouse":   map[string]any{"entities": []string{"products", "manufacturers", "brands", "category hierarchy", "devices", "locations", "cases", "product packages", "relations", "defects", "maintenance", "inventory counts", "movements", "cables"}, "availability": "quantity stock for bulk items; available device count for serialized items"},
-		"planner":     map[string]any{"entities": []string{"plans", "tasks", "buckets", "assignees", "goals", "sprints", "dependencies"}},
-		"procurement": map[string]any{"entities": []string{"products", "offers", "suppliers", "requisitions", "orders", "receipts", "price history", "warehouse links"}, "money": "integer cents unless a field explicitly says otherwise", "requisition_access": "Original requester or current active administrator; all requisition records and counts reflect that scope."},
-		"excluded":    []string{"password hashes", "session and API tokens", "2FA secrets", "bank details", "document bodies", "employee private addresses", "unnecessary customer contact details", "arbitrary SQL"},
+		"rental":                  map[string]any{"entities": []string{"jobs", "customers (limited)", "venues", "commercial job positions", "requirements", "packages", "external rentals", "staffing"}, "time_basis": "job start/end dates"},
+		"warehouse":               map[string]any{"entities": []string{"products", "manufacturers", "brands", "category hierarchy", "devices", "locations", "cases", "product packages", "relations", "defects", "maintenance", "inventory counts", "movements", "cables"}, "availability": "quantity stock for bulk items; available device count for serialized items"},
+		"planner":                 map[string]any{"entities": []string{"plans", "tasks", "buckets", "assignees", "goals", "sprints", "dependencies"}},
+		"procurement":             map[string]any{"entities": []string{"products", "offers", "suppliers", "requisitions", "orders", "receipts", "price history", "warehouse links"}, "money": "integer cents unless a field explicitly says otherwise", "requisition_access": "Original requester or current active administrator; all requisition records and counts reflect that scope."},
+		"excluded":                []string{"password hashes", "session and API tokens", "2FA secrets", "bank details", "document bodies", "employee private addresses", "unnecessary customer contact details", "arbitrary SQL"},
+		"financial_read_scopes":   map[string]string{"warehouse": "cores:warehouse:financial", "rental": "cores:rental:financial", "procurement": "cores:procurement:financial"},
+		"financial_read_contract": "Operational reads omit ungranted financial fields; existing financial-only job/position and maintenance reads retain their scope gates. Financial projection, filters, sorting, joins, aggregates and price-only tools require that service financial scope. Financial consent never grants writes.",
 		"guided_writes": map[string]any{
 			"enabled":       enableWrites,
 			"creates":       []string{"ProcurementCore product with optional offer", "RentalCore job, commercial product position and requirement", "PlannerCore plan and task", "WarehouseCore warehouse task", "WarehouseCore empty case with validated model/storage metadata", "WarehouseCore product package with complete contents", "WarehouseCore product with atomically resolved master data", "ProcurementCore purchase order"},

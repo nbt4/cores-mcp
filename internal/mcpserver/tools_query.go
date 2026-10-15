@@ -315,7 +315,7 @@ func registerQueryTools(server *mcp.Server, db *store.Store) {
 		if !ok {
 			return nil, nil, nil, fmt.Errorf("unknown entity %q; call cores.query.catalog", input.Entity)
 		}
-		if input.Entity == "warehouse.maintenance" {
+		{
 			fields := append([]string(nil), input.GroupBy...)
 			for _, metric := range input.Metrics {
 				fields = append(fields, metric.Field)
@@ -326,7 +326,7 @@ func registerQueryTools(server *mcp.Server, db *store.Store) {
 			for _, sort := range input.Sort {
 				fields = append(fields, sort.Field)
 			}
-			if err := checkMaintenanceFinancialQuery(ctx, fields); err != nil {
+			if err := checkFinancialQuery(ctx, input.Entity, fields); err != nil {
 				return nil, nil, nil, err
 			}
 		}
@@ -355,7 +355,11 @@ func queryCatalog() map[string]any {
 		}
 		sort.Strings(fieldNames)
 		for _, field := range fieldNames {
-			fields = append(fields, map[string]string{"name": field, "type": string(spec.Fields[field])})
+			entry := map[string]string{"name": field, "type": string(spec.Fields[field])}
+			if scope := financialReadFields[field]; scope != "" {
+				entry["required_scope"] = scope
+			}
+			fields = append(fields, entry)
 		}
 		entities[name] = map[string]any{"service": spec.Service, "fields": fields, "default_fields": spec.DefaultFields, "search_fields": spec.SearchFields}
 		if name == "procurement.requisitions" || name == "procurement.requisition_lines" {
@@ -417,7 +421,7 @@ func executeRecordQueries(ctx context.Context, db *store.Store, input QueryRecor
 	warnings := make([]string, 0)
 	for _, item := range input.Queries {
 		spec := queryEntities[item.Entity]
-		if item.Entity == "warehouse.maintenance" {
+		{
 			fields := append([]string(nil), item.Fields...)
 			for _, filter := range item.Filters {
 				fields = append(fields, filter.Field)
@@ -428,9 +432,16 @@ func executeRecordQueries(ctx context.Context, db *store.Store, input QueryRecor
 			for key := range requiredFields[item.Alias] {
 				fields = append(fields, key)
 			}
-			if err := checkMaintenanceFinancialQuery(ctx, fields); err != nil {
+			if err := checkFinancialQuery(ctx, item.Entity, fields); err != nil {
 				return nil, nil, nil, err
 			}
+		}
+		if len(item.Fields) == 0 {
+			defaults := financialQueryDefaults(ctx, spec)
+			if len(defaults.DefaultFields) != len(spec.DefaultFields) {
+				warnings = append(warnings, fmt.Sprintf("Query %s omits financial default fields without their explicitly granted service financial scope; inspect cores.query.catalog for required scopes.", item.Alias))
+			}
+			spec = defaults
 		}
 		query, args, err := buildEntityQuery(db, spec, item, requiredFields[item.Alias])
 		if err != nil {

@@ -1,7 +1,6 @@
 package mcpserver
 
 import (
-	"context"
 	"database/sql"
 	"encoding/json"
 	"net/url"
@@ -48,7 +47,7 @@ INSERT INTO proc_purchase_order_lines VALUES(1,1,3,1),(2,2,0,0);
 `); err != nil {
 		t.Fatal(err)
 	}
-	ctx := context.Background()
+	ctx := financialTestContext(t, []string{"cores:read", procurementFinancialScope})
 	repository := store.New(database, 5*time.Second, 100)
 	server := mcp.NewServer(&mcp.Implementation{Name: "rounding-test", Version: "1"}, nil)
 	registerProcurementTools(server, repository)
