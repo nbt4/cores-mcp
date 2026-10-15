@@ -1,5 +1,14 @@
 # Cores MCP
 
+## Fremdmietkatalog — RentalCore 5.3.126 / MCP 1.5.63
+
+`rental.external_equipment.prepare_create/create` legt neue Fremdmietprodukte
+mit Bezeichnung, Kategorie, Lieferant sowie ausdrücklich angegebenem Einkaufs-
+und Kundenmietpreis an. Vorschau, getrennte Create-/Finanzrechte, gebundene
+Bestätigung, Duplikatprüfung und atomarer Audit/Replay sichern die Anlage.
+Die Jobzuordnung bleibt ein eigener Schritt. [Felder und Ablauf](docs/EXTERNAL_EQUIPMENT_CATALOG.md).
+
+
 ## Mietprodukt-Positionen — MCP 1.5.62
 
 Mietprodukt-Korrektur: echte Rental-Auftragspositionen zu `customer_price`,
