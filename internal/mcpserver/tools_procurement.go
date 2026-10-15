@@ -32,11 +32,11 @@ func registerProcurementTools(server *mcp.Server, db *store.Store) {
 			return products, []Source{{Service: "procurementcore", Entity: "product", ID: input.ID}}, nil, err
 		}
 		productID := products[0]["product_id"]
-		offers, err := db.Query(ctx, `SELECT o.id AS offer_id,s.id AS supplier_id,s.name AS supplier,s.preferred,s.rating,s.risk_level,o.supplier_sku,o.price_cents,o.currency,o.minimum_quantity,o.pack_size,o.lead_days,o.purchase_url,o.valid_until,o.last_checked_at FROM proc_offers o JOIN proc_suppliers s ON s.id=o.supplier_id WHERE o.product_id=$1 AND o.active=true ORDER BY o.price_cents,o.lead_days`, productID)
+		offers, err := db.Query(ctx, `SELECT o.id AS offer_id,s.id AS supplier_id,s.name AS supplier,s.preferred,s.rating,s.risk_level,o.supplier_sku,o.price_cents,o.currency,o.minimum_quantity,o.pack_size,o.lead_days,o.purchase_url,o.valid_until,o.last_checked_at FROM proc_offers o JOIN proc_suppliers s ON s.id=o.supplier_id WHERE o.product_id=$1 AND o.active=true ORDER BY CASE WHEN `+procurementFinancialReadAccess+` THEN o.price_cents END NULLS LAST,o.lead_days,o.id`, productID)
 		if err != nil {
 			return nil, nil, nil, err
 		}
-		history, err := db.Query(ctx, `SELECT ph.id,ph.offer_id,s.name AS supplier,ph.price_cents,ph.currency,ph.recorded_at FROM proc_price_histories ph JOIN proc_offers o ON o.id=ph.offer_id JOIN proc_suppliers s ON s.id=o.supplier_id WHERE o.product_id=$1 ORDER BY ph.recorded_at DESC LIMIT 200`, productID)
+		history, err := db.Query(ctx, `SELECT ph.id,ph.offer_id,s.name AS supplier,ph.price_cents,ph.currency,ph.recorded_at FROM proc_price_histories ph JOIN proc_offers o ON o.id=ph.offer_id JOIN proc_suppliers s ON s.id=o.supplier_id WHERE o.product_id=$1 AND `+procurementFinancialReadAccess+` ORDER BY ph.recorded_at DESC LIMIT 200`, productID)
 		if err != nil {
 			return nil, nil, nil, err
 		}
@@ -119,7 +119,7 @@ func registerProcurementTools(server *mcp.Server, db *store.Store) {
                        bo.supplier,bo.price_cents,bo.currency,bo.lead_days,bo.last_checked_at
                   FROM proc_products pp JOIN core_product_links cpl ON cpl.procurement_product_id=pp.id JOIN products wp ON wp.productid=cpl.warehouse_product_id
                   LEFT JOIN LATERAL (SELECT count(*) FILTER (WHERE condition_status='available') AS available_devices FROM devices d WHERE d.productid=wp.productid) dc ON true
-                  LEFT JOIN LATERAL (SELECT s.name AS supplier,o.price_cents,o.currency,o.lead_days,o.last_checked_at FROM proc_offers o JOIN proc_suppliers s ON s.id=o.supplier_id WHERE o.product_id=pp.id AND o.active=true AND s.active=true ORDER BY o.price_cents/NULLIF(o.pack_size,0),o.lead_days LIMIT 1) bo ON true
+                  LEFT JOIN LATERAL (SELECT s.name AS supplier,o.price_cents,o.currency,o.lead_days,o.last_checked_at FROM proc_offers o JOIN proc_suppliers s ON s.id=o.supplier_id WHERE o.product_id=pp.id AND ` + procurementFinancialReadAccess + ` AND o.active=true AND s.active=true ORDER BY o.price_cents/NULLIF(o.pack_size,0),o.lead_days LIMIT 1) bo ON true
                  WHERE pp.active=true AND ($1='' OR pp.name ILIKE $2 OR pp.sku ILIKE $2 OR wp.name ILIKE $2)
                    AND (CASE WHEN wp.tracking_mode='individual' THEN COALESCE(dc.available_devices,0) ELSE COALESCE(wp.stock_quantity,0) END)<COALESCE(pp.reorder_point,0)
                  ORDER BY suggested_quantity DESC,pp.name LIMIT $3 OFFSET $4`, []any{input.Query, searchPattern(input.Query), db.Limit(input.Limit), cleanOffset(input.Offset)}
@@ -136,7 +136,7 @@ func registerProcurementTools(server *mcp.Server, db *store.Store) {
                        concat('rating=',COALESCE(s.rating::text,'unknown'),', preferred=',s.preferred) AS detail,NULL::timestamptz AS due_at
                   FROM proc_suppliers s WHERE s.active=true AND lower(COALESCE(s.risk_level,'')) IN ('high','critical')
                  UNION ALL
-                SELECT 'expired_offer',o.id::text,concat(p.name,' / ',s.name),'medium',concat('price_cents=',o.price_cents),o.valid_until
+                SELECT 'expired_offer',o.id::text,concat(p.name,' / ',s.name),'medium','offer validity expired',o.valid_until
                   FROM proc_offers o JOIN proc_products p ON p.id=o.product_id JOIN proc_suppliers s ON s.id=o.supplier_id WHERE o.active=true AND o.valid_until<now()
                  UNION ALL
                 SELECT 'overdue_delivery',po.id::text,concat(po.number,' / ',s.name),'high',concat('status=',po.status),po.expected_delivery

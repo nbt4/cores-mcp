@@ -31,7 +31,7 @@ const (
 	writeScope = "cores:write"
 )
 
-var granularDataScopes = []string{"cores:warehouse:financial", "cores:rental:financial"}
+var granularDataScopes = []string{"cores:warehouse:financial", "cores:rental:financial", "cores:procurement:financial"}
 
 var granularWriteScopes = []string{
 	"cores:rental:create",
@@ -759,6 +759,9 @@ func financialScopeLabels(scopes []string, lang string) []string {
 		if scope == "cores:rental:financial" {
 			key = "rental_financial"
 		}
+		if scope == "cores:procurement:financial" {
+			key = "procurement_financial"
+		}
 		index := 0
 		if lang == "en" {
 			index = 1
@@ -769,25 +772,26 @@ func financialScopeLabels(scopes []string, lang string) []string {
 }
 
 var consentMessages = map[string][2]string{
-	"warehouse_financial": {"WarehouseCore: Wartungskosten", "WarehouseCore: maintenance costs"},
-	"rental_financial":    {"RentalCore: Jobpreise, Rabatte und Neuberechnung", "RentalCore: job pricing, discounts and recalculation"},
-	"financial":           {"Angefragten Finanzzugriff freigeben", "Allow requested financial access"},
-	"financial_help":      {"Diese Verbindung fragt den folgenden Finanzzugriff an. Du kannst ihn gesondert erlauben. Änderungen erfordern zusätzlich Lesen und Schreiben und die passenden Rechte.", "This connection requests the financial access listed below. You can allow it separately. Changes also require Read and write and the appropriate permissions."},
-	"financial_deny":      {"Finanzzugriff nicht freigeben", "Do not allow financial access"},
-	"financial_allow":     {"Angefragten Finanzzugriff freigeben", "Allow requested financial access"},
-	"title":               {"Cores MCP freigeben", "Authorize Cores MCP"},
-	"eyebrow":             {"Sichere Verbindung", "Secure connection"},
-	"heading":             {"Cores MCP verbinden", "Connect Cores MCP"},
-	"client":              {"möchte im Namen von", "would like to access Cores data on behalf of"},
-	"user":                {"auf freigegebene Cores-Daten zugreifen.", "."},
-	"write_help":          {"Wähle den Zugriff für diese Verbindung. Lesen verändert keine Daten. Lesen und Schreiben erlaubt die dokumentierten Anlagen und Änderungen sowie freigegebene Archivierungs-, Freigabe- und Wareneingangsworkflows. Lieferantenbestellungen werden ausschließlich mit dem gesondert angefragten Senderecht und erneuter Bestätigung des konkreten Auftrags abgesendet. Jede Schreibaktion braucht eine Vorschau und ausdrückliche Bestätigung; deine Rechte im jeweiligen Core gelten weiterhin.", "Choose access for this connection. Reading does not change data. Read and write enables documented creation and updates, plus supported archiving, approval and receipt workflows. Sending supplier orders requires the specifically requested send permission and renewed confirmation of the exact order. Each write requires a preview and explicit confirmation; your permissions in each Core still apply."},
-	"read_help":           {"Die Verbindung darf Bestände, Jobs, Planungen und Beschaffungsinformationen ausschließlich lesen. Sie kann keine Daten verändern.", "This connection can only read inventory, jobs, planning and procurement information. It cannot change data."},
-	"access":              {"Zugriff erlauben", "Allow access"},
-	"read":                {"Nur Lesen", "Read only"},
-	"write":               {"Lesen und Schreiben", "Read and write"},
-	"deny":                {"Ablehnen", "Deny"},
-	"allow":               {"Ausgewählten Zugriff erlauben", "Allow selected access"},
-	"allow_read":          {"Lesenden Zugriff erlauben", "Allow read access"},
+	"warehouse_financial":   {"WarehouseCore: Preise, Geräteumsätze und Wartungskosten", "WarehouseCore: prices, equipment revenue and maintenance costs"},
+	"procurement_financial": {"ProcurementCore: Angebotspreise, Bedarfswerte und Bestellsummen", "ProcurementCore: offer prices, requisition values and order totals"},
+	"rental_financial":      {"RentalCore: Jobpreise, Rabatte, Umsätze, Fremdmietkosten und Neuberechnung", "RentalCore: job pricing, discounts, revenue, external rental costs and recalculation"},
+	"financial":             {"Angefragten Finanzzugriff freigeben", "Allow requested financial access"},
+	"financial_help":        {"Diese Verbindung fragt den folgenden Finanzzugriff an. Du kannst ihn gesondert erlauben. Änderungen erfordern zusätzlich Lesen und Schreiben und die passenden Rechte.", "This connection requests the financial access listed below. You can allow it separately. Changes also require Read and write and the appropriate permissions."},
+	"financial_deny":        {"Finanzzugriff nicht freigeben", "Do not allow financial access"},
+	"financial_allow":       {"Angefragten Finanzzugriff freigeben", "Allow requested financial access"},
+	"title":                 {"Cores MCP freigeben", "Authorize Cores MCP"},
+	"eyebrow":               {"Sichere Verbindung", "Secure connection"},
+	"heading":               {"Cores MCP verbinden", "Connect Cores MCP"},
+	"client":                {"möchte im Namen von", "would like to access Cores data on behalf of"},
+	"user":                  {"auf freigegebene Cores-Daten zugreifen.", "."},
+	"write_help":            {"Wähle den Zugriff für diese Verbindung. Lesen verändert keine Daten. Lesen und Schreiben erlaubt die dokumentierten Anlagen und Änderungen sowie freigegebene Archivierungs-, Freigabe- und Wareneingangsworkflows. Lieferantenbestellungen werden ausschließlich mit dem gesondert angefragten Senderecht und erneuter Bestätigung des konkreten Auftrags abgesendet. Jede Schreibaktion braucht eine Vorschau und ausdrückliche Bestätigung; deine Rechte im jeweiligen Core gelten weiterhin.", "Choose access for this connection. Reading does not change data. Read and write enables documented creation and updates, plus supported archiving, approval and receipt workflows. Sending supplier orders requires the specifically requested send permission and renewed confirmation of the exact order. Each write requires a preview and explicit confirmation; your permissions in each Core still apply."},
+	"read_help":             {"Die Verbindung darf Bestände, Jobs, Planungen und Beschaffungsinformationen ausschließlich lesen. Sie kann keine Daten verändern.", "This connection can only read inventory, jobs, planning and procurement information. It cannot change data."},
+	"access":                {"Zugriff erlauben", "Allow access"},
+	"read":                  {"Nur Lesen", "Read only"},
+	"write":                 {"Lesen und Schreiben", "Read and write"},
+	"deny":                  {"Ablehnen", "Deny"},
+	"allow":                 {"Ausgewählten Zugriff erlauben", "Allow selected access"},
+	"allow_read":            {"Lesenden Zugriff erlauben", "Allow read access"},
 }
 
 func consentMessage(lang, key string) string {
@@ -821,7 +825,7 @@ var consentTemplate = template.Must(template.New("consent").Funcs(template.FuncM
       <input type="hidden" name="lang" value="{{.Lang}}">
       {{if .EnableWrites}}
       <div class="suite-auth-copy suite-core-switcher">
-        <label class="suite-core-switcher-label" style="color:var(--text-secondary)" for="access-mode">{{msg .Lang "access"}}</label>
+        <label class="suite-core-switcher-label suite-auth-copy" for="access-mode">{{msg .Lang "access"}}</label>
         <select id="access-mode" name="access_mode" aria-describedby="access-help">
           <option value="read" selected>{{msg .Lang "read"}}</option>
           <option value="write">{{msg .Lang "write"}}</option>
@@ -831,7 +835,7 @@ var consentTemplate = template.Must(template.New("consent").Funcs(template.FuncM
       {{if .RequestFinancial}}
       <div class="suite-auth-notice" id="financial-help">{{msg .Lang "financial_help"}}{{range .FinancialLabels}}<br>{{.}}{{end}}</div>
       <div class="suite-auth-copy suite-core-switcher">
-        <label class="suite-core-switcher-label" style="color:var(--text-secondary)" for="financial-access">{{msg .Lang "financial"}}</label>
+        <label class="suite-core-switcher-label suite-auth-copy" for="financial-access">{{msg .Lang "financial"}}</label>
         <select id="financial-access" name="financial_access" aria-describedby="financial-help">
           <option value="deny" selected>{{msg .Lang "financial_deny"}}</option>
           <option value="allow">{{msg .Lang "financial_allow"}}</option>
@@ -839,7 +843,7 @@ var consentTemplate = template.Must(template.New("consent").Funcs(template.FuncM
       </div>
       {{end}}
       <div class="suite-auth-actions">
-        <button class="suite-button" style="color:var(--text-secondary)" name="decision" value="deny" type="submit">{{msg .Lang "deny"}}</button>
+        <button class="suite-button" name="decision" value="deny" type="submit">{{msg .Lang "deny"}}</button>
         <button class="suite-button suite-button--primary" name="decision" value="allow" type="submit">{{if .EnableWrites}}{{msg .Lang "allow"}}{{else}}{{msg .Lang "allow_read"}}{{end}}</button>
       </div>
     </form>

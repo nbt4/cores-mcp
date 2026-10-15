@@ -55,11 +55,20 @@ func (s *Store) Query(ctx context.Context, query string, args ...any) ([]map[str
 	// queries use this value for the same membership check as the Planner API.
 	// Anonymous and machine tokens have no numeric suite identity and therefore
 	// cannot read private plans. Administrator status never bypasses membership.
+	// Financial offer ranking is also transaction-local; ordinary and static
+	// machine reads must never inherit a previous reader's financial grant.
 	subject := ""
+	procurementFinancial := "false"
 	if info := auth.TokenInfoFromContext(ctx); info != nil {
 		subject = info.UserID
+		for _, scope := range info.Scopes {
+			if scope == "cores:procurement:financial" {
+				procurementFinancial = "true"
+				break
+			}
+		}
 	}
-	if _, err := tx.ExecContext(ctx, `SELECT set_config('cores.user_id', $1, true)`, subject); err != nil {
+	if _, err := tx.ExecContext(ctx, `SELECT set_config('cores.user_id', $1, true),set_config('cores.procurement_financial', $2, true)`, subject, procurementFinancial); err != nil {
 		return nil, err
 	}
 	rows, err := tx.QueryContext(ctx, query, args...)

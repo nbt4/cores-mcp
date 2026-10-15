@@ -1,5 +1,15 @@
 # Cores MCP
 
+## Finanz-Lesezugriff — MCP 1.5.64
+
+Warehouse-, Rental- und Procurement-Finanzwerte benötigen separat erteilte
+Dienst-Finanzrechte. Operative Lesezugriffe behalten Mengen/Termine/Status,
+blenden nicht freigegebene Geldwerte aus und verhindern Preisableitung über
+Filter, Sortierung, Joins, Kennzahlen oder günstigste Lieferanten. Rein
+finanzielle Werkzeuge veröffentlichen ihre Scopes für OAuth-Nachfreigabe.
+[Verhalten, Rechte und Client-Aktualisierung](docs/FINANCIAL_READ_ACCESS.md).
+
+
 ## Fremdmietkatalog — RentalCore 5.3.126 / MCP 1.5.63
 
 `rental.external_equipment.prepare_create/create` legt neue Fremdmietprodukte

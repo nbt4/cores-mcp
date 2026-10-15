@@ -135,6 +135,25 @@ func TestPositionOAuthDiscoveryAndChallengeAcrossHTTP(t *testing.T) {
 			assertChallenge(call(old, name), "cores:rental:financial")
 		}
 	}
+	// Newly financial-only business reads expose reauthorization through the
+	// same HTTP middleware, before any database request.
+	for _, tc := range []struct{ name, scope string }{
+		{"rental.revenue.summary", "cores:rental:financial"},
+		{"warehouse.maintenance_orders.financial_get", "cores:warehouse:financial"},
+		{"procurement.offers.compare", "cores:procurement:financial"},
+		{"procurement.prices.history", "cores:procurement:financial"},
+		{"procurement.spend.summary", "cores:procurement:financial"},
+	} {
+		args := map[string]any{}
+		if strings.HasSuffix(tc.name, "financial_get") {
+			args["id"] = "1"
+		}
+		result, err := old.CallTool(context.Background(), &mcp.CallToolParams{Name: tc.name, Arguments: args})
+		if err != nil {
+			t.Fatal(err)
+		}
+		assertChallenge(result, tc.scope)
+	}
 	if ownerCalls.Load() != 0 {
 		t.Fatal("denied scope reached owner")
 	}
@@ -227,7 +246,7 @@ func TestPositionOAuthDiscoveryAndChallengeAcrossHTTP(t *testing.T) {
 			t.Fatal("metadata mirror differs", tool.Name)
 		}
 	}
-	if found != 14 {
+	if found != 19 {
 		t.Fatal("missing position and job-read discovery policies", found, response.StatusCode)
 	}
 }

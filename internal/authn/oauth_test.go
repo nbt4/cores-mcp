@@ -55,12 +55,12 @@ func TestRequestedScopesDefaultToReadOnly(t *testing.T) {
 
 func TestSupportedScopesIncludeLegacyAndGranularWrites(t *testing.T) {
 	got := SupportedScopes(true)
-	for _, expected := range []string{readScope, writeScope, ServiceWriteScope("rental", "create"), ServiceWriteScope("rental", "archive"), "cores:rental:financial", ServiceWriteScope("procurement", "archive"), ServiceWriteScope("warehouse", "update"), ServiceWriteScope("warehouse", "approve"), ServiceWriteScope("warehouse", "archive"), ServiceWriteScope("warehouse", "delete"), ServiceWriteScope("procurement", "update"), ServiceWriteScope("procurement", "approve"), ServiceWriteScope("procurement", "submit"), ServiceWriteScope("procurement", "send"), ServiceWriteScope("procurement", "receive")} {
+	for _, expected := range []string{readScope, writeScope, ServiceWriteScope("rental", "create"), ServiceWriteScope("rental", "archive"), "cores:rental:financial", "cores:procurement:financial", ServiceWriteScope("procurement", "archive"), ServiceWriteScope("warehouse", "update"), ServiceWriteScope("warehouse", "approve"), ServiceWriteScope("warehouse", "archive"), ServiceWriteScope("warehouse", "delete"), ServiceWriteScope("procurement", "update"), ServiceWriteScope("procurement", "approve"), ServiceWriteScope("procurement", "submit"), ServiceWriteScope("procurement", "send"), ServiceWriteScope("procurement", "receive")} {
 		if !contains(got, expected) {
 			t.Fatalf("supported scopes %v lack %q", got, expected)
 		}
 	}
-	if got := SupportedScopes(false); len(got) != 3 || got[0] != readScope || got[1] != "cores:warehouse:financial" || got[2] != "cores:rental:financial" {
+	if got := SupportedScopes(false); len(got) != 4 || got[0] != readScope || got[1] != "cores:warehouse:financial" || got[2] != "cores:rental:financial" || got[3] != "cores:procurement:financial" {
 		t.Fatalf("read-only scopes = %v", got)
 	}
 }
@@ -80,6 +80,10 @@ func TestOAuthAuthorizationCodeFlow(t *testing.T) {
 		{"writes disabled", readScope, "read", readScope, false, ""},
 		{"cannot enable writes on read-only server", readScope, "write", "invalid_scope", false, ""},
 		{"invalid selection is rejected", readScope, "admin", "invalid_scope", true, ""},
+		{"procurement financial defaults denied", readScope + " cores:procurement:financial", "read", readScope, false, ""},
+		{"procurement financial read-only explicit consent", readScope + " cores:procurement:financial", "read", readScope + " cores:procurement:financial", false, "allow"},
+		{"procurement financial cannot grant unrequested services", readScope + " cores:procurement:financial", "read", readScope + " cores:procurement:financial", true, "allow"},
+		{"all service finance read-only", readScope + " cores:warehouse:financial cores:rental:financial cores:procurement:financial", "read", readScope + " cores:warehouse:financial cores:rental:financial cores:procurement:financial", false, "allow"},
 		{"rental financial defaults denied", readScope + " cores:rental:financial", "write", readScope + " " + writeScope, true, ""},
 		{"rental financial explicit consent", readScope + " cores:rental:update cores:rental:financial", "write", readScope + " cores:rental:financial cores:rental:update", true, "allow"},
 		{"position create financial consent", readScope + " cores:rental:create cores:rental:financial", "write", readScope + " cores:rental:financial cores:rental:create", true, "allow"},
@@ -136,7 +140,7 @@ func TestOAuthAuthorizationCodeFlow(t *testing.T) {
 				t.Fatalf("consent CSP does not allow the validated callback origin: %s", policy)
 			}
 			assertAuthorizationFields(t, consent.Body.String(), query)
-			requestedFinance := (strings.Contains(tc.requested, "cores:warehouse:financial") || strings.Contains(tc.requested, "cores:rental:financial"))
+			requestedFinance := (strings.Contains(tc.requested, "cores:warehouse:financial") || strings.Contains(tc.requested, "cores:rental:financial") || strings.Contains(tc.requested, "cores:procurement:financial"))
 			if requestedFinance != strings.Contains(consent.Body.String(), `id="financial-access"`) {
 				t.Fatal("financial consent control visibility wrong")
 			}
@@ -411,5 +415,13 @@ func TestAccessTokenRefreshesCurrentRolesWithoutScopeExpansion(t *testing.T) {
 	current = nil
 	if _, err = server.VerifyToken(context.Background(), raw, nil); err == nil {
 		t.Fatal("missing/inactive user retained access")
+	}
+}
+
+// The production CSP blocks inline SVG style attributes. Presentation attributes
+// preserve the canonical monochrome logo in both themes without weakening CSP.
+func TestConsentLogoUsesCSPCompatiblePresentationAttributes(t *testing.T) {
+	if strings.Contains(consentLogo, `style=`) || !strings.Contains(consentLogo, `fill="currentColor"`) {
+		t.Fatal("consent logo requires CSP-compatible currentColor presentation attributes")
 	}
 }

@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
@@ -15,10 +16,15 @@ func main() {
 	endpoint := flag.String("endpoint", "http://127.0.0.1:8090/mcp", "MCP endpoint")
 	token := flag.String("token", "", "optional bearer token")
 	includeWrites := flag.Bool("include-writes", false, "test guided write tools without confirming any mutation")
+	requestDelay := flag.Duration("request-delay", 0, "delay each HTTP request, for example 600ms to honor a 120/minute server limit")
+	financialAccess := flag.Bool("financial-access", false, "expect all explicitly selected service financial scopes; without this flag, verify financial-only reads are denied")
 	flag.Parse()
+	if *requestDelay < 0 {
+		fatal("request-delay", fmt.Errorf("delay must be nonnegative"))
+	}
 	transport := &mcp.StreamableClientTransport{Endpoint: *endpoint}
-	if *token != "" {
-		transport.HTTPClient = &http.Client{Transport: bearerTransport{token: *token}}
+	if *token != "" || *requestDelay > 0 {
+		transport.HTTPClient = &http.Client{Transport: bearerTransport{token: *token, delay: *requestDelay}}
 	}
 	client := mcp.NewClient(&mcp.Implementation{Name: "cores-mcp-smoke", Version: "1.0.0"}, nil)
 	session, err := client.Connect(context.Background(), transport, nil)
@@ -47,11 +53,7 @@ func main() {
 			fmt.Printf("FAIL %s: empty tool result\n", tool.Name)
 			continue
 		}
-		if result.IsError && (tool.Name == "rental.job_positions.get" || tool.Name == "rental.job_positions.search") && strings.Contains(contentText(result.Content), "cores:rental:financial") {
-			fmt.Printf("OK   %s (financial scope denied)\n", tool.Name)
-			continue
-		}
-		if result.IsError && tool.Name == "warehouse.maintenance_orders.financial_get" && strings.Contains(contentText(result.Content), "cores:warehouse:financial") {
+		if result.IsError && !*financialAccess && financialReadScope(tool.Name) != "" && strings.Contains(contentText(result.Content), financialReadScope(tool.Name)) {
 			fmt.Printf("OK   %s (financial scope denied)\n", tool.Name)
 			continue
 		}
@@ -178,14 +180,40 @@ func isWriteTool(name string) bool {
 	return name == "warehouse.movements.create"
 }
 
-type bearerTransport struct{ token string }
+type bearerTransport struct {
+	token string
+	delay time.Duration
+}
 
 func (c bearerTransport) RoundTrip(request *http.Request) (*http.Response, error) {
-	request.Header.Set("Authorization", "Bearer "+c.token)
+	if c.delay > 0 {
+		timer := time.NewTimer(c.delay)
+		defer timer.Stop()
+		select {
+		case <-request.Context().Done():
+			return nil, request.Context().Err()
+		case <-timer.C:
+		}
+	}
+	if c.token != "" {
+		request.Header.Set("Authorization", "Bearer "+c.token)
+	}
 	return http.DefaultTransport.RoundTrip(request)
 }
 
 func fatal(step string, err error) {
 	fmt.Fprintf(os.Stderr, "%s: %v\n", step, err)
 	os.Exit(1)
+}
+
+func financialReadScope(tool string) string {
+	switch tool {
+	case "warehouse.maintenance_orders.financial_get":
+		return "cores:warehouse:financial"
+	case "rental.revenue.summary", "rental.jobs.get", "rental.job_positions.get", "rental.job_positions.search":
+		return "cores:rental:financial"
+	case "procurement.offers.compare", "procurement.prices.history", "procurement.spend.summary":
+		return "cores:procurement:financial"
+	}
+	return ""
 }

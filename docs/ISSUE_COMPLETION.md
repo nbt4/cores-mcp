@@ -19,16 +19,16 @@ and production verification. Optional event streams are separate follow-up work.
 | Rental customers/venues | Full business fields, fuzzy resolve/minimal reads, partial create/update/archive/restore, signed owner action rights, active job guards, redacted audit and atomic durable replay | — |
 | Rental jobs | Complete fields, shared position-based totals, live editor/device/reference/context locks, archive/restore, redacted audit, atomic native history/audit/durable replay, device assignment | — |
 | Rental requirements | Full total/manual/source quantities, exact line/job/context versions, archive/restore, redacted audit, atomic native history/replay and retained native selections; archived demand excluded | — |
-| Rental staffing/external equipment | Read context | Create/update/lifecycle and personnel assignment |
+| Rental staffing/external equipment | Read context, standalone external catalog create and canonical job assignment with linked supplier costs/customer revenue | Catalog and assignment update/archive/restore; personnel assignment |
 | Procurement suppliers/products/offers | Create/update, retained named archive/restore, exact record/dependency context, current owner rights, atomic audit/activity/durable replay, per-entity redacted versioned history | — |
 | Procurement categories | Full parameter schema create/update, retained named archive/restore, active product/parent guards, redacted audit and atomic owner activity/replay | — |
-| Procurement requisitions | Complete owner context-bound draft create/update/submit with retained line IDs, distinct-administrator decisions, retained archive/restore, verified return → revise → resubmit, exact atomic supplier order conversion, redacted versioned history and requester/current-admin read restrictions before search/counts/pagination/joins | Financial scope verification |
+| Procurement requisitions | Complete owner context-bound draft create/update/submit with retained line IDs, distinct-administrator decisions, retained archive/restore, verified return → revise → resubmit, exact atomic supplier order conversion, redacted versioned history and requester/current-admin read restrictions before search/counts/pagination/joins | Explicit financial write scope verification |
 | Procurement orders | Complete owner context-bound draft create/update with retained line IDs, status transitions, full context-bound receipt, retained archive/restore with putaway blockers, durable Amazon/Adam-Hall supplier submission with separately confirmed cart preparation, retained human reconciliation of uncertain claims and versioned history | — |
 | Procurement product mapping | Audited versioned link | Supplier-link lifecycle verification |
 | Planner plans/tasks | Create, membership-protected reads | Complete update/archive/restore, durable atomic audit/replay |
 | Planner buckets/labels/dependencies/sprints/goals | Read context | Schema discovery, guided create/update/archive/restore |
 | Business documents | Knowledge references only | Scoped metadata/content, quotation/invoice generation/send, attachments, labels |
-| Permissions | Read-only configuration; service/action scopes; real user, target-Core rights | Documents, financial fields outside maintenance, and remaining named workflow scopes |
+| Permissions | Read-only configuration; service/action scopes; real user and target-Core rights; explicit separately consented Warehouse/Rental/Procurement financial reads including query inference and all procurement audit aliases | Documents, explicit financial write scopes for remaining writers, and remaining named workflow scopes |
 | Write protection | Confirmation, dry-run, bounded requests, rate limits | Verify every legacy writer has target atomic audit/replay and precise versions |
 | Undo | Device, Rental customer/venue own last-field-update revert, redacted history and existing restores | Defined remaining field revert paths and per-entity history |
 
@@ -594,3 +594,24 @@ activity, recommendations and legacy product dependency previews are covered.
 Machine, absent and inactive identities cannot inherit a pooled user's access;
 stale administrator claims cannot preserve revoked rights. Tool count remains
 433. Financial fields and every other remaining acceptance row stay open.
+
+## Financial read permissions (MCP 1.5.64)
+
+Adds separately consented Procurement financial reads alongside Rental and
+Warehouse finance. Operational mixed reads omit ungranted prices/costs/totals;
+financial-only reads require their owning scope and publish it through OAuth
+discovery/challenges. Existing complete Rental job/position gates remain.
+Curated projections, filters, sorting, joins, grouping and metrics require
+explicit grants before SQL; default projections omit ungranted fields.
+Price-ranked supplier identities/history are guarded inside read transactions,
+with no grant leakage across pooled users. All six procurement audit aliases
+share the financial projection. External catalog prices belong to Rental.
+
+Scope consent stays independent and deny-by-default, including read-only servers.
+Granting finance never grants writes; refreshing tokens never expands scopes.
+No tool names, input schemas, business writer receipts, dependencies or database
+schema change. Existing native requester/member/current-user permissions remain.
+
+The parent issues remain in_progress. Financial checks for remaining writers,
+Rental lifecycle/personnel, Planner lifecycle, document workflows and defined
+remaining Undo paths still need their own implementations and verification.
