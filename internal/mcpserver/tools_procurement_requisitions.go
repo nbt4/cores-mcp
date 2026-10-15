@@ -73,6 +73,9 @@ func registerProcurementRequisitionTools(server *mcp.Server, cfg config.Config, 
 }
 
 func invokeProcurementRequisitionDraft(ctx context.Context, cfg config.Config, op string, input any, preview bool) (any, []Source, []string, error) {
+	if err := requireProcurementFinancialWrite(ctx, "procurement.requisitions."+op, input); err != nil {
+		return nil, nil, nil, err
+	}
 	var id int64
 	body := map[string]any{}
 	switch in := input.(type) {

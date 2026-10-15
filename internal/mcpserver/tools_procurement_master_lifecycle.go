@@ -31,6 +31,9 @@ func isProcurementMasterLifecycleTool(name string) bool {
 }
 
 func invokeProcurementMasterLifecycle(ctx context.Context, cfg config.Config, namespace, operation string, input ProcurementMasterLifecycleInput, preview bool) (any, []Source, []string, error) {
+	if err := requireProcurementFinancialWrite(ctx, "procurement."+namespace+"."+operation, input); err != nil {
+		return nil, nil, nil, err
+	}
 	if err := requireProcurementAdmin(ctx); err != nil {
 		return nil, nil, nil, err
 	}

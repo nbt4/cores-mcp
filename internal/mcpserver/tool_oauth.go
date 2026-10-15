@@ -16,6 +16,9 @@ import (
 // Position tools need a scope-specific linking signal: discovery alone does not
 // tell a client which additional grant to request for a particular invocation.
 func positionOAuthScopes(name string) []string {
+	if procurementFinancialWriteTool(name) {
+		return []string{coresauth.ReadScope(), procurementFinancialScope, requiredMutationScope(executionToolForPreparation(name))}
+	}
 	if scope := financialOnlyReadTools[name]; scope != "" {
 		return []string{coresauth.ReadScope(), scope}
 	}
@@ -85,6 +88,9 @@ func toolOAuthMiddleware(cfg config.Config) mcp.Middleware {
 			if method == "tools/call" {
 				if params, ok := request.GetParams().(*mcp.CallToolParamsRaw); ok {
 					scopes := positionOAuthScopes(params.Name)
+					if executionToolForPreparation(params.Name) == "procurement.products.create" && procurementProductFinancialInput(json.RawMessage(params.Arguments)) {
+						scopes = []string{coresauth.ReadScope(), procurementFinancialScope, requiredMutationScope("procurement.products.create")}
+					}
 					execution := executionToolForPreparation(params.Name)
 					// Unregistered writes on a read-only server remain unknown tools, rather
 					// than advertising an authorization path which cannot be used there.
@@ -92,7 +98,7 @@ func toolOAuthMiddleware(cfg config.Config) mcp.Middleware {
 						info := auth.TokenInfoFromContext(ctx)
 						missing := []string{}
 						for _, scope := range scopes {
-							if info != nil && (containsString(info.Scopes, scope) || scope == requiredMutationScope(execution) && containsString(info.Scopes, coresauth.WriteScope())) {
+							if info != nil && (containsString(info.Scopes, scope) || scope == requiredMutationScope(execution) && !requiresExplicitMutationScope(execution) && containsString(info.Scopes, coresauth.WriteScope())) {
 								continue
 							}
 							missing = append(missing, scope)

@@ -34,6 +34,9 @@ func registerProcurementRequisitionOrderTools(server *mcp.Server, cfg config.Con
 }
 
 func invokeProcurementRequisitionOrder(ctx context.Context, cfg config.Config, input RequisitionOrderInput, preview bool) (any, []Source, []string, error) {
+	if err := requireProcurementFinancialWrite(ctx, "procurement.requisitions.order", input); err != nil {
+		return nil, nil, nil, err
+	}
 	if err := requireProcurementAdmin(ctx); err != nil {
 		return nil, nil, nil, err
 	}

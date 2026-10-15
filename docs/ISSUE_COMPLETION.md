@@ -22,13 +22,13 @@ and production verification. Optional event streams are separate follow-up work.
 | Rental staffing/external equipment | Read context, standalone external catalog create and canonical job assignment with linked supplier costs/customer revenue | Catalog and assignment update/archive/restore; personnel assignment |
 | Procurement suppliers/products/offers | Create/update, retained named archive/restore, exact record/dependency context, current owner rights, atomic audit/activity/durable replay, per-entity redacted versioned history | — |
 | Procurement categories | Full parameter schema create/update, retained named archive/restore, active product/parent guards, redacted audit and atomic owner activity/replay | — |
-| Procurement requisitions | Complete owner context-bound draft create/update/submit with retained line IDs, distinct-administrator decisions, retained archive/restore, verified return → revise → resubmit, exact atomic supplier order conversion, redacted versioned history and requester/current-admin read restrictions before search/counts/pagination/joins | Explicit financial write scope verification |
+| Procurement requisitions | Complete owner context-bound draft create/update/submit with retained line IDs, distinct-administrator decisions, retained archive/restore, verified return → revise → resubmit, exact atomic supplier order conversion, redacted versioned history and requester/current-admin read restrictions before search/counts/pagination/joins | — |
 | Procurement orders | Complete owner context-bound draft create/update with retained line IDs, status transitions, full context-bound receipt, retained archive/restore with putaway blockers, durable Amazon/Adam-Hall supplier submission with separately confirmed cart preparation, retained human reconciliation of uncertain claims and versioned history | — |
 | Procurement product mapping | Audited versioned link | Supplier-link lifecycle verification |
 | Planner plans/tasks | Create, membership-protected reads | Complete update/archive/restore, durable atomic audit/replay |
 | Planner buckets/labels/dependencies/sprints/goals | Read context | Schema discovery, guided create/update/archive/restore |
 | Business documents | Knowledge references only | Scoped metadata/content, quotation/invoice generation/send, attachments, labels |
-| Permissions | Read-only configuration; service/action scopes; real user and target-Core rights; explicit separately consented Warehouse/Rental/Procurement financial reads including query inference and all procurement audit aliases | Documents, explicit financial write scopes for remaining writers, and remaining named workflow scopes |
+| Permissions | Read-only configuration; service/action scopes; real user and target-Core rights; explicit separately consented Warehouse/Rental/Procurement financial reads including query inference and all procurement audit aliases | Documents, remaining Rental/Warehouse/Planner financial writer verification, and remaining named workflow scopes |
 | Write protection | Confirmation, dry-run, bounded requests, rate limits | Verify every legacy writer has target atomic audit/replay and precise versions |
 | Undo | Device, Rental customer/venue own last-field-update revert, redacted history and existing restores | Defined remaining field revert paths and per-entity history |
 
@@ -615,3 +615,13 @@ schema change. Existing native requester/member/current-user permissions remain.
 The parent issues remain in_progress. Financial checks for remaining writers,
 Rental lifecycle/personnel, Planner lifecycle, document workflows and defined
 remaining Undo paths still need their own implementations and verification.
+
+## Procurement financial write verification — 1.5.65 / 1.0.77
+
+Procurement offer/requisition/order prepare, execute, dry-run and replay now
+require independently consented financial access at MCP and the signed owning
+Core boundary. Optional product offers and URL imports are protected before
+partial creation, native bypass routes are closed and empty-cookie Bearer
+classification is consistent. Existing receipts and confirmation/version/context
+contracts remain intact. See [contract](PROCUREMENT_FINANCIAL_WRITES.md).
+Parent issues remain open for the acceptance rows above.

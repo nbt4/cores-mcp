@@ -31,7 +31,7 @@ func TestRequisitionOrderOwnerDelegationRetryAndCachedRevocation(t *testing.T) {
 		}
 		claims := &suiteServiceClaims{}
 		tok, err := jwt.ParseWithClaims(cookie.Value, claims, func(*jwt.Token) (any, error) { return []byte(secret), nil }, jwt.WithValidMethods([]string{"HS256"}), jwt.WithExpirationRequired())
-		if err != nil || !tok.Valid || claims.UserID != 42 || !claims.IsAdmin || claims.MutationScope != "cores:procurement:"+op {
+		if err != nil || !tok.Valid || !claims.ProcurementFinancialScope || claims.UserID != 42 || !claims.IsAdmin || claims.MutationScope != "cores:procurement:"+op {
 			t.Fatal("real requester/action", err, claims)
 		}
 		body := map[string]any{}
@@ -65,7 +65,7 @@ func TestRequisitionOrderOwnerDelegationRetryAndCachedRevocation(t *testing.T) {
 		return &http.Response{StatusCode: status, Header: make(http.Header), Body: io.NopCloser(strings.NewReader(out)), Request: r}, nil
 	})
 
-	ctx := inventoryTestContext(t, "42", true, "cores:procurement:create")
+	ctx := inventoryTestContext(t, "42", true, "cores:procurement:create", procurementFinancialScope)
 	draft := RequisitionOrderInput{MutationControl: MutationControl{DryRun: true}, RequisitionID: 7, SupplierID: 4, ExpectedContext: strings.Repeat("a", 64), ConfirmationText: "FINAL ORDER DRAFT CONTEXT", ConfirmCreation: true}
 	fn := func(ctx context.Context, in RequisitionOrderInput) (any, []Source, []string, error) {
 		return invokeProcurementRequisitionOrder(ctx, cfg, in, false)
@@ -86,9 +86,9 @@ func TestRequisitionOrderOwnerDelegationRetryAndCachedRevocation(t *testing.T) {
 	revoked = true
 	call(ctx, true)
 	revoked = false
-	call(inventoryTestContext(t, "42", false, "cores:procurement:create"), true)
-	call(inventoryTestContext(t, "42", true, "cores:procurement:receive"), true)
-	call(inventoryTestContext(t, "service:test", true, "cores:procurement:create"), true)
+	call(inventoryTestContext(t, "42", false, "cores:procurement:create", procurementFinancialScope), true)
+	call(inventoryTestContext(t, "42", true, "cores:procurement:receive", procurementFinancialScope), true)
+	call(inventoryTestContext(t, "service:test", true, "cores:procurement:create", procurementFinancialScope), true)
 	if calls != 5 {
 		t.Fatal("cached/retry owner authorization", calls)
 	}

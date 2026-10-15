@@ -114,7 +114,7 @@ func TestPrepareProcurementProductUpdateDiffVersionAndArchive(t *testing.T) {
 		var result preparedMutation
 		var prepareErr error
 		verifier := func(context.Context, string, *http.Request) (*auth.TokenInfo, error) {
-			return &auth.TokenInfo{UserID: "1", Expiration: time.Now().Add(time.Hour), Extra: map[string]any{"is_admin": true}}, nil
+			return &auth.TokenInfo{UserID: "1", Scopes: []string{procurementFinancialScope}, Expiration: time.Now().Add(time.Hour), Extra: map[string]any{"is_admin": true}}, nil
 		}
 		handler := auth.RequireBearerToken(verifier, nil)(http.HandlerFunc(func(_ http.ResponseWriter, request *http.Request) {
 			result, prepareErr = prepareOfferCreate(request.Context(), lookup, input)
@@ -139,7 +139,7 @@ func TestPrepareProcurementProductUpdateDiffVersionAndArchive(t *testing.T) {
 		var result preparedMutation
 		var prepareErr error
 		verifier := func(context.Context, string, *http.Request) (*auth.TokenInfo, error) {
-			return &auth.TokenInfo{UserID: "1", Expiration: time.Now().Add(time.Hour), Extra: map[string]any{"is_admin": true}}, nil
+			return &auth.TokenInfo{UserID: "1", Scopes: []string{procurementFinancialScope}, Expiration: time.Now().Add(time.Hour), Extra: map[string]any{"is_admin": true}}, nil
 		}
 		handler := auth.RequireBearerToken(verifier, nil)(http.HandlerFunc(func(_ http.ResponseWriter, request *http.Request) {
 			result, prepareErr = prepareOfferUpdate(request.Context(), lookup, input)

@@ -32,6 +32,9 @@ func registerProcurementAmazonSendTools(server *mcp.Server, cfg config.Config) {
 }
 
 func invokeProcurementAmazonSend(ctx context.Context, cfg config.Config, input AmazonOrderSendInput, preview bool) (any, []Source, []string, error) {
+	if err := requireProcurementFinancialWrite(ctx, "procurement.orders.send_amazon", input); err != nil {
+		return nil, nil, nil, err
+	}
 	if err := requireProcurementAdmin(ctx); err != nil {
 		return nil, nil, nil, err
 	}

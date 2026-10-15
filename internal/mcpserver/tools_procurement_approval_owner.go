@@ -12,6 +12,9 @@ func isProcurementApprovalTool(name string) bool {
 	return name == "procurement.orders.transition" || name == "procurement.requisitions.decide"
 }
 func invokeProcurementApproval(ctx context.Context, cfg config.Config, entity string, input any, preview bool) (any, []Source, []string, error) {
+	if err := requireProcurementFinancialWrite(ctx, map[string]string{"orders": "procurement.orders.transition", "requisitions": "procurement.requisitions.decide"}[entity], input); err != nil {
+		return nil, nil, nil, err
+	}
 	if err := requireProcurementAdmin(ctx); err != nil {
 		return nil, nil, nil, err
 	}

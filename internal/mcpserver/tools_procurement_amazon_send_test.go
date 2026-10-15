@@ -31,7 +31,7 @@ func TestAmazonSendExplicitScopeOwnerRetryAndCachedRevocation(t *testing.T) {
 		}
 		claims := &suiteServiceClaims{}
 		tok, err := jwt.ParseWithClaims(cookie.Value, claims, func(*jwt.Token) (any, error) { return []byte(secret), nil }, jwt.WithValidMethods([]string{"HS256"}), jwt.WithExpirationRequired())
-		if err != nil || !tok.Valid || claims.UserID != 42 || !claims.IsAdmin || claims.MutationScope != "cores:procurement:"+op {
+		if err != nil || !tok.Valid || !claims.ProcurementFinancialScope || claims.UserID != 42 || !claims.IsAdmin || claims.MutationScope != "cores:procurement:"+op {
 			t.Fatal("real requester/action", err, claims)
 		}
 		body := map[string]any{}
@@ -65,7 +65,7 @@ func TestAmazonSendExplicitScopeOwnerRetryAndCachedRevocation(t *testing.T) {
 		return &http.Response{StatusCode: status, Header: make(http.Header), Body: io.NopCloser(strings.NewReader(out)), Request: r}, nil
 	})
 
-	ctx := inventoryTestContext(t, "42", true, "cores:procurement:send")
+	ctx := inventoryTestContext(t, "42", true, "cores:procurement:send", procurementFinancialScope)
 	draft := AmazonOrderSendInput{MutationControl: MutationControl{DryRun: true}, OrderID: 7, ExpectedContext: strings.Repeat("a", 64), ConfirmationText: "FINAL ORDER DRAFT CONTEXT", ConfirmSend: true}
 	fn := func(ctx context.Context, in AmazonOrderSendInput) (any, []Source, []string, error) {
 		return invokeProcurementAmazonSend(ctx, cfg, in, false)
@@ -89,11 +89,11 @@ func TestAmazonSendExplicitScopeOwnerRetryAndCachedRevocation(t *testing.T) {
 	revoked = true
 	call(ctx, true)
 	revoked = false
-	call(inventoryTestContext(t, "42", false, "cores:procurement:send"), true)
-	call(inventoryTestContext(t, "42", true, "cores:procurement:receive"), true)
-	call(inventoryTestContext(t, "42", true, "cores:write"), true)
-	call(inventoryTestContext(t, "42", true, "cores:procurement:submit"), true)
-	call(inventoryTestContext(t, "service:test", true, "cores:procurement:send"), true)
+	call(inventoryTestContext(t, "42", false, "cores:procurement:send", procurementFinancialScope), true)
+	call(inventoryTestContext(t, "42", true, "cores:procurement:receive", procurementFinancialScope), true)
+	call(inventoryTestContext(t, "42", true, "cores:write", procurementFinancialScope), true)
+	call(inventoryTestContext(t, "42", true, "cores:procurement:submit", procurementFinancialScope), true)
+	call(inventoryTestContext(t, "service:test", true, "cores:procurement:send", procurementFinancialScope), true)
 	if calls != 5 {
 		t.Fatal("cached/retry owner authorization", calls)
 	}

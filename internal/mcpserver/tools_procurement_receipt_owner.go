@@ -10,6 +10,9 @@ import (
 )
 
 func invokeProcurementGoodsReceipt(ctx context.Context, cfg config.Config, input PurchaseOrderReceiptInput, preview bool) (any, []Source, []string, error) {
+	if err := requireProcurementFinancialWrite(ctx, "procurement.orders.receive", input); err != nil {
+		return nil, nil, nil, err
+	}
 	if err := requireProcurementAdmin(ctx); err != nil {
 		return nil, nil, nil, err
 	}

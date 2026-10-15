@@ -32,6 +32,9 @@ func registerProcurementSubmissionReconcileTools(server *mcp.Server, cfg config.
 }
 
 func invokeProcurementSubmissionReconcile(ctx context.Context, cfg config.Config, input SupplierSubmissionReconcileInput, preview bool) (any, []Source, []string, error) {
+	if err := requireProcurementFinancialWrite(ctx, "procurement.orders.reconcile_submission", input); err != nil {
+		return nil, nil, nil, err
+	}
 	if err := requireProcurementAdmin(ctx); err != nil {
 		return nil, nil, nil, err
 	}
