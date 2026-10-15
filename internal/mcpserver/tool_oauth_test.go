@@ -86,6 +86,9 @@ func TestPositionOAuthDiscoveryAndChallengeAcrossHTTP(t *testing.T) {
 	call := func(session *mcp.ClientSession, name string) *mcp.CallToolResult {
 		t.Helper()
 		args := map[string]any{"job_id": 1, "product_id": 2, "quantity": 1, "unit_price": 0}
+		if strings.HasPrefix(name, "rental.external_equipment.") {
+			args = map[string]any{"name": "Synthetic rental", "category": "Audio", "supplier": "Synthetic supplier", "rental_price": 0, "customer_price": 0}
+		}
 		if strings.HasPrefix(name, "rental.job_external_equipment.") {
 			args = map[string]any{"job_id": 1, "equipment_id": 2, "quantity": 1, "days_used": 3}
 		}
@@ -115,7 +118,7 @@ func TestPositionOAuthDiscoveryAndChallengeAcrossHTTP(t *testing.T) {
 		}
 	}
 	old := connect("old")
-	for _, name := range []string{"rental.job_external_equipment.prepare_create", "rental.job_external_equipment.create", "rental.job_positions.prepare_create", "rental.job_positions.create", "rental.job_positions.prepare_update", "rental.job_positions.update", "rental.job_positions.prepare_archive", "rental.job_positions.archive", "rental.job_positions.get", "rental.job_positions.search"} {
+	for _, name := range []string{"rental.external_equipment.prepare_create", "rental.external_equipment.create", "rental.job_external_equipment.prepare_create", "rental.job_external_equipment.create", "rental.job_positions.prepare_create", "rental.job_positions.create", "rental.job_positions.prepare_update", "rental.job_positions.update", "rental.job_positions.prepare_archive", "rental.job_positions.archive", "rental.job_positions.get", "rental.job_positions.search"} {
 		if strings.HasSuffix(name, "search") {
 			result, err := old.CallTool(context.Background(), &mcp.CallToolParams{Name: name, Arguments: map[string]any{}})
 			if err != nil {
@@ -224,7 +227,7 @@ func TestPositionOAuthDiscoveryAndChallengeAcrossHTTP(t *testing.T) {
 			t.Fatal("metadata mirror differs", tool.Name)
 		}
 	}
-	if found != 12 {
+	if found != 14 {
 		t.Fatal("missing position and job-read discovery policies", found, response.StatusCode)
 	}
 }

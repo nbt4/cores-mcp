@@ -1,5 +1,20 @@
 # Tool-Katalog
 
+## Fremdmietkatalog-Anlage (1.5.63)
+
+- `rental.external_equipment.prepare_create`: vollständige Owner-Vorschau mit
+  Pflichtfeldern, Lieferantenprüfung, beiden EUR-Preisen und Duplikaten.
+- `rental.external_equipment.create`: bestätigte Anlage eines aktiven
+  Fremdmiet-Katalogartikels. Kein Warehouse-Produkt, Bestand oder Jobbezug.
+
+[Schema, Rechte und Beispiele](EXTERNAL_EQUIPMENT_CATALOG.md).
+Entity-Schema: `cores.entities.schema` mit `entity=rental.external_equipment`.
+Rental-Admin und Create-Scope plus separat Finanzscope sind erforderlich;
+exakter Vorschaukontext, gebundene Bestätigung und Idempotenz sichern den
+atomaren Datensatz/Audit/Beleg. Exakte Name/Lieferant-Duplikate werden gesperrt.
+Gesamtkatalog: 446 Tools (112 lesend / 167 vorbereitend / 167 ausführend).
+
+
 ## Mietprodukte am Job zuweisen
 
 Neu: `rental.job_external_equipment.prepare_create` und `.create` für die

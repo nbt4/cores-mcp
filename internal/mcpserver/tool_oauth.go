@@ -19,7 +19,7 @@ func positionOAuthScopes(name string) []string {
 	if name == "rental.jobs.get" {
 		return []string{coresauth.ReadScope(), "cores:rental:financial"}
 	}
-	if name == "rental.job_external_equipment.prepare_create" || name == "rental.job_external_equipment.create" {
+	if name == "rental.external_equipment.prepare_create" || name == "rental.external_equipment.create" || name == "rental.job_external_equipment.prepare_create" || name == "rental.job_external_equipment.create" {
 		return []string{coresauth.ReadScope(), "cores:rental:financial", coresauth.ServiceWriteScope("rental", "create")}
 	}
 	const prefix = "rental.job_positions."
