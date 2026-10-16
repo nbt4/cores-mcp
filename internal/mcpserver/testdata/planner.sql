@@ -195,3 +195,7 @@ CREATE INDEX IF NOT EXISTS idx_planner_my_day_user ON planner_my_day(user_id);
 
 ALTER TABLE planner_tasks ADD COLUMN recurrence TEXT DEFAULT '';
 
+ALTER TABLE planner_tasks ADD COLUMN archived_at TIMESTAMPTZ;
+CREATE TABLE users(userid INTEGER PRIMARY KEY,username TEXT,is_active BOOLEAN,is_admin BOOLEAN,email TEXT);
+INSERT INTO users VALUES(7,'Member Seven',true,false,'PRIVATE_EMAIL_7'),(8,'Other Admin',true,true,'PRIVATE_EMAIL_8');
+CREATE TABLE planner_mutation_events(id BIGSERIAL PRIMARY KEY,plan_id UUID,entity_type TEXT,entity_id UUID,user_id TEXT,origin TEXT,operation TEXT,before_values JSONB,after_values JSONB,created_at TIMESTAMPTZ DEFAULT NOW());

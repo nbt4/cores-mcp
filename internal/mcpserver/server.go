@@ -14,7 +14,7 @@ import (
 	"github.com/nbt4/cores-mcp/internal/store"
 )
 
-const Version = "1.5.68"
+const Version = "1.5.69"
 
 func New(cfg config.Config, db *store.Store, logger *slog.Logger) *mcp.Server {
 	description := "Read-only operational context and safe cross-core queries for RentalCore, WarehouseCore, PlannerCore and ProcurementCore."
@@ -108,13 +108,13 @@ func New(cfg config.Config, db *store.Store, logger *slog.Logger) *mcp.Server {
 		registerWarehouseMaintenanceOrderTools(server, cfg)
 		registerWarehouseTaskTools(server, cfg)
 		registerWarehouseInventoryTools(server, cfg)
-		registerOperationalCreateTools(server, cfg, db)
 		registerWorkflowTools(server, cfg, db)
 		registerProcurementLifecycleTools(server, cfg, db)
 	}
 	registerRentalExternalCatalogLifecycle(server, cfg, db)
 	registerRentalAssignmentLifecycle(server, cfg, db)
 	registerRentalStaffing(server, cfg, db)
+	registerPlannerLifecycle(server, cfg, db)
 	registerKnowledge(server, cfg.KnowledgeDirs)
 	registerPrompts(server)
 	return server
@@ -150,6 +150,7 @@ func auditMiddleware(logger *slog.Logger) mcp.Middleware {
 }
 
 var mutationTools = map[string]struct{}{
+	"planner.plans.update": {}, "planner.plans.archive": {}, "planner.plans.restore": {}, "planner.tasks.update": {}, "planner.tasks.archive": {}, "planner.tasks.restore": {},
 	"rental.staffing.create": {}, "rental.staffing.update": {}, "rental.staffing.archive": {}, "rental.staffing.restore": {},
 	"rental.external_equipment.update":               {},
 	"rental.external_equipment.archive":              {},

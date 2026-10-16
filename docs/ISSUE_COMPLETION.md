@@ -25,7 +25,7 @@ and production verification. Optional event streams are separate follow-up work.
 | Procurement requisitions | Complete owner context-bound draft create/update/submit with retained line IDs, distinct-administrator decisions, retained archive/restore, verified return → revise → resubmit, exact atomic supplier order conversion, redacted versioned history and requester/current-admin read restrictions before search/counts/pagination/joins | — |
 | Procurement orders | Complete owner context-bound draft create/update with retained line IDs, status transitions, full context-bound receipt, retained archive/restore with putaway blockers, durable Amazon/Adam-Hall supplier submission with separately confirmed cart preparation, retained human reconciliation of uncertain claims and versioned history | — |
 | Procurement product mapping | Audited versioned link | Supplier-link lifecycle verification |
-| Planner plans/tasks | Create, membership-protected reads | Complete update/archive/restore, durable atomic audit/replay |
+| Planner plans/tasks | Full plan/task fields and retained create/update/archive/restore, current membership-protected active/archived reads, precise versions/context, atomic recurrence/audit/native history/durable replay, native primary/checklist/assignee compatibility | — |
 | Planner buckets/labels/dependencies/sprints/goals | Read context | Schema discovery, guided create/update/archive/restore |
 | Business documents | Knowledge references only | Scoped metadata/content, quotation/invoice generation/send, attachments, labels |
 | Permissions | Read-only configuration; service/action scopes; real user and target-Core rights; explicit separately consented Warehouse/Rental/Procurement financial reads including query inference and all procurement audit aliases | Documents, remaining Rental/Warehouse/Planner financial writer verification, and remaining named workflow scopes |
@@ -650,3 +650,13 @@ lock and commit actual audit/history with their linked effects. All-writer
 retention guards and dedicated read discovery expose retained archives safely.
 See [contract](RENTAL_ASSIGNMENT_LIFECYCLE.md). Personnel and other remaining rows
 stay open; parent issues are not closed by this release.
+
+
+## Planner plans/tasks — Planner2.6.26 / MCP1.5.69
+
+Adds15 tools,492 total(126/183/183), Planner005 / umbrella055.
+Complete lifecycle with actual active membership and no admin bypass; current
+rights before receipt replay, immutable history and all-writer version/archive
+guards. Native checklist/assignee mutation is atomic; recurrence completion
+creates exactly one previewed next task. Other child CRUD and legacy-writer
+verification remain open. See [contract](PLANNER_PLAN_TASK_LIFECYCLE.md).

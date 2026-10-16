@@ -205,7 +205,7 @@ var queryEntities = map[string]queryEntitySpec{
 	},
 	"planner.plans": {
 		Service: "plannercore", SourceEntity: "plan",
-		BaseSQL:       `SELECT p.id AS plan_id,p.name,p.description,p.is_favorite,p.is_template,p.created_by,p.created_at,p.updated_at,p.archived_at FROM planner_plans p WHERE EXISTS (SELECT 1 FROM planner_members access_member WHERE access_member.plan_id=p.id AND access_member.user_id=current_setting('cores.user_id', true))`,
+		BaseSQL:       `SELECT p.id AS plan_id,p.name,p.description,p.is_favorite,p.is_template,p.created_by,p.created_at,p.updated_at,p.archived_at FROM planner_plans p WHERE EXISTS (SELECT 1 FROM planner_members access_member JOIN users access_user ON access_user.userid::text=access_member.user_id AND access_user.is_active WHERE access_member.plan_id=p.id AND access_member.user_id=current_setting('cores.user_id', true))`,
 		Fields:        map[string]queryFieldKind{"plan_id": queryString, "name": queryString, "description": queryString, "is_favorite": queryBoolean, "is_template": queryBoolean, "created_by": queryString, "created_at": queryTime, "updated_at": queryTime, "archived_at": queryTime},
 		DefaultFields: []string{"plan_id", "name", "description", "is_favorite", "is_template", "created_by", "created_at", "updated_at", "archived_at"}, SearchFields: []string{"name", "description", "created_by"},
 	},
@@ -214,10 +214,10 @@ var queryEntities = map[string]queryEntitySpec{
 		BaseSQL: `SELECT t.id AS task_id,t.title,t.plan_id,p.name AS plan,t.bucket_id,b.name AS bucket,t.priority,t.progress,t.start_date,t.due_date,t.completed_at,
                    t.checklist_completed_count,t.checklist_total_count,t.recurrence,COALESCE(string_agg(DISTINCT a.user_id,', '),'') AS assignees,
                    COALESCE(string_agg(DISTINCT l.name,', '),'') AS labels,t.created_at,t.updated_at
-              FROM planner_tasks t JOIN planner_plans p ON p.id=t.plan_id LEFT JOIN planner_buckets b ON b.id=t.bucket_id
-              LEFT JOIN planner_task_assignees a ON a.task_id=t.id LEFT JOIN planner_task_labels tl ON tl.task_id=t.id LEFT JOIN planner_labels l ON l.id=tl.label_id
-             WHERE EXISTS (SELECT 1 FROM planner_members access_member WHERE access_member.plan_id=p.id AND access_member.user_id=current_setting('cores.user_id', true))
-             GROUP BY t.id,p.name,b.name`,
+              FROM planner_tasks t JOIN planner_plans p ON p.id=t.plan_id LEFT JOIN planner_buckets b ON b.id=t.bucket_id AND b.plan_id=t.plan_id
+              LEFT JOIN planner_task_assignees a ON a.task_id=t.id LEFT JOIN planner_task_labels tl ON tl.task_id=t.id LEFT JOIN planner_labels l ON l.id=tl.label_id AND l.plan_id=t.plan_id
+             WHERE EXISTS (SELECT 1 FROM planner_members access_member JOIN users access_user ON access_user.userid::text=access_member.user_id AND access_user.is_active WHERE access_member.plan_id=p.id AND access_member.user_id=current_setting('cores.user_id', true))
+             AND p.archived_at IS NULL AND COALESCE(to_jsonb(t)->>'archived_at','')='' GROUP BY t.id,p.name,b.name`,
 		Fields:        map[string]queryFieldKind{"task_id": queryString, "title": queryString, "plan_id": queryString, "plan": queryString, "bucket_id": queryString, "bucket": queryString, "priority": queryString, "progress": queryNumber, "start_date": queryTime, "due_date": queryTime, "completed_at": queryTime, "checklist_completed_count": queryInteger, "checklist_total_count": queryInteger, "recurrence": queryString, "assignees": queryString, "labels": queryString, "created_at": queryTime, "updated_at": queryTime},
 		DefaultFields: []string{"task_id", "title", "plan_id", "plan", "bucket", "priority", "progress", "start_date", "due_date", "completed_at", "assignees", "labels", "updated_at"}, SearchFields: []string{"title", "plan", "bucket", "priority", "recurrence", "assignees", "labels"},
 	},

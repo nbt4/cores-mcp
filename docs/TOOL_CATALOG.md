@@ -22,7 +22,7 @@ Entity-Schema: `cores.entities.schema` mit `entity=rental.external_equipment`.
 Rental-Admin und Create-Scope plus separat Finanzscope sind erforderlich;
 exakter Vorschaukontext, gebundene Bestätigung und Idempotenz sichern den
 atomaren Datensatz/Audit/Beleg. Exakte Name/Lieferant-Duplikate werden gesperrt.
-Gesamtkatalog: 477 Tools (123 lesend / 177 vorbereitend / 177 ausführend).
+Gesamtkatalog: 492 Tools (126 lesend / 183 vorbereitend / 183 ausführend).
 
 
 ## Mietprodukte am Job zuweisen
@@ -1645,3 +1645,17 @@ Werkzeuge: `rental.employees.search`, `rental.skills.search`,
 `rental.staffing.get/search/audit_history` und
 `rental.staffing.prepare_create/create/prepare_update/update/prepare_archive/archive/prepare_restore/restore`.
 [Schema, Bestätigung, Rechte und Kalendergrenzen](RENTAL_STAFFING_MCP.md).
+
+
+## Planner-Lebenszyklus · PlannerCore 2.6.26 / MCP 1.5.69
+
+Pläne und Aufgaben lassen sich vollständig anlegen, gezielt ändern, mit ihren
+Verknüpfungen archivieren und wiederherstellen. Aktuelle Planmitgliedschaft,
+exakte Versionen, endgültiger Entwurf und gebundene Bestätigung schützen den
+atomaren Audit-/Historien-/Replay-Pfad. Wiederkehrende Aufgaben erzeugen beim
+Abschließen genau eine Folgeaufgabe innerhalb derselben Transaktion.
+Adminrechte ersetzen keine Planmitgliedschaft; Finanzrechte sind nicht nötig.
+
+Beide Entities: `prepare_create/create/prepare_update/update/prepare_archive/archive/prepare_restore/restore`.
+Neue Reads: `planner.tasks.get`, `planner.plans.audit_history`, `planner.tasks.audit_history`.
+[Schema, Rechte, Bestätigung und Archiv-/Wiederholungsverhalten](PLANNER_PLAN_TASK_LIFECYCLE.md).
