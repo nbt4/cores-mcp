@@ -16,6 +16,7 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/modelcontextprotocol/go-sdk/auth"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
+	coresauth "github.com/nbt4/cores-mcp/internal/authn"
 	"github.com/nbt4/cores-mcp/internal/config"
 )
 
@@ -226,6 +227,25 @@ func TestPositionOAuthDiscoveryAndChallengeAcrossHTTP(t *testing.T) {
 	if err = json.Unmarshal(data, &envelope); err != nil {
 		t.Fatal(err, string(data))
 	}
+	// Discovery must request scopes the actual authorization server can grant.
+	oauth, err := coresauth.NewOAuthServer("https://cores.example", "https://dashboard.example", secret, t.TempDir()+"/clients.json", true, func(context.Context, uint) (bool, error) { return true, nil })
+	if err != nil {
+		t.Fatal(err)
+	}
+	mux := http.NewServeMux()
+	oauth.Register(mux)
+	metadata := httptest.NewRecorder()
+	mux.ServeHTTP(metadata, httptest.NewRequest("GET", "/.well-known/oauth-authorization-server", nil))
+	var published struct {
+		Scopes []string `json:"scopes_supported"`
+	}
+	if metadata.Code != 200 || json.Unmarshal(metadata.Body.Bytes(), &published) != nil {
+		t.Fatal("OAuth metadata", metadata.Code, metadata.Body.String())
+	}
+	allowed := map[string]bool{}
+	for _, scope := range published.Scopes {
+		allowed[scope] = true
+	}
 	found := 0
 	for _, tool := range envelope.Result.Tools {
 		want := positionOAuthScopes(tool.Name)
@@ -233,6 +253,11 @@ func TestPositionOAuthDiscoveryAndChallengeAcrossHTTP(t *testing.T) {
 			continue
 		}
 		found++
+		for _, scope := range want {
+			if !allowed[scope] {
+				t.Fatalf("tool %s requests unpublished OAuth scope %s", tool.Name, scope)
+			}
+		}
 		if len(tool.SecuritySchemes) != 1 || tool.SecuritySchemes[0].Type != "oauth2" || strings.Join(tool.SecuritySchemes[0].Scopes, " ") != strings.Join(want, " ") {
 			t.Fatal("incorrect tool scope policy", tool.Name, tool.SecuritySchemes)
 		}

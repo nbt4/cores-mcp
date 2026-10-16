@@ -1,6 +1,6 @@
 # Planner-Pläne und Aufgaben über MCP
 
-PlannerCore **2.6.26**, Cores MCP **1.5.69**. Issues nbt4/cores-mcp#4 und #5.
+PlannerCore **2.6.26**, Cores MCP **1.5.70**. Issues nbt4/cores-mcp#4 und #5.
 Gesamtkatalog **492 Tools: 126 lesend / 183 vorbereitend / 183 ausführend**.
 
 ## Werkzeuge und vollständige Felder
@@ -143,3 +143,15 @@ Frisches Root-Volume initialisiert Migrationen bis055; Planner005 zweimal
 anschließend erfolgreich angewandt, keine Mutationsevents/Receipts erzeugt.
 Unabhängiges Abschlussreview ohne konkrete verbleibende Release-Blocker.
 Produktive Geschäftsdatensätze werden für diese Nachweise nicht verändert.
+
+## OAuth-Nachprüfung / Korrektur1.5.70
+
+Die Live-Metadatenprüfung von1.5.69 hat fehlende registrierte Planner-Update-
+und Archive-Scopes aufgedeckt. Die Tools veröffentlichten ihre Anforderungen
+bereits korrekt; der OAuth-Server konnte diese beiden Grants jedoch noch
+nicht ausstellen.1.5.70 ergänzt ausschließlich diese Scope-Registrierung.
+Neue Regressionen prüfen den realen Authorization-Code-Flow mit expliziter
+Zustimmung/Ablehnung und alle99 Tooldeskriptoren gegen die Antwort des
+OAuth-Metadatenendpunkts. Keine automatische Erweiterung bestehender Tokens,
+keine zusätzliche fachliche Schreiboperation, Migration oder UI-Änderung.
+PlannerCore2.6.26 bleibt unverändert; nur MCP wird erneut veröffentlicht.

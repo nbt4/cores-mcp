@@ -55,7 +55,7 @@ func TestRequestedScopesDefaultToReadOnly(t *testing.T) {
 
 func TestSupportedScopesIncludeLegacyAndGranularWrites(t *testing.T) {
 	got := SupportedScopes(true)
-	for _, expected := range []string{readScope, writeScope, ServiceWriteScope("rental", "create"), ServiceWriteScope("rental", "archive"), "cores:rental:financial", "cores:procurement:financial", ServiceWriteScope("procurement", "archive"), ServiceWriteScope("warehouse", "update"), ServiceWriteScope("warehouse", "approve"), ServiceWriteScope("warehouse", "archive"), ServiceWriteScope("warehouse", "delete"), ServiceWriteScope("procurement", "update"), ServiceWriteScope("procurement", "approve"), ServiceWriteScope("procurement", "submit"), ServiceWriteScope("procurement", "send"), ServiceWriteScope("procurement", "receive")} {
+	for _, expected := range []string{readScope, writeScope, ServiceWriteScope("planner", "create"), ServiceWriteScope("planner", "update"), ServiceWriteScope("planner", "archive"), ServiceWriteScope("rental", "create"), ServiceWriteScope("rental", "archive"), "cores:rental:financial", "cores:procurement:financial", ServiceWriteScope("procurement", "archive"), ServiceWriteScope("warehouse", "update"), ServiceWriteScope("warehouse", "approve"), ServiceWriteScope("warehouse", "archive"), ServiceWriteScope("warehouse", "delete"), ServiceWriteScope("procurement", "update"), ServiceWriteScope("procurement", "approve"), ServiceWriteScope("procurement", "submit"), ServiceWriteScope("procurement", "send"), ServiceWriteScope("procurement", "receive")} {
 		if !contains(got, expected) {
 			t.Fatalf("supported scopes %v lack %q", got, expected)
 		}
@@ -76,6 +76,9 @@ func TestOAuthAuthorizationCodeFlow(t *testing.T) {
 		{"missing choice remains read-only", readScope + " " + writeScope, "", readScope, true, ""},
 		{"missing scope remains read-only", "", "read", readScope, true, ""},
 		{"explicit legacy writes", readScope + " " + writeScope, "write", readScope + " " + writeScope, true, ""},
+		{"planner update explicit consent", readScope + " cores:planner:update", "write", readScope + " cores:planner:update", true, ""},
+		{"planner archive explicit consent", readScope + " cores:planner:archive", "write", readScope + " cores:planner:archive", true, ""},
+		{"planner permission declined", readScope + " cores:planner:update cores:planner:archive", "read", readScope, true, ""},
 		{"granular writes remain granular", readScope + " cores:warehouse:update", "write", readScope + " cores:warehouse:update", true, ""},
 		{"writes disabled", readScope, "read", readScope, false, ""},
 		{"cannot enable writes on read-only server", readScope, "write", "invalid_scope", false, ""},
