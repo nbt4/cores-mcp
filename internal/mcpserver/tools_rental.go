@@ -69,7 +69,7 @@ func registerRentalTools(server *mcp.Server, db *store.Store) {
 		return `SELECT j.jobid AS job_id,j.job_code,j.description,j.startdate AS start_date,j.enddate AS end_date,
                        e.id AS employee_id,TRIM(CONCAT_WS(' ',e.first_name,e.last_name)) AS employee,je.role,
                        COALESCE(string_agg(DISTINCT sk.name,', '),'') AS skills
-                  FROM jobs j LEFT JOIN job_employees je ON je.job_id=j.jobid LEFT JOIN employees e ON e.id=je.employee_id
+                  FROM jobs j LEFT JOIN job_employees je ON je.job_id=j.jobid AND COALESCE(to_jsonb(je)->>'deleted_at','')='' LEFT JOIN employees e ON e.id=je.employee_id
                   LEFT JOIN employee_skills es ON es.employee_id=e.id LEFT JOIN skills sk ON sk.id=es.skill_id
                  WHERE j.deleted_at IS NULL AND j.startdate <= $2 AND COALESCE(j.enddate,j.startdate) >= $1
                  GROUP BY j.jobid,e.id,je.role ORDER BY j.startdate,j.jobid,employee LIMIT $3`, []any{from, to, db.Limit(input.Limit)}
@@ -128,7 +128,7 @@ func rentalJobContext(ctx context.Context, db *store.Store, input IDInput) (any,
 	}
 
 	staff, err := db.Query(ctx, `SELECT e.id,TRIM(CONCAT_WS(' ',e.first_name,e.last_name)) AS employee,je.role
-              FROM job_employees je JOIN employees e ON e.id=je.employee_id WHERE je.job_id=$1 ORDER BY employee`, jobID)
+              FROM job_employees je JOIN employees e ON e.id=je.employee_id WHERE je.job_id=$1 AND COALESCE(to_jsonb(je)->>'deleted_at','')='' ORDER BY employee`, jobID)
 	if err != nil {
 		return nil, nil, nil, err
 	}
