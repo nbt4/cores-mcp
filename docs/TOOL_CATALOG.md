@@ -1010,7 +1010,10 @@ Die 67 Abfragetools sind read-only und idempotent. Bei `MCP_ENABLE_WRITES=true` 
 
 Der MCP-Endpunkt verlangt immer `cores:read`. Für ein Vorbereitung- oder
 Ausführungstool ist zusätzlich entweder der kompatible Sammel-Scope
-`cores:write` oder der passende granulare Scope erforderlich:
+`cores:write` oder der passende granulare Scope erforderlich.
+Planner-Lebenszyklus und Rental-Personalzuordnung verlangen jedoch den
+ausdrücklich erteilten jeweiligen Aktionsscope; dort ersetzt `cores:write`
+diese Zustimmung nicht. Die Deskriptoren nennen die benötigten Rechte:
 
 | Scope | Freigegebene Operationen |
 |---|---|
@@ -1021,6 +1024,8 @@ Ausführungstool ist zusätzlich entweder der kompatible Sammel-Scope
 | `cores:warehouse:delete` | Ungenutzte Warehouse-Kategorien aller drei Ebenen dauerhaft entfernen; Adminrechte und zusätzliche datensatzgebundene Bestätigung erforderlich |
 | `cores:warehouse:archive` | Produkte, Geräte, Produktpakete und Lagerplätze nach Abhängigkeitsprüfung archivieren oder wiederherstellen |
 | `cores:planner:create` | Pläne und Tasks anlegen |
+| `cores:planner:update` | Pläne und Tasks mit vollständigem Diff ändern |
+| `cores:planner:archive` | Pläne und Tasks mit erhaltenen Verknüpfungen archivieren oder wiederherstellen |
 | `cores:procurement:create` | Produkte, Angebote, Lieferanten, Kategorien und Bestellungen anlegen |
 | `cores:procurement:update` | Produkte, Angebote, Lieferanten, Kategorien, Bedarfs- und Bestellentwürfe ändern sowie Produkte verknüpfen |
 | `cores:procurement:approve` | Eingereichte Bedarfe im Vier-Augen-Prinzip entscheiden und Bestellstatus mit erhöhter Bestätigung ändern |
@@ -1659,3 +1664,15 @@ Adminrechte ersetzen keine Planmitgliedschaft; Finanzrechte sind nicht nötig.
 Beide Entities: `prepare_create/create/prepare_update/update/prepare_archive/archive/prepare_restore/restore`.
 Neue Reads: `planner.tasks.get`, `planner.plans.audit_history`, `planner.tasks.audit_history`.
 [Schema, Rechte, Bestätigung und Archiv-/Wiederholungsverhalten](PLANNER_PLAN_TASK_LIFECYCLE.md).
+
+
+## Planner-OAuth-Nachfreigabe · MCP 1.5.70
+
+Der OAuth-Server veröffentlicht jetzt auch `cores:planner:update` und
+`cores:planner:archive`, damit Clients die neuen Planner-Aktionen ausdrücklich
+freigeben können. Bestehende Grants werden nicht erweitert; fachliche
+Mitgliedschafts-, Versions- und Bestätigungsprüfungen bleiben erforderlich.
+Ein Regressionstest gleicht alle99 OAuth-Tooldeskriptoren mit den tatsächlich
+veröffentlichten OAuth-Metadaten ab. Katalog unverändert:492 Werkzeuge.
+
+[Details](PLANNER_PLAN_TASK_LIFECYCLE.md).
