@@ -22,7 +22,7 @@ Entity-Schema: `cores.entities.schema` mit `entity=rental.external_equipment`.
 Rental-Admin und Create-Scope plus separat Finanzscope sind erforderlich;
 exakter Vorschaukontext, gebundene Bestätigung und Idempotenz sichern den
 atomaren Datensatz/Audit/Beleg. Exakte Name/Lieferant-Duplikate werden gesperrt.
-Gesamtkatalog: 464 Tools (118 lesend / 173 vorbereitend / 173 ausführend).
+Gesamtkatalog: 477 Tools (123 lesend / 177 vorbereitend / 177 ausführend).
 
 
 ## Mietprodukte am Job zuweisen
@@ -1629,3 +1629,19 @@ werden. Archivierte Zuweisungen sind gezielt auffindbar und ihre Kosten bleiben
 bei späteren Jobänderungen erhalten. Neue Scopes: keine; die Aktionen verlangen
 bestehende Update-/Archive- und separate Finanzrechte mit aktuellen Adminrechten.
 [Vertrag und Rollout](RENTAL_ASSIGNMENT_LIFECYCLE.md).
+
+
+## Personalzuordnung · RentalCore 5.3.129 / MCP 1.5.68
+
+Mitarbeiter lassen sich einem Job zuweisen, ihre Rolle ändern und Zuordnungen
+mit erhaltener Historie archivieren oder wiederherstellen. Der Entwurf zeigt
+Terminkonflikte; Überschneidungen müssen ausdrücklich bestätigt werden.
+Aktuelle Admin-/Aktionsrechte, exakte Versionen und gebundene Bestätigung
+schützen den atomaren Audit-/Historien-/Replay-Pfad. Finanzrechte sind dafür
+nicht erforderlich. Mitarbeitersuche gibt nur Identität, Aktivstatus und
+Qualifikationen aus. Die vorhandene Kalenderanbindung läuft nach dem Commit.
+
+Werkzeuge: `rental.employees.search`, `rental.skills.search`,
+`rental.staffing.get/search/audit_history` und
+`rental.staffing.prepare_create/create/prepare_update/update/prepare_archive/archive/prepare_restore/restore`.
+[Schema, Bestätigung, Rechte und Kalendergrenzen](RENTAL_STAFFING_MCP.md).
