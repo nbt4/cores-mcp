@@ -22,7 +22,7 @@ Entity-Schema: `cores.entities.schema` mit `entity=rental.external_equipment`.
 Rental-Admin und Create-Scope plus separat Finanzscope sind erforderlich;
 exakter Vorschaukontext, gebundene Bestätigung und Idempotenz sichern den
 atomaren Datensatz/Audit/Beleg. Exakte Name/Lieferant-Duplikate werden gesperrt.
-Gesamtkatalog: 455 Tools (115 lesend / 170 vorbereitend / 170 ausführend).
+Gesamtkatalog: 464 Tools (118 lesend / 173 vorbereitend / 173 ausführend).
 
 
 ## Mietprodukte am Job zuweisen
@@ -1619,3 +1619,13 @@ historische Jobpreise, Lieferantenkosten und Zusatzfelder bleiben erhalten.
 Native Warehouse-Löschung archiviert mit Audit und denselben Datenbankschutzregeln.
 [Vertrag und Rollout](EXTERNAL_EQUIPMENT_LIFECYCLE.md).
 Jobzuweisungs-Lebenszyklus und weitere Teilbereiche aus #4/#5 bleiben offen.
+
+## Fremdmiet-Zuweisungen · RentalCore 5.3.128 / MCP 1.5.67
+
+Geführte Teiländerung, Archivierung und Wiederherstellung verwalten Position,
+Lieferantenkosten und Jobumsatz gemeinsam mit Audit, Historie und dauerhaftem
+Replay. Gespeicherte Stückpreise bleiben erhalten, bis sie ausdrücklich geändert
+werden. Archivierte Zuweisungen sind gezielt auffindbar und ihre Kosten bleiben
+bei späteren Jobänderungen erhalten. Neue Scopes: keine; die Aktionen verlangen
+bestehende Update-/Archive- und separate Finanzrechte mit aktuellen Adminrechten.
+[Vertrag und Rollout](RENTAL_ASSIGNMENT_LIFECYCLE.md).

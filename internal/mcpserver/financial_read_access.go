@@ -21,6 +21,8 @@ func hasFinancialScope(ctx context.Context, scope string) bool {
 }
 
 var financialOnlyReadTools = map[string]string{
+	"rental.job_external_equipment.get":          rentalFinancialScope,
+	"rental.job_external_equipment.search":       rentalFinancialScope,
 	"rental.revenue.summary":                     rentalFinancialScope,
 	"rental.jobs.get":                            rentalFinancialScope,
 	"rental.job_positions.get":                   rentalFinancialScope,
