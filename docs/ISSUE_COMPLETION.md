@@ -19,7 +19,7 @@ and production verification. Optional event streams are separate follow-up work.
 | Rental customers/venues | Full business fields, fuzzy resolve/minimal reads, partial create/update/archive/restore, signed owner action rights, active job guards, redacted audit and atomic durable replay | — |
 | Rental jobs | Complete fields, shared position-based totals, live editor/device/reference/context locks, archive/restore, redacted audit, atomic native history/audit/durable replay, device assignment | — |
 | Rental requirements | Full total/manual/source quantities, exact line/job/context versions, archive/restore, redacted audit, atomic native history/replay and retained native selections; archived demand excluded | — |
-| Rental staffing/external equipment | Standalone catalog create/update/archive/restore, minimal active/inactive get/search, redacted audit and canonical job assignment with linked supplier costs/customer revenue; catalog actions retain job snapshots and custom fields | Assignment update/archive/restore; personnel assignment |
+| Rental staffing/external equipment | Standalone catalog and canonical assignment create/update/archive/restore, active/archived get/search, redacted per-entity audits and atomic linked supplier-cost/customer-revenue effects; exact captured prices, native writer guards and durable owner replay | Personnel assignment |
 | Procurement suppliers/products/offers | Create/update, retained named archive/restore, exact record/dependency context, current owner rights, atomic audit/activity/durable replay, per-entity redacted versioned history | — |
 | Procurement categories | Full parameter schema create/update, retained named archive/restore, active product/parent guards, redacted audit and atomic owner activity/replay | — |
 | Procurement requisitions | Complete owner context-bound draft create/update/submit with retained line IDs, distinct-administrator decisions, retained archive/restore, verified return → revise → resubmit, exact atomic supplier order conversion, redacted versioned history and requester/current-admin read restrictions before search/counts/pagination/joins | — |
@@ -637,3 +637,16 @@ protect all writers. Historical job sales/cost snapshots and custom fields stay
 unchanged. New reads use current database admin checks and redacted finance
 projections. See [contract](EXTERNAL_EQUIPMENT_LIFECYCLE.md).
 Assignment lifecycle, personnel and every other remaining row stay open.
+
+## Rental assignment lifecycle — Rental 5.3.128 / MCP 1.5.67
+
+Adds nine tools: 464 total (118 reads / 173 preparations / 173 executions).
+Exact job/equipment/position identity, all three record versions, final context,
+current owner admin/action/financial rights and bound confirmation protect each
+partial update/archive/restore. Captured supplier NUMERIC precision is retained;
+archive freezes costs and removes active commercial effects, while restore
+explicitly previews the current job day setting. Native updates reload under
+lock and commit actual audit/history with their linked effects. All-writer
+retention guards and dedicated read discovery expose retained archives safely.
+See [contract](RENTAL_ASSIGNMENT_LIFECYCLE.md). Personnel and other remaining rows
+stay open; parent issues are not closed by this release.
