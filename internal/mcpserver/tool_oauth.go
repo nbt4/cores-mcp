@@ -16,7 +16,7 @@ import (
 // Position tools need a scope-specific linking signal: discovery alone does not
 // tell a client which additional grant to request for a particular invocation.
 func positionOAuthScopes(name string) []string {
-	if execution := executionToolForPreparation(name); isRentalStaffingMutation(execution) {
+	if execution := executionToolForPreparation(name); isRentalStaffingMutation(execution) || isPlannerMutation(execution) {
 		return []string{coresauth.ReadScope(), requiredMutationScope(execution)}
 	}
 	if execution := executionToolForPreparation(name); isRentalExternalCatalogMutation(execution) || isRentalAssignmentMutation(execution) {

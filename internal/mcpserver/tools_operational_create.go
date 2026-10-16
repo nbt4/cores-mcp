@@ -2,13 +2,9 @@ package mcpserver
 
 import (
 	"context"
-	"fmt"
-	"net/http"
 	"strings"
 	"time"
 
-	"github.com/modelcontextprotocol/go-sdk/mcp"
-	"github.com/nbt4/cores-mcp/internal/config"
 	"github.com/nbt4/cores-mcp/internal/store"
 )
 
@@ -69,56 +65,6 @@ func (p preparedOperationalCreate) response(status string) map[string]any {
 		result["related_records"] = p.RelatedRecords
 	}
 	return result
-}
-
-func registerOperationalCreateTools(server *mcp.Server, cfg config.Config, db *store.Store) {
-	api := newCoreAPIClient(cfg)
-
-	addWritePreparationTool(server, "planner.plans.prepare_create", "Prepare planner plan creation", "Validate a new PlannerCore plan, detect same-named accessible plans, and return the exact questions still requiring a user decision.", func(ctx context.Context, input PlannerPlanCreateInput) (any, []Source, []string, error) {
-		prepared, err := preparePlannerPlanCreate(ctx, db, input)
-		return prepared.response("draft"), []Source{{Service: "plannercore", Entity: "plan_draft"}}, untrustedTextWarning(), err
-	})
-	addCreateTool(server, "planner.plans.create", "Create planner plan", "Create one PlannerCore plan. First call planner.plans.prepare_create, resolve every question, show the final draft, and obtain explicit confirmation.", func(ctx context.Context, input PlannerPlanCreateInput) (any, []Source, []string, error) {
-		prepared, err := preparePlannerPlanCreate(ctx, db, input)
-		if err != nil {
-			return nil, nil, nil, err
-		}
-		if !prepared.Ready {
-			return prepared.response("needs_input"), []Source{{Service: "plannercore", Entity: "plan_draft"}}, []string{"No data was changed. Ask the listed questions before retrying."}, nil
-		}
-		if !input.ConfirmCreation {
-			return prepared.response("confirmation_required"), []Source{{Service: "plannercore", Entity: "plan_draft"}}, []string{"No data was changed. Show this final draft and ask the user for explicit confirmation."}, nil
-		}
-		var created map[string]any
-		if err := api.doJSON(ctx, cfg.PlannerURL, "/api/v1/plans", http.MethodPost, prepared.Draft, &created); err != nil {
-			return nil, nil, nil, err
-		}
-		return map[string]any{"creation_status": "created", "plan": created}, []Source{{Service: "plannercore", Entity: "plan", ID: fmt.Sprint(created["id"])}}, nil, nil
-	})
-
-	addWritePreparationTool(server, "planner.tasks.prepare_create", "Prepare planner task creation", "Validate plan membership, bucket ownership and duplicates before creating a PlannerCore task.", func(ctx context.Context, input PlannerTaskCreateInput) (any, []Source, []string, error) {
-		prepared, err := preparePlannerTaskCreate(ctx, db, input)
-		return prepared.response("draft"), []Source{{Service: "plannercore", Entity: "task_draft"}}, untrustedTextWarning(), err
-	})
-	addCreateTool(server, "planner.tasks.create", "Create planner task", "Create one task in an accessible PlannerCore plan. First call planner.tasks.prepare_create, resolve every question, show the final draft, and obtain explicit confirmation.", func(ctx context.Context, input PlannerTaskCreateInput) (any, []Source, []string, error) {
-		prepared, err := preparePlannerTaskCreate(ctx, db, input)
-		if err != nil {
-			return nil, nil, nil, err
-		}
-		if !prepared.Ready {
-			return prepared.response("needs_input"), []Source{{Service: "plannercore", Entity: "task_draft"}}, []string{"No data was changed. Ask the listed questions before retrying."}, nil
-		}
-		if !input.ConfirmCreation {
-			return prepared.response("confirmation_required"), []Source{{Service: "plannercore", Entity: "task_draft"}}, []string{"No data was changed. Show this final draft and ask the user for explicit confirmation."}, nil
-		}
-		path := "/api/v1/plans/" + strings.TrimSpace(input.PlanID) + "/tasks"
-		var created map[string]any
-		if err := api.doJSON(ctx, cfg.PlannerURL, path, http.MethodPost, prepared.Draft, &created); err != nil {
-			return nil, nil, nil, err
-		}
-		return map[string]any{"creation_status": "created", "task": created}, []Source{{Service: "plannercore", Entity: "task", ID: fmt.Sprint(created["id"])}}, nil, nil
-	})
-
 }
 
 func preparePlannerPlanCreate(ctx context.Context, db *store.Store, input PlannerPlanCreateInput) (preparedOperationalCreate, error) {

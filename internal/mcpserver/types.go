@@ -195,7 +195,7 @@ func executeMutationTool[In any](ctx context.Context, name, permissionLabel stri
 		if !owner {
 			// Rental jobs/requirements authorize replay against current owner-side rights.
 			// The durable receipt supplies the result without repeating the write.
-			if isRentalStaffingMutation(name) || isRentalExternalCatalogMutation(name) || isRentalAssignmentMutation(name) || strings.HasPrefix(name, "warehouse.case_workflows.") || strings.HasPrefix(name, "warehouse.cases.") || strings.HasPrefix(name, "warehouse.case_contents.") || strings.HasPrefix(name, "warehouse.case_templates.") || name == "warehouse.products.bulk_create" || isProcurementMasterLifecycleTool(name) || isProcurementWorkflowLifecycleTool(name) || name == "procurement.orders.receive" || isProcurementApprovalTool(name) || isProcurementRequisitionDraftTool(name) || isProcurementOrderDraftTool(name) || isProcurementRequisitionOrderTool(name) || isProcurementSupplierSendTool(name) || strings.HasPrefix(name, "rental.jobs.") || strings.HasPrefix(name, "rental.job_positions.") || strings.HasPrefix(name, "rental.requirements.") {
+			if isPlannerMutation(name) || isRentalStaffingMutation(name) || isRentalExternalCatalogMutation(name) || isRentalAssignmentMutation(name) || strings.HasPrefix(name, "warehouse.case_workflows.") || strings.HasPrefix(name, "warehouse.cases.") || strings.HasPrefix(name, "warehouse.case_contents.") || strings.HasPrefix(name, "warehouse.case_templates.") || name == "warehouse.products.bulk_create" || isProcurementMasterLifecycleTool(name) || isProcurementWorkflowLifecycleTool(name) || name == "procurement.orders.receive" || isProcurementApprovalTool(name) || isProcurementRequisitionDraftTool(name) || isProcurementOrderDraftTool(name) || isProcurementRequisitionOrderTool(name) || isProcurementSupplierSendTool(name) || strings.HasPrefix(name, "rental.jobs.") || strings.HasPrefix(name, "rental.job_positions.") || strings.HasPrefix(name, "rental.requirements.") {
 				data, sources, warnings, err := fn(withMutationIdempotency(ctx, mutationControlsKey(input)), invocation.Input)
 				if err != nil {
 					message := fmt.Sprintf("%s failed: %v", name, err)
@@ -244,6 +244,9 @@ func mutationControlsKey(input any) string {
 }
 
 func mutationPermissionMessage(tool string) string {
+	if isPlannerMutation(tool) {
+		return tool + " requires the explicit " + requiredMutationScope(tool) + " scope, an active real user and actual current plan membership. Administrator status and legacy cores:write do not grant access to this workflow; reconnect and explicitly consent to the selected action."
+	}
 	if requiresExplicitMutationScope(tool) {
 		return tool + " requires the explicit " + requiredMutationScope(tool) + " scope and current administrator rights. Legacy cores:write, create and update access do not grant this workflow. Reconnect and explicitly grant the required scope."
 	}
@@ -251,7 +254,7 @@ func mutationPermissionMessage(tool string) string {
 }
 
 func requiresExplicitMutationScope(tool string) bool {
-	return isRentalStaffingMutation(tool) || isProcurementSupplierSendTool(tool) || tool == "warehouse.inventory_counts.approve" || tool == "procurement.orders.receive" || tool == "procurement.orders.transition" || tool == "procurement.requisitions.decide"
+	return isPlannerMutation(tool) || isRentalStaffingMutation(tool) || isProcurementSupplierSendTool(tool) || tool == "warehouse.inventory_counts.approve" || tool == "procurement.orders.receive" || tool == "procurement.orders.transition" || tool == "procurement.requisitions.decide"
 }
 
 func authorizeMutation(ctx context.Context, tool string) (context.Context, error) {
@@ -264,6 +267,16 @@ func authorizeMutation(ctx context.Context, tool string) (context.Context, error
 }
 
 func requiredMutationScope(tool string) string {
+	if isPlannerMutation(tool) {
+		action := "update"
+		if strings.HasSuffix(tool, ".create") {
+			action = "create"
+		}
+		if strings.HasSuffix(tool, ".archive") || strings.HasSuffix(tool, ".restore") {
+			action = "archive"
+		}
+		return coresauth.ServiceWriteScope("planner", action)
+	}
 	if isRentalStaffingMutation(tool) || isRentalExternalCatalogMutation(tool) || isRentalAssignmentMutation(tool) {
 		action := "update"
 		if strings.HasSuffix(tool, ".create") {
