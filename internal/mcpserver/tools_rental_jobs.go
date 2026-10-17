@@ -7,7 +7,6 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/modelcontextprotocol/go-sdk/auth"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/nbt4/cores-mcp/internal/config"
 	"github.com/nbt4/cores-mcp/internal/store"
@@ -27,18 +26,7 @@ type RentalJobLifecycleInput struct {
 }
 
 func requireRentalJobFinancialInput(ctx context.Context, input any) error {
-	raw, _ := json.Marshal(input)
-	fields := map[string]any{}
-	_ = json.Unmarshal(raw, &fields)
-	for _, key := range []string{"revenue", "discount", "discount_type", "multiply_by_days", "prices_include_tax"} {
-		if fields[key] != nil {
-			info := auth.TokenInfoFromContext(ctx)
-			if info == nil || !containsString(info.Scopes, "cores:rental:financial") {
-				return fmt.Errorf("Commercial job fields require the explicitly selected cores:rental:financial scope")
-			}
-		}
-	}
-	return nil
+	return requireRentalFinancialWrite(ctx, "rental.jobs.update", input)
 }
 
 func invokeRentalJob(ctx context.Context, cfg config.Config, db *store.Store, op string, input any, preview bool) (any, []Source, []string, error) {
@@ -105,6 +93,9 @@ func invokeRentalJob(ctx context.Context, cfg config.Config, db *store.Store, op
 	}
 	out := map[string]any{}
 	err = newCoreAPIClient(cfg).doJSON(ctx, cfg.RentalURL, "/api/v1/mcp/jobs/"+op, http.MethodPost, body, &out)
+	// Protect previews and durable owner receipts during rolling upgrades too.
+	projected, financialWarnings := projectFinancialReadData(ctx, "rental.jobs.search", out)
+	out = projected.(map[string]any)
 	id := ""
 	for _, key := range []string{"job", "current", "draft"} {
 		if record, ok := out[key].(map[string]any); ok && record["job_id"] != nil {
@@ -112,7 +103,7 @@ func invokeRentalJob(ctx context.Context, cfg config.Config, db *store.Store, op
 			break
 		}
 	}
-	return out, []Source{{Service: "rentalcore", Entity: "job", ID: id}}, []string{"Complete privileged job preview and exact record/context versions are required. Active editors and changed dependencies stop execution. Commercial fields and recalculation require selected rental financial access. Archive retains related business history; closed issued devices follow the physical return workflow. Record, native history, audit and durable receipt commit atomically. No external messages are sent."}, err
+	return out, []Source{{Service: "rentalcore", Entity: "job", ID: id}}, append(financialWarnings, "Complete privileged job preview and exact record/context versions are required. Active editors and changed dependencies stop execution. Commercial fields and recalculation require selected rental financial access. Archive retains related business history; closed issued devices follow the physical return workflow. Record, native history, audit and durable receipt commit atomically. No external messages are sent."), err
 }
 
 func registerRentalJobLifecycle(server *mcp.Server, cfg config.Config, db *store.Store) {

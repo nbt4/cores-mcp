@@ -28,7 +28,7 @@ and production verification. Optional event streams are separate follow-up work.
 | Planner plans/tasks | Full plan/task fields and retained create/update/archive/restore, current membership-protected active/archived reads, precise versions/context, atomic recurrence/audit/native history/durable replay, native primary/checklist/assignee compatibility | — |
 | Planner buckets/labels/dependencies/sprints/goals | Read context | Schema discovery, guided create/update/archive/restore |
 | Business documents | Knowledge references only | Scoped metadata/content, quotation/invoice generation/send, attachments, labels |
-| Permissions | Read-only configuration; service/action scopes; real user and target-Core rights; explicit separately consented Warehouse/Rental/Procurement financial reads including query inference and all procurement audit aliases | Documents, remaining Rental/Warehouse/Planner financial writer verification, and remaining named workflow scopes |
+| Permissions | Read-only configuration; service/action scopes; real user and target-Core rights; explicit separately consented Warehouse/Rental/Procurement financial reads including query inference and all procurement audit aliases | Documents, remaining Warehouse/Planner financial writer verification, and remaining named workflow scopes |
 | Write protection | Confirmation, dry-run, bounded requests, rate limits | Verify every legacy writer has target atomic audit/replay and precise versions |
 | Undo | Device, Rental customer/venue own last-field-update revert, redacted history and existing restores | Defined remaining field revert paths and per-entity history |
 
@@ -660,3 +660,22 @@ rights before receipt replay, immutable history and all-writer version/archive
 guards. Native checklist/assignee mutation is atomic; recurrence completion
 creates exactly one previewed next task. Other child CRUD and legacy-writer
 verification remain open. See [contract](PLANNER_PLAN_TASK_LIFECYCLE.md).
+
+## Rental financial writer verification — 1.5.71 / 5.3.130
+
+All twelve price-bearing position, external catalog/assignment and legacy device
+assignment actions require separately consented Rental financial access before
+preparation, dry-run, execution and replay. Commercial job inputs, including
+explicit zero/false values, publish conditional OAuth challenges. Operational
+job creation/update/archive/restore retain their original action scopes; owner
+HTTP responses and MCP rolling-upgrade protection omit commercial fields from
+current/draft/diff/results when financial access is absent. Original durable
+receipts, audit snapshots, exact context/versions and confirmation phrases stay
+unchanged. The owner still blocks recalculations without financial access.
+Material and staffing contexts and redacted audits were verified operational.
+Delegations cannot use native browser reads/writes, including raw job history;
+the existing native assignment route additionally binds current active admin,
+user, update action and financial access. Normal UI sessions remain available.
+Other acceptance rows, including legacy assignment atomic audit/replay/context,
+Warehouse/Planner financial verification, documents and additional Undo remain
+open. No migration or additional tool.

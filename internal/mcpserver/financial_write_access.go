@@ -39,3 +39,33 @@ func requireProcurementFinancialWrite(ctx context.Context, name string, input an
 	}
 	return nil
 }
+
+func rentalFinancialWriteTool(name string) bool {
+	name = executionToolForPreparation(name)
+	return isMutationTool(name) && (name == "rental.jobs.assign_device" || strings.HasPrefix(name, "rental.job_positions.") || isRentalExternalCatalogMutation(name) || isRentalAssignmentMutation(name))
+}
+
+func rentalJobFinancialInput(input any) bool {
+	raw, err := json.Marshal(input)
+	if err != nil {
+		return true
+	}
+	fields := map[string]any{}
+	if err := json.Unmarshal(raw, &fields); err != nil {
+		return true
+	}
+	for _, key := range []string{"revenue", "discount", "discount_type", "multiply_by_days", "prices_include_tax"} {
+		if fields[key] != nil {
+			return true
+		}
+	}
+	return false
+}
+
+func requireRentalFinancialWrite(ctx context.Context, name string, input any) error {
+	name = executionToolForPreparation(name)
+	if (rentalFinancialWriteTool(name) || strings.HasPrefix(name, "rental.jobs.") && rentalJobFinancialInput(input)) && !hasFinancialScope(ctx, rentalFinancialScope) {
+		return fmt.Errorf("explicit %s scope required for financial preparation, execution and replay; reconnect and separately grant Rental financial access", rentalFinancialScope)
+	}
+	return nil
+}

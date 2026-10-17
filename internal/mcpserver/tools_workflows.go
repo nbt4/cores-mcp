@@ -231,6 +231,9 @@ func registerWorkflowTools(server *mcp.Server, cfg config.Config, db *store.Stor
 
 func prepareJobDeviceAssign(ctx context.Context, db *store.Store, input JobDeviceAssignInput) (preparedMutation, error) {
 	p := preparedMutation{Draft: map[string]any{"price": input.Price}}
+	if err := requireRentalFinancialWrite(ctx, "rental.jobs.assign_device", input); err != nil {
+		return preparedMutation{}, err
+	}
 	if input.Price < 0 {
 		p.require("price", "Welcher nicht-negative Mietpreis soll für die Gerätezuweisung gelten?", nil)
 	}
