@@ -19,8 +19,11 @@ func positionOAuthScopes(name string) []string {
 	if execution := executionToolForPreparation(name); isRentalStaffingMutation(execution) || isPlannerMutation(execution) {
 		return []string{coresauth.ReadScope(), requiredMutationScope(execution)}
 	}
-	if execution := executionToolForPreparation(name); isRentalExternalCatalogMutation(execution) || isRentalAssignmentMutation(execution) {
-		return []string{coresauth.ReadScope(), rentalFinancialScope, requiredMutationScope(execution)}
+	if rentalFinancialWriteTool(name) {
+		return []string{coresauth.ReadScope(), rentalFinancialScope, requiredMutationScope(executionToolForPreparation(name))}
+	}
+	if execution := executionToolForPreparation(name); strings.HasPrefix(execution, "rental.jobs.") && isMutationTool(execution) {
+		return []string{coresauth.ReadScope(), requiredMutationScope(execution)}
 	}
 	if procurementFinancialWriteTool(name) {
 		return []string{coresauth.ReadScope(), procurementFinancialScope, requiredMutationScope(executionToolForPreparation(name))}
@@ -96,6 +99,9 @@ func toolOAuthMiddleware(cfg config.Config) mcp.Middleware {
 					scopes := positionOAuthScopes(params.Name)
 					if executionToolForPreparation(params.Name) == "procurement.products.create" && procurementProductFinancialInput(json.RawMessage(params.Arguments)) {
 						scopes = []string{coresauth.ReadScope(), procurementFinancialScope, requiredMutationScope("procurement.products.create")}
+					}
+					if execution := executionToolForPreparation(params.Name); strings.HasPrefix(execution, "rental.jobs.") && isMutationTool(execution) && rentalJobFinancialInput(json.RawMessage(params.Arguments)) {
+						scopes = []string{coresauth.ReadScope(), rentalFinancialScope, requiredMutationScope(execution)}
 					}
 					execution := executionToolForPreparation(params.Name)
 					// Unregistered writes on a read-only server remain unknown tools, rather

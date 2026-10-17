@@ -130,6 +130,9 @@ func executeMutationTool[In any](ctx context.Context, name, permissionLabel stri
 	if err := requireProcurementFinancialWrite(ctx, name, input); err != nil {
 		return &mcp.CallToolResult{IsError: true, Content: []mcp.Content{&mcp.TextContent{Text: err.Error()}}}, Output{AsOf: now(), Summary: err.Error(), Warnings: []string{"No business data was returned or changed."}}, nil
 	}
+	if err := requireRentalFinancialWrite(ctx, name, input); err != nil {
+		return &mcp.CallToolResult{IsError: true, Content: []mcp.Content{&mcp.TextContent{Text: err.Error()}}}, Output{AsOf: now(), Summary: err.Error(), Warnings: []string{"No business data was returned or changed."}}, nil
+	}
 
 	if isRentalExternalCatalogMutation(name) || isRentalAssignmentMutation(name) {
 		if err := requireRentalPositionFinancial(ctx); err != nil {
@@ -396,6 +399,9 @@ func addWritePreparationTool[In any](server *mcp.Server, name, title, descriptio
 			return &mcp.CallToolResult{IsError: true, Content: []mcp.Content{&mcp.TextContent{Text: message}}}, Output{AsOf: time.Now().UTC().Format(time.RFC3339), Summary: message}, nil
 		}
 		if err := requireProcurementFinancialWrite(ctx, executionTool, input); err != nil {
+			return &mcp.CallToolResult{IsError: true, Content: []mcp.Content{&mcp.TextContent{Text: err.Error()}}}, Output{AsOf: time.Now().UTC().Format(time.RFC3339), Summary: err.Error()}, nil
+		}
+		if err := requireRentalFinancialWrite(ctx, executionTool, input); err != nil {
 			return &mcp.CallToolResult{IsError: true, Content: []mcp.Content{&mcp.TextContent{Text: err.Error()}}}, Output{AsOf: time.Now().UTC().Format(time.RFC3339), Summary: err.Error()}, nil
 		}
 		data, sources, warnings, err := fn(ctx, input)
